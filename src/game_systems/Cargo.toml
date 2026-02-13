@@ -1,0 +1,18 @@
+[package]
+name = "ionic-game-systems"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+background = { path = "./src/background" }
+mobs = { path = "./src/mobs" }
+packets = { path = "./src/packets" }
+physics = { path = "./src/physics" }
+player = { path = "./src/player" }
+world = { path = "./src/world" }
+shutdown = { path = "./src/shutdown" }
+
+bevy_ecs = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,13 @@
+[package]
+name = "shutdown"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy_ecs = { workspace = true }
+ionic-components = { workspace = true }
+ionic-net-runtime = { workspace = true }
+ionic-protocol = { workspace = true }
+ionic-state = { workspace = true }
+ionic-text = { workspace = true }
+tracing = { workspace = true }

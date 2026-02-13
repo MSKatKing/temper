@@ -1,0 +1,19 @@
+[package]
+name = "ionic-components"
+version = "0.1.0"
+edition = "2021"
+description = "FerrumC components"
+
+[dependencies]
+bevy_ecs = { workspace = true }
+tokio = { workspace = true }
+
+ionic-inventories = { workspace = true }
+ionic-core = { workspace = true }
+ionic-codec = { workspace = true }
+ionic-config = { workspace = true }
+bitcode = { workspace = true }
+bitcode_derive = { workspace = true }
+ionic-data = { workspace = true }
+bevy_math = { workspace = true }
+uuid = { workspace = true }

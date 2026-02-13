@@ -1,0 +1,24 @@
+[package]
+name = "world-db"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ionic-config = { workspace = true }
+ionic-storage = { workspace = true }
+ionic-codec = { workspace = true }
+ionic-core = { workspace = true }
+dashmap = { workspace = true }
+tracing = { workspace = true }
+wyhash = { workspace = true }
+ionic-world-format = { workspace = true }
+ionic-general-purpose = { workspace = true }
+rand = { workspace = true }
+bitcode = { workspace = true }
+bitcode_derive = { workspace = true }
+uuid = { workspace = true }
+rayon = { workspace = true }
+ionic-threadpool = { workspace = true }
+indicatif = { workspace = true }
+ionic-anvil = { workspace = true }
+yazi = { workspace = true }

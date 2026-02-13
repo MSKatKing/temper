@@ -1,0 +1,12 @@
+[package]
+name = "bin-import"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tracing = { workspace = true }
+ionic-world = { workspace = true }
+ionic-threadpool = { workspace = true }
+ionic-config = { workspace = true }
+bin-cli = { path = "../cli" }
+ionic-general-purpose = { workspace = true }

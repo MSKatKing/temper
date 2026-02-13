@@ -1,0 +1,14 @@
+[package]
+name = "world-gen"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ionic-world-format = { workspace = true }
+noise = { workspace = true }
+ionic-core = { workspace = true }
+ionic-macros = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+rand = { workspace = true }

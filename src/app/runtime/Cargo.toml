@@ -1,0 +1,39 @@
+[package]
+name = "bin-runtime"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+ionic-core = { workspace = true }
+ionic-inventories = { workspace = true }
+ionic-net-runtime = { workspace = true }
+ionic-plugins = { workspace = true }
+ionic-storage = { workspace = true }
+ionic-utils = { workspace = true }
+ionic-world = { workspace = true }
+ionic-world-format = { workspace = true }
+ionic-config = { workspace = true }
+ionic-state = { workspace = true }
+ionic-general-purpose = { workspace = true }
+ionic-threadpool = { workspace = true }
+ionic-commands = { workspace = true }
+ionic-scheduler = { workspace = true }
+ionic-performance = { workspace = true }
+ionic-protocol = { workspace = true }
+ionic-default-commands = { workspace = true }
+ionic-resources = { workspace = true }
+ionic-logging = { workspace = true }
+ionic-messages = { workspace = true }
+ionic-game-systems = { workspace = true }
+
+ctrlc = { workspace = true }
+ratatui = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+bevy_ecs = { workspace = true }
+crossbeam-channel = { workspace = true }
+tokio = { workspace = true }
+tui-input = { workspace = true }
+crossterm = { workspace = true }
+tui-logger = { workspace = true }
