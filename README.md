@@ -4,7 +4,7 @@
     <img src="https://www.aschey.tech/tokei/github.com/temper-mc/temper?style=for-the-badge&color=red" alt="Lines of Code">
     <img src="https://img.shields.io/badge/language-Rust-orange?style=for-the-badge&color=red" alt="Language">
     <a  href="https://discord.gg/6QPZgUy4sA">
-    <img alt="Discord" src="https://img.shields.io/discord/1277314213878173726?style=for-the-badge&logo=discord&logoColor=red&color=red&link=https%3A%2F%2Fdiscord.gg%2F6QPZgUy4sA">
+    <img alt="Discord" src="https://img.shields.io/discord/1469329170055037087?style=for-the-badge&logo=discord&logoColor=red&color=red&link=https%3A%2F%2Fdiscord.gg%2F6QPZgUy4sA">
     </a>
 </div>
 
@@ -202,4 +202,4 @@ a specific point in time.
 
 ## Stats
 
-![Alt](https://repobeats.axiom.co/api/embed/9f014c2e6ded808ae2dff5de3428c65a834e4ac0.svg "Repobeats analytics image")
+![Alt](https://repobeats.axiom.co/api/embed/f28c7e31c2d3b037ca37493bea8a65cbf1021275.svg "Repobeats analytics image")
