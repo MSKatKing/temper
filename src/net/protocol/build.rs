@@ -16,7 +16,7 @@ fn main() -> std::io::Result<()> {
     let version = version.split('@').collect::<Vec<&str>>()[1];
 
     // Set env vars used for the server brand string
-    println!("cargo:rustc-env=temper_VERSION={}", version);
+    println!("cargo:rustc-env=TEMPER_VERSION={}", version);
     println!(
         "cargo:rustc-env=BUILD_TYPE={}",
         if std::env::var("PROFILE").unwrap() == "debug" {
