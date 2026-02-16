@@ -19,7 +19,6 @@ workspace = true
 criterion = { workspace = true }
 temper-macros = { workspace = true }
 fastnbt = { version = "2.6.0" }
-simdnbt = { version = "0.9.0" }
 crab_nbt = { version = "0.2.11" }
 hematite-nbt = { version = "0.5.2" }
 maplit = "1.0.2"
