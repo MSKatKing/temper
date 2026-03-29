@@ -1,0 +1,19 @@
+[package]
+name = "temper-blocks"
+edition.workspace = true
+version = "0.0.1"
+
+[dependencies]
+temper-world = { workspace = true }
+temper-block-properties = { workspace = true }
+temper-blocks-generated = { path = "crates/generated" }
+temper-core = { workspace = true }
+temper-macros = { workspace = true }
+bevy_math = { workspace = true }
+
+[build-dependencies]
+temper-blocks-build = { path = "crates/build" }
+quote = { workspace = true }
+
+[lints]
+workspace = true

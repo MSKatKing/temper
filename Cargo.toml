@@ -20,6 +20,10 @@ members = [
     "src/base/macros",
     "src/base/profiling",
     "src/base/threadpool",
+    "src/blocks",
+    "src/blocks/crates/property",
+    "src/blocks/crates/generated",
+    "src/blocks/crates/build",
     "src/bin",
     "src/commands",
     "src/components",
@@ -115,6 +119,8 @@ debug = true
 # Workspace members
 temper-app = { path = "src/app" }
 temper-anvil = { path = "src/adapters/anvil" }
+temper-blocks = { path = "src/blocks" }
+temper-block-properties = { path = "src/blocks/crates/property" }
 temper-config = { path = "src/config" }
 temper-core = { path = "src/core" }
 temper-default-commands = { path = "src/default_commands" }
