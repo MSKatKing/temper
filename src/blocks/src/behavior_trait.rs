@@ -22,11 +22,11 @@ macro_rules! block_behavior_trait {
             () => {
                 ()
             };
-            (mut $ret:ty) => {
-                (u32, $ret)
+            (mut $retb:ty) => {
+                (u32, $retb)
             };
-            ($ret:ty) => {
-                $ret
+            ($retb:ty) => {
+                $retb
             };
         }
 
@@ -39,7 +39,7 @@ macro_rules! block_behavior_trait {
             () => {
                 ()
             };
-            (mut; $data:expr; $ret:ty) => {
+            (mut; $data:expr; $retb:ty) => {
                 (
                     $data
                         .try_into()
@@ -47,7 +47,7 @@ macro_rules! block_behavior_trait {
                     _ret,
                 )
             };
-            ($ret:ty) => {
+            ($retb:ty) => {
                 _ret
             };
         }
@@ -109,9 +109,9 @@ macro_rules! block_behavior_trait {
     };
 }
 
-/// This is where methods are defined for blocks. See the macro above for the syntax.
-///
-/// This is the only place where the `block_behavior_trait!` macro should be used.
+// This is where methods are defined for blocks. See the macro above for the syntax.
+//
+// This is the only place where the `block_behavior_trait!` macro should be used.
 block_behavior_trait!(
     fn get_placement_state(mut; _context: PlacementContext, _world: &World, _pos: BlockPos),
     fn update(mut; _world: &World, _pos: BlockPos),
