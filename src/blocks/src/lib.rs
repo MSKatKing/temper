@@ -15,7 +15,7 @@ mod behavior_trait;
 #[allow(unused_imports)] // Used in the include!
 use crate::behavior_trait::BlockBehaviorTable;
 
-pub use crate::behavior_trait::{BlockBehavior, StateBehaviorTable};
+pub use crate::behavior_trait::{BlockBehavior, BlockDispatch, StateBehaviorTable};
 
 pub const BLOCK_MAPPINGS: &[StateBehaviorTable] =
     include!(concat!(env!("OUT_DIR"), "/mappings.rs"));

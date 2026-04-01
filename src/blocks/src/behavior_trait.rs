@@ -1,4 +1,5 @@
-use crate::PlacementContext;
+use temper_core::block_state_id::BlockStateId;
+use crate::{PlacementContext, BLOCK_MAPPINGS};
 use temper_core::pos::BlockPos;
 use temper_world::World;
 
@@ -30,6 +31,21 @@ macro_rules! block_behavior_trait {
             };
         }
 
+        macro_rules! id_ret_decode {
+            (mut, $in_data:expr) => {
+                ($in_data, ())
+            };
+            (, $in_data:expr) => {
+                ((), ())
+            };
+            (mut $retb:ty, $in_data:expr) => {
+                $in_data
+            };
+            ($retb:ty, $in_data:expr) => {
+                ((), $retb)
+            };
+        }
+
         macro_rules! lambda_ret_ty {
             (mut; $data:expr;) => {
                 $data
@@ -55,6 +71,13 @@ macro_rules! block_behavior_trait {
         pub trait BlockBehavior:
             TryInto<u32, Error = ()> + TryFrom<u32, Error = ()> + Clone + std::fmt::Debug
         {
+            $(
+                fn $name(&$($mut_meta)? self, $($argument: $ty),*) $(-> $ret)? { $($default)? }
+            )*
+        }
+
+        #[allow(dead_code)]
+        pub trait BlockDispatch {
             $(
                 fn $name(&$($mut_meta)? self, $($argument: $ty),*) $(-> $ret)? { $($default)? }
             )*
@@ -103,6 +126,25 @@ macro_rules! block_behavior_trait {
             $(
                 pub fn $name(&self, $($argument: $ty),*) -> ptr_ret_ty!{$($mut_meta)? $($ret)?} {
                     (self.block.$name)(self.id, $($argument),*)
+                }
+            )*
+        }
+
+        macro_rules! update_self {
+            (mut, $s:expr, $new_id:expr) => {
+                *$s = Self::new($new_id);
+            };
+            (, $s:expr, $new_id:expr) => {
+
+            };
+        }
+
+        impl BlockDispatch for BlockStateId {
+            $(
+                fn $name(& $($mut_meta)? self, $($argument: $ty),*) $(-> $ret)? {
+                    let (_new_id, _ret) = id_ret_decode!{$($mut_meta)? $($ret)?, BLOCK_MAPPINGS[self.raw() as usize].$name($($argument),*)};
+                    update_self!{$($mut_meta)?, self, _new_id}
+                    _ret
                 }
             )*
         }
