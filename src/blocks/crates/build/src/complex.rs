@@ -89,6 +89,15 @@ pub fn generate_complex_blocks(
                         .map(|(_, value)| format_ident!("{value}"))
                         .collect::<Vec<_>>();
 
+                    if name.starts_with("GeneratedStruct") {
+                        println!("cargo::warning=Unknown block type detected. See src/blocks/README.md for more information. (Saved as {}, associated blocks: {:?})",
+                                 name,
+                                 associated_blocks
+                                     .iter()
+                                     .map(|(name, _)| name)
+                        );
+                    }
+
                     let struct_name = format_ident!("{name}");
 
                     match associated_blocks.len() {
