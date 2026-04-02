@@ -1,4 +1,4 @@
-use rand::prelude::SliceRandom;
+use rand::prelude::IndexedRandom;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use temper_config::server_config::get_global_config;
 use tokio::net::UdpSocket;
@@ -22,7 +22,7 @@ impl LanPinger {
 
     pub fn announcement(&self) -> String {
         let cfg = get_global_config();
-        let motd = cfg.motd.choose(&mut rand::thread_rng()).unwrap();
+        let motd = cfg.motd.choose(&mut rand::rng()).unwrap();
         let port = cfg.port;
 
         format!("[MOTD]{motd}[/MOTD][AD]{port}[/AD]")

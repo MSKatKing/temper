@@ -1,21 +1,16 @@
 use bevy_ecs::entity::Entity;
-use temper_components::entity_identity::EntityIdentity;
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
+use temper_components::player::player_marker::PlayerMarker;
 
 pub(crate) fn resolve_any_player<'a>(
-    iter: impl Iterator<
-        Item = (
-            Entity,
-            Option<&'a EntityIdentity>,
-            Option<&'a PlayerIdentity>,
-        ),
-    >,
+    iter: impl Iterator<Item = (Entity, &'a Identity, Option<&'a PlayerMarker>)>,
 ) -> Vec<Entity> {
     let mut players = Vec::new();
-    for (entity, _, player_id) in iter {
-        if player_id.is_some() {
-            players.push(entity);
+    for (entity, _, player_marker) in iter {
+        if player_marker.is_none() {
+            continue;
         }
+        players.push(entity);
     }
     players
 }

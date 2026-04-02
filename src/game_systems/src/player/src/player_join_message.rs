@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::{Entity, MessageReader, Query};
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
 use temper_core::mq;
 use temper_text::{Color, NamedColor, TextComponent};
 
@@ -9,16 +9,15 @@ use tracing::trace;
 
 /// Listens for `PlayerJoinEvent` and broadcasts the "join" message
 /// to all other connected players via the Message Queue.
-pub fn handle(
-    mut events: MessageReader<PlayerJoined>,
-    player_query: Query<(Entity, &PlayerIdentity)>,
-) {
+pub fn handle(mut events: MessageReader<PlayerJoined>, player_query: Query<(Entity, &Identity)>) {
     for event in events.read() {
         let player_who_joined = &event.identity;
 
         // Build the "Player <player> joined the game" message
-        let mut message =
-            TextComponent::from(format!("{} joined the game", player_who_joined.username));
+        let mut message = TextComponent::from(format!(
+            "{} joined the game",
+            player_who_joined.name.as_ref().expect("No Player Name")
+        ));
         message.color = Some(Color::Named(NamedColor::Yellow));
 
         // Broadcast to all players on the server
@@ -27,7 +26,8 @@ pub fn handle(
 
             trace!(
                 "Notified {} that {} joined",
-                receiver_identity.username, player_who_joined.username
+                receiver_identity.name.as_ref().expect("No Player Name"),
+                player_who_joined.name.as_ref().expect("No Player Name")
             );
         }
     }

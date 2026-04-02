@@ -1,9 +1,10 @@
-use bevy_ecs::prelude::{Commands, Res};
+use bevy_ecs::prelude::{Commands, MessageWriter, Res};
 use std::time::Instant;
 use temper_components::bounds::CollisionBounds;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::grounded::OnGround;
 use temper_components::player::keepalive::KeepAliveTracker;
+use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::teleport_tracker::TeleportTracker;
 use temper_components::player::{
     gamemode::GameModeComponent, offline_player_data::OfflinePlayerData,
@@ -11,6 +12,7 @@ use temper_components::player::{
     swimming::SwimmingState,
 };
 use temper_inventories::hotbar::Hotbar;
+use temper_messages::chunk_calc::ChunkCalc;
 use temper_net_runtime::connection::DisconnectHandle;
 use temper_resources::new_conn::NewConnectionRecv;
 use temper_state::GlobalStateResource;
@@ -20,6 +22,7 @@ pub fn accept_new_connections(
     mut cmd: Commands,
     new_connections: Res<NewConnectionRecv>,
     state: Res<GlobalStateResource>,
+    mut chunk_update_writer: MessageWriter<ChunkCalc>,
 ) {
     if new_connections.0.is_empty() {
         return;
@@ -37,7 +40,12 @@ pub fn accept_new_connections(
             Err(err) => {
                 error!(
                     "Error loading player data for {}: {:?}",
-                    new_connection.player_identity.username, err
+                    new_connection
+                        .player_identity
+                        .name
+                        .as_ref()
+                        .expect("No Player Name"),
+                    err
                 );
                 None
             }
@@ -47,6 +55,7 @@ pub fn accept_new_connections(
         let player_bundle = PlayerBundle {
             identity: new_connection.player_identity.clone(),
             abilities: player_data.abilities,
+            player_properties: new_connection.player_properties,
             gamemode: GameModeComponent(player_data.gamemode),
             position: player_data.position.into(),
             rotation: player_data.rotation,
@@ -69,6 +78,7 @@ pub fn accept_new_connections(
                 z_offset_start: -0.3,
                 z_offset_end: 0.3,
             },
+            player_marker: PlayerMarker,
         };
 
         // --- 3. Spawn the PlayerBundle, then .insert() the network components ---
@@ -102,13 +112,25 @@ pub fn accept_new_connections(
             entity_id,
             (
                 new_connection.player_identity.uuid.as_u128(),
-                new_connection.player_identity.username.clone(),
+                new_connection
+                    .player_identity
+                    .name
+                    .as_ref()
+                    .expect("No Player Name")
+                    .clone(),
             ),
         );
 
+        chunk_update_writer.write(ChunkCalc(entity_id));
+
         info!(
             "Player {} connected ({:?})",
-            new_connection.player_identity.username, new_connection.player_identity.uuid
+            new_connection
+                .player_identity
+                .name
+                .as_ref()
+                .expect("No Player Name"),
+            new_connection.player_identity.uuid
         );
 
         if let Err(err) = return_sender.send(entity_id) {

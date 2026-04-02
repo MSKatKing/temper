@@ -1,6 +1,6 @@
 use temper_codec::net_types::angle::NetAngle;
 use temper_codec::net_types::var_int::VarInt;
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
 use temper_components::player::rotation::Rotation;
 use temper_macros::{NetEncode, packet};
 
@@ -13,9 +13,9 @@ pub struct UpdateEntityRotationPacket {
     pub on_ground: bool,
 }
 impl UpdateEntityRotationPacket {
-    pub fn new(entity_id: &PlayerIdentity, new_rot: &Rotation, on_ground: bool) -> Self {
+    pub fn new(entity_id: &Identity, new_rot: &Rotation, on_ground: bool) -> Self {
         Self {
-            entity_id: VarInt::new(entity_id.short_uuid),
+            entity_id: VarInt::new(entity_id.entity_id),
             yaw: NetAngle::from_degrees(new_rot.yaw as f64),
             pitch: NetAngle::from_degrees(new_rot.pitch as f64),
             on_ground,

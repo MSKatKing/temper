@@ -2,7 +2,7 @@ use base64::Engine;
 use serde_derive::Deserialize;
 use std::str::FromStr;
 use std::sync::Arc;
-use temper_components::player::player_identity::PlayerProperty;
+use temper_components::player::player_properties::PlayerProperty;
 use temper_encryption::minecraft_hex_digest;
 use temper_protocol::errors::NetAuthenticationError;
 use uuid::Uuid;

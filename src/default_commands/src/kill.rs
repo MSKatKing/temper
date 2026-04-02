@@ -1,10 +1,11 @@
 #![expect(clippy::type_complexity)]
+
 use bevy_ecs::prelude::{Commands, Entity, Query};
 use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
 use temper_commands::arg::entities::EntityArgument;
 use temper_commands::Sender;
-use temper_components::entity_identity::EntityIdentity;
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
+use temper_components::player::player_marker::PlayerMarker;
 use temper_macros::command;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::remove_entities::RemoveEntitiesPacket;
@@ -16,7 +17,7 @@ fn kill_command(
     #[sender] sender: Sender,
     #[arg] entity_argument: EntityArgument,
     args: (
-        Query<(Entity, Option<&EntityIdentity>, Option<&PlayerIdentity>)>,
+        Query<(Entity, &Identity, Option<&PlayerMarker>)>,
         Commands,
         Query<&StreamWriter>,
     ),
@@ -38,12 +39,12 @@ fn kill_command(
         overlay: false,
     };
     for entity in selected_entities {
-        if let Ok((ent, entity_id_opt, player_id_opt)) = query.get(entity) {
-            if let Some(entity_id) = entity_id_opt {
-                removed_entities.push(entity_id.entity_id.into());
+        if let Ok((ent, identity, player_marker)) = query.get(entity) {
+            if player_marker.is_none() {
+                removed_entities.push(identity.entity_id.into());
                 cmd.entity(ent).despawn();
                 removed_count += 1;
-            } else if let Some(_player_id) = player_id_opt {
+            } else {
                 // Don't remove players, just send them a killed message
                 if let Ok(conn) = conn_query.get(ent) {
                     if let Err(err) = conn.send_packet_ref(&killed_message) {

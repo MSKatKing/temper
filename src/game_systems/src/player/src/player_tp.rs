@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::{Entity, MessageReader, MessageWriter, Query};
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
 use temper_components::player::position::Position;
 use temper_components::player::teleport_tracker::TeleportTracker;
 use temper_messages::chunk_calc::ChunkCalc;
@@ -12,7 +12,7 @@ use tracing::error;
 
 pub fn teleport_player(
     mut query: Query<(Entity, &StreamWriter, &mut Position, &mut TeleportTracker)>,
-    id_query: Query<&PlayerIdentity>,
+    id_query: Query<&Identity>,
     mut message_reader: MessageReader<TeleportPlayer>,
     mut chunk_calc_msg: MessageWriter<ChunkCalc>,
     mut player_update_msg: MessageWriter<SendEntityUpdate>,
@@ -23,7 +23,7 @@ pub fn teleport_player(
             Ok(id) => id,
             Err(err) => {
                 error!(
-                    "Failed to get PlayerIdentity for entity {:?}: {}",
+                    "Failed to get Identity for entity {:?}: {}",
                     message_entity, err
                 );
                 continue;
@@ -56,7 +56,7 @@ pub fn teleport_player(
                 // Otherwise send teleport entity packet. This ideally should be handled by the send
                 // entity updates system, but it seems to be a bit buggy
                 if let Err(err) = conn.send_packet(TeleportEntityPacket {
-                    entity_id: id.short_uuid.into(),
+                    entity_id: id.entity_id.into(),
                     x: message.x,
                     y: message.y,
                     z: message.z,

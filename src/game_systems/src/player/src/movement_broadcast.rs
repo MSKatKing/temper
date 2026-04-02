@@ -14,7 +14,7 @@
 
 use bevy_ecs::prelude::{Entity, MessageReader, Query};
 use temper_codec::net_types::angle::NetAngle;
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_macros::NetEncode;
@@ -52,7 +52,7 @@ const MAX_DELTA: i16 = (7.5 * 4096f32) as i16;
 /// broadcast logic, ensuring consistent handling across all movement packet types.
 pub fn handle_player_move(
     mut movement_msgs: MessageReader<Movement>,
-    query: Query<(&Position, &Rotation, &PlayerIdentity)>,
+    query: Query<(&Position, &Rotation, &Identity)>,
     broadcast_query: Query<(Entity, &StreamWriter)>,
 ) {
     for movement in movement_msgs.read() {
@@ -118,7 +118,7 @@ pub fn handle_player_move(
         // Build head rotation packet if we have rotation
         let head_rot_packet = if has_rotation {
             Some(SetHeadRotationPacket::new(
-                identity.short_uuid,
+                identity.entity_id,
                 NetAngle::from_degrees(rot.yaw as f64),
             ))
         } else {

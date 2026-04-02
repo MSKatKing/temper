@@ -1,10 +1,9 @@
 use crate::auth::authenticate_user;
-use crate::compression::compress_packet;
 use crate::conn_init::VarInt;
 use crate::conn_init::{LoginResult, NetDecodeOpts};
 use crate::connection::StreamWriter;
+use rand::Rng;
 use temper_codec::decode::NetDecode;
-use temper_codec::encode::NetEncodeOpts;
 use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
 use temper_codec::net_types::prefixed_optional::PrefixedOptional;
 use temper_config::server_config::{ServerConfig, get_global_config};
@@ -19,12 +18,9 @@ use temper_protocol::outgoing::set_default_spawn_position::DEFAULT_SPAWN_POSITIO
 use temper_protocol::outgoing::{commands::CommandsPacket, registry_data::REGISTRY_PACKETS};
 use temper_state::GlobalState;
 
-use rand::RngCore;
+use temper_components::entity_identity::Identity;
 use temper_components::player::offline_player_data::OfflinePlayerData;
-use temper_components::player::player_identity::{PlayerIdentity, PlayerProperty};
-use temper_components::player::position::Position;
-use temper_core::dimension::Dimension;
-use temper_core::pos::ChunkPos;
+use temper_components::player::player_properties::{PlayerProperties, PlayerProperty};
 use temper_protocol::ConnState;
 use temper_protocol::errors::{NetAuthenticationError, NetError, PacketError};
 use temper_protocol::incoming::ack_finish_configuration::AckFinishConfigurationPacket;
@@ -44,7 +40,6 @@ use temper_protocol::outgoing::game_event::GameEventPacket;
 use temper_protocol::outgoing::login_play::LoginPlayPacket;
 use temper_protocol::outgoing::player_abilities::PlayerAbilities;
 use temper_protocol::outgoing::player_info_update::PlayerInfoUpdatePacket;
-use temper_protocol::outgoing::set_center_chunk::SetCenterChunk;
 use temper_protocol::outgoing::set_compression::SetCompressionPacket;
 use temper_protocol::outgoing::synchronize_player_position::SynchronizePlayerPositionPacket;
 use tokio::net::tcp::OwnedReadHalf;
@@ -131,7 +126,7 @@ async fn setup_encryption_and_auth(
 
     // Generate verify token
     let mut verify_token = vec![0u8; 16];
-    rand::thread_rng().fill_bytes(&mut verify_token);
+    rand::rng().fill_bytes(&mut verify_token);
 
     // Send encryption request
     let encryption_packet = EncryptionRequest {
@@ -200,7 +195,7 @@ async fn send_login_success(
     login_start: &LoginStartPacket,
     player_properties: &[PlayerProperty],
     compressed: bool,
-) -> Result<PlayerIdentity, NetError> {
+) -> Result<(Identity, PlayerProperties), NetError> {
     // Send Login Success
     let login_success = LoginSuccessPacket {
         uuid: login_start.uuid,
@@ -218,12 +213,11 @@ async fn send_login_success(
     };
     conn_write.send_packet(login_success)?;
 
-    // Build PlayerIdentity
-    let player_identity = PlayerIdentity {
+    // Build Identity
+    let player_identity = Identity {
         uuid: Uuid::from_u128(login_start.uuid),
-        username: login_start.username.clone(),
-        short_uuid: login_start.uuid as i32,
-        properties: player_properties.to_vec(),
+        name: Some(login_start.username.clone()),
+        entity_id: login_start.uuid as i32,
     };
 
     // Wait for Login Acknowledged
@@ -241,7 +235,12 @@ async fn send_login_success(
     let _login_acknowledged =
         LoginAcknowledgedPacket::decode(&mut skel.data, &NetDecodeOpts::None)?;
 
-    Ok(player_identity)
+    Ok((
+        player_identity,
+        PlayerProperties {
+            properties: player_properties.to_vec(),
+        },
+    ))
 }
 
 // =================================================================================================
@@ -347,14 +346,14 @@ async fn finish_configuration(
 /// Sends initial play state packets (login_play, abilities, op level).
 fn send_initial_play_packets(
     conn_write: &StreamWriter,
-    player_identity: &PlayerIdentity,
+    player_identity: &Identity,
     offline_data: &OfflinePlayerData,
 ) -> Result<(), NetError> {
     // Send login_play
     let game_mode = offline_data.gamemode;
 
     conn_write.send_packet(LoginPlayPacket::new(
-        player_identity.short_uuid,
+        player_identity.entity_id,
         game_mode as u8,
     ))?;
 
@@ -365,7 +364,7 @@ fn send_initial_play_packets(
 
     // Send OP level (TODO: use actual player OP level)
     conn_write.send_packet(EntityStatus {
-        entity_id: player_identity.short_uuid,
+        entity_id: player_identity.entity_id,
         status: 28, // OP level 4
     })?;
 
@@ -411,67 +410,14 @@ async fn sync_player_position(
 /// Sends player info and game event packets.
 fn send_player_info(
     conn_write: &StreamWriter,
-    player_identity: &PlayerIdentity,
+    player_identity: &Identity,
+    player_properties: &PlayerProperties,
 ) -> Result<(), NetError> {
     conn_write.send_packet(PlayerInfoUpdatePacket::new_player_join_packet(
         player_identity,
+        player_properties,
     ))?;
     conn_write.send_packet(GameEventPacket::new(13, 0.0))?;
-    Ok(())
-}
-
-/// Sends initial chunks to the player.
-fn send_initial_chunks(
-    conn_write: &StreamWriter,
-    state: &GlobalState,
-    config: &ServerConfig,
-    client_view_distance: i8,
-    compressed: bool,
-    pos: Position,
-) -> Result<(), NetError> {
-    // Send center chunk
-    conn_write.send_packet(SetCenterChunk::new(pos.x as i32 >> 4, pos.z as i32 >> 4))?;
-
-    // Calculate render distance
-    let server_render_distance = config.chunk_render_distance as i32;
-    let client_view_distance = client_view_distance as i32;
-    let radius = server_render_distance.min(client_view_distance);
-    // Generate/load chunks in parallel
-    let mut batch = state.thread_pool.batch();
-
-    for rad_x in -radius..=radius {
-        for rad_z in -radius..=radius {
-            batch.execute({
-                let state = state.clone();
-                move || -> Result<Vec<u8>, NetError> {
-                    let x = (pos.x as i32 >> 4) + rad_x;
-                    let z = (pos.z as i32 >> 4) + rad_z;
-                    let chunk = state.world.get_or_generate_chunk(ChunkPos::new(x, z), Dimension::Overworld).expect("Failed to load or generate chunk");
-                    let chunk_data =
-                        temper_protocol::outgoing::chunk_and_light_data::ChunkAndLightData::from_chunk(
-                            ChunkPos::new(x, z),
-                            &chunk,
-                        )?;
-                    compress_packet(&chunk_data, compressed, &NetEncodeOpts::WithLength, 64)
-                }
-            });
-        }
-    }
-
-    // Send all chunks
-    for packet in batch.wait() {
-        match packet {
-            Ok(data) => conn_write.send_raw_packet(data)?,
-            Err(err) => {
-                error!("Failed to send chunk data: {:?}", err);
-                return Err(NetError::Misc(format!(
-                    "Failed to send chunk data: {:?}",
-                    err
-                )));
-            }
-        }
-    }
-
     Ok(())
 }
 
@@ -535,7 +481,7 @@ pub(super) async fn login(
     let player_properties =
         setup_encryption_and_auth(conn_read, conn_write, config, &login_start, compressed).await?;
 
-    let player_identity = send_login_success(
+    let (player_identity, player_properties) = send_login_success(
         conn_read,
         conn_write,
         &login_start,
@@ -555,7 +501,11 @@ pub(super) async fn login(
         .unwrap_or_else(|err| {
             error!(
                 "Error loading player data for {}: {:?}",
-                player_identity.username, err
+                player_identity
+                    .name
+                    .clone()
+                    .unwrap_or("UnknownPlayerName".to_string()),
+                err
             );
             None
         })
@@ -565,18 +515,12 @@ pub(super) async fn login(
         });
 
     // Phase 3: Play State Setup
+
+    // TODO: at some point this should be moved to the ECS
     send_initial_play_packets(conn_write, &player_identity, &offline_data)?;
     sync_player_position(conn_read, conn_write, &offline_data, compressed).await?;
-    send_player_info(conn_write, &player_identity)?;
+    send_player_info(conn_write, &player_identity, &player_properties)?;
     send_inventory_contents(conn_write, &offline_data)?;
-    send_initial_chunks(
-        conn_write,
-        &state,
-        config,
-        client_info.view_distance,
-        compressed,
-        offline_data.position.into(),
-    )?;
     send_command_graph(conn_write)?;
 
     // Login complete
@@ -586,6 +530,7 @@ pub(super) async fn login(
             player_identity: Some(player_identity),
             compression: compressed,
             client_information_component: Some(client_info.into()),
+            player_properties: Some(player_properties),
         },
     ))
 }

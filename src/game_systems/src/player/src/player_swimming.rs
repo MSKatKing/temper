@@ -2,7 +2,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::DVec3;
 use std::collections::HashSet;
 use temper_codec::net_types::var_int::VarInt;
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
 use temper_components::player::position::Position;
 use temper_components::player::swimming::SwimmingState;
 use temper_core::block_state_id::BlockStateId;
@@ -43,7 +43,7 @@ fn is_player_in_water(state: &temper_state::GlobalState, pos: &Position) -> bool
 /// System that detects when players enter/exit water and updates their swimming state
 /// Also broadcasts the swimming pose to all connected clients
 pub fn detect_player_swimming(
-    mut swimmers: Query<(&PlayerIdentity, Ref<Position>, &mut SwimmingState)>,
+    mut swimmers: Query<(&Identity, Ref<Position>, &mut SwimmingState)>,
     all_connections: Query<(Entity, &StreamWriter)>,
     state: Res<GlobalStateResource>,
     mut world_change: MessageReader<WorldChange>,
@@ -63,7 +63,7 @@ pub fn detect_player_swimming(
         if in_water && !swimming_state.is_swimming {
             swimming_state.is_swimming = true;
 
-            let entity_id = VarInt::new(identity.short_uuid);
+            let entity_id = VarInt::new(identity.entity_id);
             let packet = EntityMetadataPacket::new(
                 entity_id,
                 [
@@ -76,7 +76,7 @@ pub fn detect_player_swimming(
         } else if !in_water && swimming_state.is_swimming {
             swimming_state.is_swimming = false;
 
-            let entity_id = VarInt::new(identity.short_uuid);
+            let entity_id = VarInt::new(identity.entity_id);
             let packet = EntityMetadataPacket::new(
                 entity_id,
                 [

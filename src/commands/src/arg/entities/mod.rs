@@ -9,8 +9,8 @@ use crate::arg::{CommandArgument, ParserResult};
 use crate::{CommandContext, Suggestion};
 use ::uuid::Uuid;
 use bevy_ecs::prelude::Entity;
-use temper_components::entity_identity::EntityIdentity;
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
+use temper_components::player::player_marker::PlayerMarker;
 
 /// Represents an entity argument in a command.
 /// It can be a player name, UUID, or special selectors like @e, @p, @r, @a.
@@ -20,10 +20,10 @@ use temper_components::player::player_identity::PlayerIdentity;
 /// ```ignore
 /// # use temper_commands::arg::entities::EntityArgument;
 /// # use temper_core::identity::entity_identity::EntityIdentity;
-/// # use temper_core::identity::player_identity::PlayerIdentity;
+/// # use temper_core::identity::player_identity::Identity;
 /// # use bevy_ecs::prelude::World;
 ///
-/// fn my_command(query: Query<(Entity, Option<&EntityIdentity>, Option<&PlayerIdentity>)>) {
+/// fn my_command(query: Query<(Entity, Option<&EntityIdentity>, Option<&Identity>)>) {
 ///     let arg = EntityArgument::PlayerName("Steve".to_string());
 ///     let result = arg.resolve(query.iter());
 ///     assert_eq!(result, vec![entity]);
@@ -106,13 +106,7 @@ impl CommandArgument for EntityArgument {
 impl EntityArgument {
     pub fn resolve<'a>(
         &self,
-        iter: impl Iterator<
-            Item = (
-                Entity,
-                Option<&'a EntityIdentity>,
-                Option<&'a PlayerIdentity>,
-            ),
-        >,
+        iter: impl Iterator<Item = (Entity, &'a Identity, Option<&'a PlayerMarker>)>,
     ) -> Vec<Entity> {
         match self {
             EntityArgument::PlayerName(name) => player::resolve_player_name(name.clone(), iter)
@@ -140,8 +134,7 @@ mod tests {
     use crate::{Command, CommandInput, Sender};
     use bevy_ecs::prelude::World;
     use std::sync::Arc;
-    use temper_components::entity_identity::EntityIdentity;
-    use temper_components::player::player_identity::PlayerIdentity;
+    use temper_components::entity_identity::Identity;
     use temper_state::create_test_state;
 
     #[test]
@@ -245,23 +238,19 @@ mod tests {
         let mut world = World::new();
         let entity = world
             .spawn((
-                EntityIdentity {
-                    entity_id: 0,
-                    uuid: Uuid::new_v4(),
-                },
-                PlayerIdentity {
-                    username: "Steve".to_string(),
+                Identity {
+                    name: Some("Steve".to_string()),
                     uuid: Default::default(),
-                    short_uuid: 0,
-                    properties: vec![],
+                    entity_id: 0,
                 },
+                PlayerMarker,
             ))
             .id();
 
         let arg = EntityArgument::PlayerName("Steve".to_string());
         let result = arg.resolve(
             world
-                .query::<(Entity, Option<&EntityIdentity>, Option<&PlayerIdentity>)>()
+                .query::<(Entity, &Identity, Option<&PlayerMarker>)>()
                 .iter(&world),
         );
         assert_eq!(result, vec![entity]);
@@ -272,15 +261,16 @@ mod tests {
         let mut world = World::new();
         let test_uuid = Uuid::new_v4();
         let entity = world
-            .spawn((EntityIdentity {
+            .spawn((Identity {
                 entity_id: 0,
                 uuid: test_uuid,
+                name: None,
             },))
             .id();
         let arg = EntityArgument::Uuid(test_uuid);
         let result = arg.resolve(
             world
-                .query::<(Entity, Option<&EntityIdentity>, Option<&PlayerIdentity>)>()
+                .query::<(Entity, &Identity, Option<&PlayerMarker>)>()
                 .iter(&world),
         );
         assert_eq!(result, vec![entity]);
@@ -290,21 +280,23 @@ mod tests {
     fn test_resolves_any_entity() {
         let mut world = World::new();
         let entity1 = world
-            .spawn(EntityIdentity {
+            .spawn(Identity {
                 entity_id: 0,
                 uuid: Uuid::new_v4(),
+                name: None,
             })
             .id();
         let entity2 = world
-            .spawn(EntityIdentity {
+            .spawn(Identity {
                 entity_id: 1,
                 uuid: Uuid::new_v4(),
+                name: None,
             })
             .id();
         let arg = EntityArgument::AnyEntity;
         let result = arg.resolve(
             world
-                .query::<(Entity, Option<&EntityIdentity>, Option<&PlayerIdentity>)>()
+                .query::<(Entity, &Identity, Option<&PlayerMarker>)>()
                 .iter(&world),
         );
         assert_eq!(result.len(), 2);
@@ -317,47 +309,100 @@ mod tests {
         let mut world = World::new();
         let entity1 = world
             .spawn((
-                EntityIdentity {
+                Identity {
+                    name: Some("Steve".to_string()),
+                    uuid: Uuid::new_v4(),
                     entity_id: 0,
-                    uuid: Uuid::new_v4(),
                 },
-                PlayerIdentity {
-                    username: "Steve".to_string(),
-                    uuid: Uuid::new_v4(),
-                    short_uuid: 0,
-                    properties: vec![],
-                },
+                PlayerMarker,
             ))
             .id();
         let entity2 = world
             .spawn((
-                EntityIdentity {
+                Identity {
+                    name: Some("Alex".to_string()),
                     entity_id: 1,
                     uuid: Uuid::new_v4(),
                 },
-                PlayerIdentity {
-                    username: "Alex".to_string(),
-                    uuid: Uuid::new_v4(),
-                    short_uuid: 1,
-                    properties: vec![],
-                },
+                PlayerMarker,
             ))
             .id();
         let non_player_entity = world
-            .spawn(EntityIdentity {
+            .spawn((Identity {
                 entity_id: 2,
                 uuid: Uuid::new_v4(),
-            })
+                name: None,
+            },))
             .id();
         let arg = EntityArgument::AnyPlayer;
         let result = arg.resolve(
             world
-                .query::<(Entity, Option<&EntityIdentity>, Option<&PlayerIdentity>)>()
+                .query::<(Entity, &Identity, Option<&PlayerMarker>)>()
                 .iter(&world),
         );
         assert_eq!(result.len(), 2);
         assert!(result.contains(&entity1));
         assert!(result.contains(&entity2));
         assert!(!result.contains(&non_player_entity));
+    }
+
+    #[test]
+    fn resolves_random_player() {
+        let mut world = World::new();
+        let entity1 = world
+            .spawn((
+                Identity {
+                    name: Some("Steve".to_string()),
+                    uuid: Uuid::new_v4(),
+                    entity_id: 0,
+                },
+                PlayerMarker,
+            ))
+            .id();
+        let entity2 = world
+            .spawn((
+                Identity {
+                    name: Some("Alex".to_string()),
+                    entity_id: 1,
+                    uuid: Uuid::new_v4(),
+                },
+                PlayerMarker,
+            ))
+            .id();
+        let non_player_entity = world
+            .spawn((Identity {
+                entity_id: 2,
+                uuid: Uuid::new_v4(),
+                name: None,
+            },))
+            .id();
+        let arg = EntityArgument::RandomPlayer;
+        let result = arg.resolve(
+            world
+                .query::<(Entity, &Identity, Option<&PlayerMarker>)>()
+                .iter(&world),
+        );
+        assert_eq!(result.len(), 1);
+        assert!(result.contains(&entity1) || result.contains(&entity2));
+        assert!(!result.contains(&non_player_entity));
+
+        // Run the test 500 times to ensure randomness
+        // Technically this could actually result in 500 identical results, but the odds of that are astronomically low (about 1 in 3.27e150)
+        let mut results = vec![];
+        for _ in 0..500 {
+            let result = arg.resolve(
+                world
+                    .query::<(Entity, &Identity, Option<&PlayerMarker>)>()
+                    .iter(&world),
+            );
+            assert_eq!(result.len(), 1);
+            results.push(result[0]);
+        }
+        let unique_results: std::collections::HashSet<_> = results.into_iter().collect();
+        assert_eq!(
+            unique_results.len(),
+            2,
+            "Random player selection is not random enough"
+        );
     }
 }

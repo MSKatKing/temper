@@ -127,15 +127,12 @@ mod test {
     use super::*;
     use crate::BlockPlaceContext;
     use temper_components::player::rotation::Rotation;
-    use temper_core::block_state_id::{init_block_mappings, init_item_to_block_mapping};
     use temper_core::dimension::Dimension;
     use temper_core::pos::BlockPos;
     use temper_macros::{block, item};
 
     #[test]
     fn test_place_door() {
-        init_item_to_block_mapping();
-        init_block_mappings();
         let (state, _) = temper_state::create_test_state();
         let context = BlockPlaceContext {
             block_clicked: Default::default(),
@@ -183,8 +180,6 @@ mod test {
 
     #[test]
     fn test_place_door_with_block_above() {
-        init_item_to_block_mapping();
-        init_block_mappings();
         let (state, _) = temper_state::create_test_state();
         // Place a block above the door position
         {
@@ -216,8 +211,6 @@ mod test {
 
     #[test]
     fn test_place_door_on_invalid_face() {
-        init_item_to_block_mapping();
-        init_block_mappings();
         let (state, _) = temper_state::create_test_state();
         let context = BlockPlaceContext {
             block_clicked: Default::default(),

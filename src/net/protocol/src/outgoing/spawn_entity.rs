@@ -2,11 +2,10 @@ use crate::errors::NetError;
 use bevy_ecs::prelude::{Entity, Query};
 use temper_codec::net_types::angle::NetAngle;
 use temper_codec::net_types::var_int::VarInt;
-use temper_components::entity_identity::EntityIdentity;
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
-use temper_macros::{NetEncode, get_registry_entry, packet};
+use temper_macros::{NetEncode, packet};
 
 #[derive(NetEncode)]
 #[packet(packet_id = "add_entity", state = "play")]
@@ -25,8 +24,6 @@ pub struct SpawnEntityPacket {
     velocity_y: i16,
     velocity_z: i16,
 }
-
-const PLAYER_ID: u64 = get_registry_entry!("minecraft:entity_type.entries.minecraft:player");
 
 impl SpawnEntityPacket {
     /// Creates a spawn entity packet from direct component values.
@@ -60,34 +57,6 @@ impl SpawnEntityPacket {
         }
     }
 
-    pub fn player(
-        entity_id: Entity,
-        query: Query<(&PlayerIdentity, &Position, &Rotation)>,
-    ) -> Result<Self, NetError> {
-        let (player_identity, position, rotation) = query
-            .get(entity_id)
-            .map_err(|e| NetError::ECSError(e.into()))?;
-
-        let (x, y, z) = position.xyz();
-        let (yaw, pitch) = rotation.yaw_pitch();
-
-        Ok(Self {
-            entity_id: VarInt::new(player_identity.short_uuid),
-            entity_uuid: player_identity.uuid.as_u128(),
-            r#type: VarInt::new(PLAYER_ID as i32),
-            x,
-            y,
-            z,
-            pitch: NetAngle::from_degrees(pitch as f64),
-            yaw: NetAngle::from_degrees(yaw as f64),
-            head_yaw: NetAngle::from_degrees(yaw as f64),
-            data: VarInt::new(0),
-            velocity_x: 0,
-            velocity_y: 0,
-            velocity_z: 0,
-        })
-    }
-
     /// Creates a spawn entity packet for any entity (mob, projectile, etc.).
     ///
     /// # Arguments
@@ -98,7 +67,7 @@ impl SpawnEntityPacket {
     pub fn entity(
         entity: Entity,
         entity_type_id: u16,
-        query: Query<(&EntityIdentity, &Position, &Rotation)>,
+        query: Query<(&Identity, &Position, &Rotation)>,
     ) -> Result<Self, NetError> {
         let (identity, position, rotation) = query
             .get(entity)

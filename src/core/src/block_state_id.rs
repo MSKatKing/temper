@@ -20,7 +20,7 @@ const BLOCKSFILE: &str = include_str!("../../../assets/data/blockstates.json");
 pub static ID2BLOCK: OnceCell<Vec<BlockData>> = OnceCell::new();
 pub static BLOCK2ID: OnceCell<HashMap<BlockData, i32, RandomState>> = OnceCell::new();
 
-pub fn init_block_mappings() {
+pub fn create_block_mappings() -> (Vec<BlockData>, HashMap<BlockData, i32, RandomState>) {
     let string_keys: HashMap<String, BlockData, RandomState> =
         serde_json::from_str(BLOCKSFILE).unwrap();
     if string_keys.len() != BLOCK_ENTRIES {
@@ -45,8 +45,7 @@ pub fn init_block_mappings() {
         .enumerate()
         .map(|(k, v)| (v.clone(), k as i32))
         .collect();
-    ID2BLOCK.set(id2block).expect("Failed to set ID2BLOCK");
-    BLOCK2ID.set(block2id).expect("Failed to set BLOCK2ID");
+    (id2block, block2id)
 }
 
 /// An ID for a block, and it's state in the world. Use this over `BlockData` unless you need to
@@ -67,8 +66,7 @@ impl BlockStateId {
     /// Given a BlockData, return a BlockStateId. Does not clone, should be quite fast.
     pub fn from_block_data(block_data: &BlockData) -> Self {
         let id = BLOCK2ID
-            .get()
-            .expect("Mappings not initialized")
+            .get_or_init(|| create_block_mappings().1)
             .get(block_data)
             .copied()
             .unwrap_or_else(|| {
@@ -82,8 +80,7 @@ impl BlockStateId {
     /// If the ID is not found, returns None.
     pub fn to_block_data(&self) -> Option<BlockData> {
         ID2BLOCK
-            .get()
-            .expect("Mappings not initialized")
+            .get_or_init(|| create_block_mappings().0)
             .get(self.0 as usize)
             .cloned()
     }
@@ -169,10 +166,10 @@ const ITEM_TO_BLOCK_MAPPING_FILE: &str =
     include_str!("../../../assets/data/item_to_block_mapping.json");
 pub static ITEM_TO_BLOCK_MAPPING: OnceCell<HashMap<i32, BlockStateId>> = OnceCell::new();
 
-pub fn init_item_to_block_mapping() {
+pub fn create_item_to_block_mapping() -> HashMap<i32, BlockStateId> {
     let str_form: HashMap<String, String> = serde_json::from_str(ITEM_TO_BLOCK_MAPPING_FILE)
         .expect("Failed to parse item_to_block_mapping.json");
-    let res = str_form
+    str_form
         .into_iter()
         .map(|(k, v)| {
             (
@@ -180,8 +177,5 @@ pub fn init_item_to_block_mapping() {
                 BlockStateId::new(u32::from_str(&v).unwrap()),
             )
         })
-        .collect();
-    ITEM_TO_BLOCK_MAPPING
-        .set(res)
-        .expect("Failed to set ITEM_TO_BLOCK_MAPPING, it was already set");
+        .collect()
 }

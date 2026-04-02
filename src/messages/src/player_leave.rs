@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
 
 #[derive(Message, Clone)]
 #[allow(unused)]
-pub struct PlayerLeft(pub PlayerIdentity);
+pub struct PlayerLeft(pub Identity);

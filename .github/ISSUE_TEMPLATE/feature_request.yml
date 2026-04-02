@@ -4,44 +4,23 @@ labels: enhancement
 body:
   - type: markdown
     attributes:
-      value: This should only be used for new ideas / features. For general questions, please use our [Discord Server](https://discord.gg/qT5J8EMjwk) instead.
+      value: This should only be used for new ideas / features. For general questions, please use our [Discord Server](https://discord.gg/6QPZgUy4sA) instead.
 
   - type: textarea
     attributes:
-      label: Is your feature request related to a problem?
-      description: "A clear and concise description of what the problem is. Ex. I'm always frustrated when [...] Link the GitHub issue if applicable."
+      label: Description of the feature
+      description: "Please provide a clear and concise description of the feature you are requesting. Include any relevant details or use cases that can help us understand the value and purpose of this feature."
     validations:
       required: true
-
-  - type: textarea
-    attributes:
-      label: "Describe the solution / feature you'd like."
-      description: "A clear and concise description of what feature / solution you would like to be implemented."
-    validations:
-      required: true
-
-  - type: textarea
-    attributes:
-      label: "Alternatives you've considered."
-      description: "A clear and concise description of any alternative solutions / features you've considered."
-    validations:
-      required: true
-
-  - type: textarea
-    attributes:
-      label: "Additional Context"
-      description: "Add any other context or screenshots about the feature request here."
-    validations:
-      required: false
 
   - type: checkboxes
     attributes:
-      label: I have confimed that...
+      label: I have confirmed that...
       options:
         - label: ... such a feature does not exist already.
-          required: true
+          required: false
         - label: ... I ticked all the boxes without reading them
           required: false
         - label: ... such a feature request has not been submitted already.
-          required: true
+          required: false
     

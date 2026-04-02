@@ -1,9 +1,8 @@
 #![expect(clippy::type_complexity)]
 use bevy_ecs::prelude::{MessageReader, Query};
 use temper_codec::net_types::angle::NetAngle;
-use temper_components::entity_identity::EntityIdentity;
+use temper_components::entity_identity::Identity;
 use temper_components::player::grounded::OnGround;
-use temper_components::player::player_identity::PlayerIdentity;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_components::player::velocity::Velocity;
@@ -20,8 +19,8 @@ pub fn handle(
         &Velocity,
         &Rotation,
         &mut LastSyncedPosition,
-        Option<&EntityIdentity>,
-        Option<&PlayerIdentity>,
+        Option<&Identity>,
+        Option<&Identity>,
         &OnGround,
     )>,
     mut conn_query: Query<&StreamWriter>,
@@ -38,7 +37,7 @@ pub fn handle(
             let id = if let Some(entity_id) = entity_id_opt {
                 entity_id.entity_id
             } else if let Some(player_id) = player_id_opt {
-                player_id.short_uuid
+                player_id.entity_id
             } else {
                 warn!(
                     "Tried to send entity update for entity without identity: {:?}",

@@ -4,7 +4,7 @@ labels: [ bug, unconfirmed ]
 body:
   - type: markdown
     attributes:
-      value: Bug reports should only be used for reporting issues with how the server works / its features. For general questions, please use our [Discord Server](https://discord.gg/qT5J8EMjwk) instead.
+      value: Bug reports should only be used for reporting issues with how the server works / its features. For general questions, please use our [Discord Server](https://discord.gg/6QPZgUy4sA) instead.
 
   - type: textarea
     attributes:

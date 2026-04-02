@@ -161,9 +161,7 @@ pub fn is_interactive(block_state_id: BlockStateId) -> bool {
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
-    use temper_core::block_state_id::{
-        BlockStateId, init_block_mappings, init_item_to_block_mapping,
-    };
+    use temper_core::block_state_id::BlockStateId;
     use temper_macros::block;
 
     #[test]
@@ -186,8 +184,6 @@ mod tests {
 
     #[test]
     fn test_try_interact_opens_door() {
-        init_item_to_block_mapping();
-        init_block_mappings();
         // A closed oak door (lower half, north-facing, left hinge, unpowered)
         let closed_door: BlockStateId = block!("oak_door", { facing: "north", half: "lower", hinge: "left", open: false, powered: false });
 
@@ -205,8 +201,6 @@ mod tests {
 
     #[test]
     fn test_try_interact_closes_door() {
-        init_item_to_block_mapping();
-        init_block_mappings();
         // An already-open oak door
         let open_door: BlockStateId = block!("oak_door", { facing: "north", half: "lower", hinge: "left", open: true, powered: false });
 
@@ -227,8 +221,6 @@ mod tests {
 
     #[test]
     fn test_try_interact_not_interactive() {
-        init_item_to_block_mapping();
-        init_block_mappings();
         let stone: BlockStateId = block!("stone");
         assert!(matches!(
             try_interact(stone),
@@ -238,8 +230,6 @@ mod tests {
 
     #[test]
     fn test_is_interactive() {
-        init_item_to_block_mapping();
-        init_block_mappings();
         let door: BlockStateId = block!("oak_door", { facing: "north", half: "lower", hinge: "left", open: false, powered: false });
         let stone: BlockStateId = block!("stone");
 

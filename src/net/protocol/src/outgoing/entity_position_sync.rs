@@ -1,5 +1,5 @@
 use temper_codec::net_types::var_int::VarInt;
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_macros::{NetEncode, packet};
@@ -21,14 +21,14 @@ pub struct TeleportEntityPacket {
 
 impl TeleportEntityPacket {
     pub fn new(
-        entity_id: &PlayerIdentity,
+        entity_id: &Identity,
         position: &Position,
         angle: &Rotation,
         on_ground: bool,
     ) -> Self {
         // Todo: Add velocity parameters if needed
         Self {
-            entity_id: VarInt::new(entity_id.short_uuid),
+            entity_id: VarInt::new(entity_id.entity_id),
             x: position.x,
             y: position.y,
             z: position.z,

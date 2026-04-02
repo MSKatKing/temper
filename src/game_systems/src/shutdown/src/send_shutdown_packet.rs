@@ -1,13 +1,10 @@
 use bevy_ecs::prelude::{Entity, Query, Res};
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
 use temper_net_runtime::connection::StreamWriter;
 use temper_state::GlobalStateResource;
 use temper_text::TextComponent;
 
-pub fn handle(
-    query: Query<(Entity, &StreamWriter, &PlayerIdentity)>,
-    state: Res<GlobalStateResource>,
-) {
+pub fn handle(query: Query<(Entity, &StreamWriter, &Identity)>, state: Res<GlobalStateResource>) {
     let packet = temper_protocol::outgoing::disconnect::DisconnectPacket {
         reason: TextComponent::from("Server is shutting down").into(),
     };
@@ -17,11 +14,14 @@ pub fn handle(
             if let Err(e) = conn.send_packet_ref(&packet) {
                 tracing::error!(
                     "Failed to send shutdown packet to player {}: {}",
-                    identity.username,
+                    identity.name.as_ref().expect("No Player Name"),
                     e
                 );
             } else {
-                tracing::info!("Shutdown packet sent to player {}", identity.username);
+                tracing::info!(
+                    "Shutdown packet sent to player {}",
+                    identity.name.as_ref().expect("No Player Name")
+                );
             }
         }
     }

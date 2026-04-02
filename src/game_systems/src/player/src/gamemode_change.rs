@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
+use temper_components::entity_identity::Identity;
 use temper_components::player::abilities::PlayerAbilities;
 use temper_components::player::gamemode::GameModeComponent;
-use temper_components::player::player_identity::PlayerIdentity;
 use temper_messages::PlayerGameModeChanged;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::game_event::GameEventPacket;
@@ -14,7 +14,7 @@ use tracing::{error, info};
 pub fn handle(
     mut events: MessageReader<PlayerGameModeChanged>,
     mut player_query: Query<(
-        &PlayerIdentity,
+        &Identity,
         &mut PlayerAbilities,
         &mut GameModeComponent,
         &StreamWriter,
@@ -44,7 +44,8 @@ pub fn handle(
         if let Err(e) = writer.send_packet_ref(&gamemode_packet) {
             error!(
                 "Failed to send gamemode change packet to {}: {:?}",
-                identity.username, e
+                identity.name.as_ref().expect("No Player Name"),
+                e
             );
         }
 
@@ -53,7 +54,8 @@ pub fn handle(
         if let Err(e) = writer.send_packet_ref(&abilities_packet) {
             error!(
                 "Failed to send abilities sync packet to {}: {:?}",
-                identity.username, e
+                identity.name.as_ref().expect("No Player Name"),
+                e
             );
         }
 
@@ -76,10 +78,15 @@ pub fn handle(
         if let Err(e) = writer.send_packet_ref(&chat_packet) {
             error!(
                 "Failed to send gamemode confirmation message to {}: {:?}",
-                identity.username, e
+                identity.name.as_ref().expect("No Player Name"),
+                e
             );
         }
 
-        info!("Set gamemode for {} to {:?}", identity.username, new_mode);
+        info!(
+            "Set gamemode for {} to {:?}",
+            identity.name.as_ref().expect("No Player Name"),
+            new_mode
+        );
     }
 }

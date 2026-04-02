@@ -12,31 +12,41 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+
 defaults:
   run:
     shell: bash
+
 jobs:
   formatting_and_security:
     name: Formatting and Security
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+
       - uses: Swatinem/rust-cache@v2
+
       - name: Run cargo fmt
         run: cargo fmt --all -- --check
+
       - name: Run Clippy
         run: cargo clippy --all-targets -- -D warnings
+
       - name: Install cargo-audit
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-audit
+
       - name: Run Cargo Audit
         run: cargo audit --ignore RUSTSEC-2023-0071
+
   build:
     name: Build and Upload Artifacts
     if: github.ref == 'refs/heads/master'
@@ -88,14 +98,18 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
       - uses: Swatinem/rust-cache@v2
+
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest
+
       - name: Run Tests
         run: cargo nextest run --target ${{ matrix.target }} --all-targets --all-features -E "not kind(bench)"

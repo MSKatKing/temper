@@ -3,7 +3,8 @@ use bevy_ecs::prelude::{Component, Entity, Query};
 use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
 use temper_codec::net_types::prefixed_optional::PrefixedOptional;
 use temper_codec::net_types::var_int::VarInt;
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
+use temper_components::player::player_properties::PlayerProperties;
 use temper_macros::{NetEncode, packet};
 use tracing::debug;
 
@@ -27,28 +28,34 @@ impl PlayerInfoUpdatePacket {
     }
 
     /// The packet to be sent to all already connected players when a new player joins the server
-    pub fn new_player_join_packet(identity: &PlayerIdentity) -> Self {
-        Self::with_players(vec![PlayerWithActions::add_player(identity)])
+    pub fn new_player_join_packet(
+        identity: &Identity,
+        player_properties: &PlayerProperties,
+    ) -> Self {
+        Self::with_players(vec![PlayerWithActions::add_player(
+            identity,
+            player_properties,
+        )])
     }
 
     /// The packet to be sent to a new player when they join the server,
     /// To let them know about all the players that are already connected
     pub fn existing_player_info_packet(
         new_player_id: Entity,
-        query: Query<(Entity, &PlayerIdentity)>,
+        query: Query<(Entity, &Identity, &PlayerProperties)>,
     ) -> Self {
-        let players: Vec<&PlayerIdentity> = {
-            let players = query.iter().collect::<Vec<(_, _)>>();
+        let players: Vec<(&Identity, &PlayerProperties)> = {
+            let players = query.iter().collect::<Vec<(_, _, _)>>();
             players
                 .iter()
                 .filter(|&player| player.0 == new_player_id)
-                .map(|player| player.1)
+                .map(|player| (player.1, player.2))
                 .collect()
         };
 
         let players = players
             .into_iter()
-            .map(PlayerWithActions::add_player)
+            .map(|(identity, properties)| PlayerWithActions::add_player(identity, properties))
             .collect::<Vec<_>>();
 
         debug!("Sending PlayerInfoUpdatePacket with {:?} players", players);
@@ -88,14 +95,14 @@ impl PlayerWithActions {
         mask
     }
 
-    pub fn add_player(identity: &PlayerIdentity) -> Self {
+    pub fn add_player(identity: &Identity, player_properties: &PlayerProperties) -> Self {
         Self {
             uuid: identity.uuid.as_u128(),
             actions: vec![
                 PlayerAction::AddPlayer {
-                    name: identity.username.clone(),
+                    name: identity.name.as_ref().expect("No Player Name").clone(),
                     properties: LengthPrefixedVec::new(
-                        identity
+                        player_properties
                             .properties
                             .iter()
                             .map(|property| NetPlayerProperty {

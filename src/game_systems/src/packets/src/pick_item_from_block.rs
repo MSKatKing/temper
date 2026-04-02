@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::{Entity, Query, Res};
 use temper_codec::net_types::var_int::VarInt;
+use temper_components::entity_identity::Identity;
 use temper_components::player::abilities::PlayerAbilities;
-use temper_components::player::player_identity::PlayerIdentity;
 use temper_inventories::item::ItemID;
 use temper_inventories::slot::InventorySlot;
 use temper_inventories::{hotbar::Hotbar, inventory::Inventory};
@@ -20,7 +20,7 @@ pub fn handle(
     state: Res<GlobalStateResource>,
     mut player_inv_query: Query<(
         Entity,
-        &PlayerIdentity,
+        &Identity,
         &PlayerAbilities,
         &mut Inventory,
         &mut Hotbar,
@@ -42,7 +42,9 @@ pub fn handle(
 
         debug!(
             "Player {} requested pick block at {:?} (Include Data: {})",
-            identity.username, packet.location, packet.include_data,
+            identity.name.as_ref().expect("No Player Name"),
+            packet.location,
+            packet.include_data,
         );
 
         // 2. Get block from world

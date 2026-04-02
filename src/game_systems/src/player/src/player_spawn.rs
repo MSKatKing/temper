@@ -5,7 +5,8 @@
 //! 2. Broadcast the new player's info + spawn packets to existing players
 
 use bevy_ecs::prelude::{Entity, MessageReader, Query, Res};
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
+use temper_components::player::player_properties::PlayerProperties;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_macros::get_registry_entry;
@@ -22,7 +23,14 @@ const PLAYER_TYPE_ID: i32 =
 /// Listens for `PlayerJoined` events and handles spawning players for each other.
 pub fn handle(
     mut events: MessageReader<PlayerJoined>,
-    player_query: Query<(Entity, &PlayerIdentity, &Position, &Rotation, &StreamWriter)>,
+    player_query: Query<(
+        Entity,
+        &Identity,
+        &Position,
+        &Rotation,
+        &StreamWriter,
+        &PlayerProperties,
+    )>,
     state: Res<GlobalStateResource>,
 ) {
     for event in events.read() {
@@ -30,7 +38,9 @@ pub fn handle(
         let new_player_identity = &event.identity;
 
         // Get the new player's connection and components
-        let Ok((_, _, new_pos, new_rot, new_conn)) = player_query.get(new_player_entity) else {
+        let Ok((_, _, new_pos, new_rot, new_conn, player_properties)) =
+            player_query.get(new_player_entity)
+        else {
             error!(
                 "Failed to get new player components for spawn broadcast: {:?}",
                 new_player_entity
@@ -40,9 +50,9 @@ pub fn handle(
 
         // Create packets for the new player once (to broadcast to existing players)
         let new_player_info_packet =
-            PlayerInfoUpdatePacket::new_player_join_packet(new_player_identity);
+            PlayerInfoUpdatePacket::new_player_join_packet(new_player_identity, player_properties);
         let new_player_spawn_packet = SpawnEntityPacket::new(
-            new_player_identity.short_uuid,
+            new_player_identity.entity_id,
             new_player_identity.uuid.as_u128(),
             PLAYER_TYPE_ID,
             new_pos,
@@ -52,7 +62,7 @@ pub fn handle(
         let mut spawned_for_new_player = 0;
         let mut spawned_for_existing = 0;
 
-        for (entity, identity, pos, rot, conn) in player_query.iter() {
+        for (entity, identity, pos, rot, conn, player_properties) in player_query.iter() {
             // Skip self
             if entity == new_player_entity {
                 continue;
@@ -65,7 +75,8 @@ pub fn handle(
 
             // 1. Send existing player's info to the new player
             // PlayerInfoUpdate MUST come before SpawnEntity (protocol requirement)
-            let existing_player_info = PlayerInfoUpdatePacket::new_player_join_packet(identity);
+            let existing_player_info =
+                PlayerInfoUpdatePacket::new_player_join_packet(identity, player_properties);
             if let Err(e) = new_conn.send_packet_ref(&existing_player_info) {
                 error!("Failed to send existing player info to new player: {:?}", e);
                 continue;
@@ -73,7 +84,7 @@ pub fn handle(
 
             // 2. Send existing player's spawn packet to the new player
             let existing_player_spawn = SpawnEntityPacket::new(
-                identity.short_uuid,
+                identity.entity_id,
                 identity.uuid.as_u128(),
                 PLAYER_TYPE_ID,
                 pos,
@@ -107,7 +118,9 @@ pub fn handle(
 
         trace!(
             "Player {} joined: sent {} existing players, spawned for {} existing players",
-            new_player_identity.username, spawned_for_new_player, spawned_for_existing
+            new_player_identity.name.as_ref().expect("No Player Name"),
+            spawned_for_new_player,
+            spawned_for_existing
         );
     }
 }

@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 use temper_commands::Sender;
+use temper_components::entity_identity::Identity;
 use temper_components::player::abilities::PlayerAbilities;
-use temper_components::player::player_identity::PlayerIdentity;
 use temper_macros::command;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::player_abilities::PlayerAbilities as OutgoingPlayerAbilities;
@@ -12,7 +12,7 @@ use tracing::{error, info};
 #[command("fly")]
 fn fly_command(
     #[sender] sender: Sender,
-    mut player_query: Query<(Entity, &PlayerIdentity, &mut PlayerAbilities, &StreamWriter)>,
+    mut player_query: Query<(Entity, &Identity, &mut PlayerAbilities, &StreamWriter)>,
 ) {
     // 1. Ensure the sender is a player
     let player_entity = match sender {
@@ -58,7 +58,8 @@ fn fly_command(
     if let Err(e) = writer.send_packet_ref(&sync_packet) {
         error!(
             "Failed to send abilities sync packet to {}: {:?}",
-            identity.username, e
+            identity.name.as_ref().expect("No Player Name"),
+            e
         );
     }
 
@@ -69,5 +70,9 @@ fn fly_command(
     );
 
     // 6. Log the action
-    info!("Toggled flying for {}: {}", identity.username, status);
+    info!(
+        "Toggled flying for {}: {}",
+        identity.name.as_ref().expect("No Player Name"),
+        status
+    );
 }

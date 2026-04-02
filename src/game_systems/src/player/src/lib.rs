@@ -18,7 +18,6 @@ mod send_inventory_updates;
 pub mod update_player_ping;
 
 pub fn register_player_systems(schedule: &mut bevy_ecs::schedule::Schedule) {
-    schedule.add_systems(chunk_calculator::handle);
     schedule.add_systems(digging_system::handle_start_digging);
     schedule.add_systems(digging_system::handle_finish_digging);
     schedule.add_systems(digging_system::handle_start_digging);
@@ -31,11 +30,13 @@ pub fn register_player_systems(schedule: &mut bevy_ecs::schedule::Schedule) {
     // Player connection handling - chained to ensure proper event timing:
     // 1. accept_new_connections: Spawns entity + adds PendingPlayerJoin marker (deferred)
     // 2. ApplyDeferred: Flushes commands, entity now exists and is queryable
-    // 3. emit_player_joined: Fires PlayerJoined event (listeners can now query the entity)
+    // 3. chunk_calculator::handle: Starts sending chunks to the player immediately after they join
+    // 4. emit_player_joined: Fires PlayerJoined event (listeners can now query the entity)
     schedule.add_systems(
         (
             new_connections::accept_new_connections,
             ApplyDeferred,
+            chunk_calculator::handle,
             emit_player_joined::emit_player_joined,
         )
             .chain(),

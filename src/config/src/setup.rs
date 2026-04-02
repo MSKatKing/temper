@@ -1,5 +1,6 @@
 use crate::server_config::DEFAULT_CONFIG;
 use crate::whitelist::create_blank_whitelist_file;
+use rand::RngExt;
 use std::fs::File;
 use std::io::Write;
 use temper_general_purpose::paths::get_root_path;
@@ -54,16 +55,15 @@ pub fn setup() -> Result<(), SetupError> {
 }
 
 fn generate_random_secret() -> String {
-    use rand::Rng;
     const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
         abcdefghijklmnopqrstuvwxyz\
         0123456789)(*&^%$#@!~";
     const SECRET_LEN: usize = 32;
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let secret: String = (0..SECRET_LEN)
         .map(|_| {
-            let idx = rng.gen_range(0..CHARSET.len());
+            let idx = rng.random_range(0..CHARSET.len());
             CHARSET[idx] as char
         })
         .collect();

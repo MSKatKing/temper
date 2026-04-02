@@ -7,8 +7,9 @@ use crate::connection::StreamWriter;
 use std::sync::atomic::Ordering;
 use temper_codec::decode::{NetDecode, NetDecodeOpts};
 use temper_codec::net_types::var_int::VarInt;
+use temper_components::entity_identity::Identity;
 use temper_components::player::client_information::ClientInformationComponent;
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::player::player_properties::PlayerProperties;
 use temper_encryption::read::EncryptedReader;
 use temper_macros::lookup_packet;
 use temper_protocol::errors::NetError;
@@ -26,7 +27,8 @@ use tracing::{error, trace};
 /// - `player_identity`: Populated when login is successful and a player is identified.
 /// - `compression`: Indicates whether network compression should be enabled for this connection.
 pub(crate) struct LoginResult {
-    pub player_identity: Option<PlayerIdentity>,
+    pub player_identity: Option<Identity>,
+    pub player_properties: Option<PlayerProperties>,
     pub compression: bool,
     pub client_information_component: Option<ClientInformationComponent>,
 }

@@ -8,8 +8,9 @@ use std::time::Duration;
 use temper_codec::encode::NetEncode;
 use temper_codec::encode::NetEncodeOpts;
 use temper_codec::net_types::NetTypesError;
+use temper_components::entity_identity::Identity;
 use temper_components::player::client_information::ClientInformationComponent;
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::player::player_properties::PlayerProperties;
 use temper_encryption::read::EncryptedReader;
 use temper_encryption::write::EncryptedWriter;
 use temper_protocol::ConnState::Play;
@@ -232,8 +233,9 @@ impl StreamWriter {
 /// needs to be registered with the game world.
 pub struct NewConnection {
     pub stream: StreamWriter,
-    pub player_identity: PlayerIdentity,
+    pub player_identity: Identity,
     pub client_information_component: ClientInformationComponent,
+    pub player_properties: PlayerProperties,
     pub entity_return: oneshot::Sender<Entity>,
     pub disconnect_handle: oneshot::Sender<()>,
 }
@@ -344,6 +346,7 @@ pub async fn handle_connection(
         .send(NewConnection {
             stream,
             player_identity: login_result.player_identity.unwrap_or_default(),
+            player_properties: login_result.player_properties.unwrap_or_default(),
             entity_return,
             disconnect_handle: disconnect_return,
             client_information_component: login_result

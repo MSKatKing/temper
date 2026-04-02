@@ -6,7 +6,9 @@ use bevy_math::DVec3;
 use std::collections::HashMap;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
-use temper_core::block_state_id::{BlockStateId, ITEM_TO_BLOCK_MAPPING};
+use temper_core::block_state_id::{
+    BlockStateId, ITEM_TO_BLOCK_MAPPING, create_item_to_block_mapping,
+};
 use temper_core::dimension::Dimension;
 use temper_core::pos::BlockPos;
 use temper_inventories::item::ItemID;
@@ -64,8 +66,7 @@ pub fn place_item(
         blocks::fence::PlaceableFence::place(context, state)
     } else {
         let block_opt = ITEM_TO_BLOCK_MAPPING
-            .get()
-            .expect("Mappings file uninitialized")
+            .get_or_init(create_item_to_block_mapping)
             .get(&context.item_used.0.0);
         if let Some(block) = block_opt {
             match state

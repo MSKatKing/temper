@@ -1,6 +1,7 @@
 #![expect(clippy::type_complexity)]
 use bevy_ecs::prelude::{Query, Res, ResMut};
 use temper_components::active_effects::ActiveEffects;
+use temper_components::entity_identity::Identity;
 use temper_components::health::Health;
 use temper_components::player::abilities::PlayerAbilities;
 use temper_components::player::experience::Experience;
@@ -8,7 +9,6 @@ use temper_components::player::gamemode::GameModeComponent;
 use temper_components::player::gameplay_state::ender_chest::EnderChest;
 use temper_components::player::hunger::Hunger;
 use temper_components::player::offline_player_data::OfflinePlayerData;
-use temper_components::player::player_identity::PlayerIdentity;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_inventories::inventory::Inventory;
@@ -17,7 +17,7 @@ use temper_state::GlobalStateResource;
 
 pub fn sync_world(
     player_query: Query<(
-        &PlayerIdentity,
+        &Identity,
         &PlayerAbilities,
         &GameModeComponent,
         &Position,

@@ -5,8 +5,8 @@ use temper_commands::arg::entities::EntityArgument;
 use temper_commands::arg::position::CommandPosition;
 use temper_commands::Sender;
 use temper_commands::Sender::Player;
-use temper_components::entity_identity::EntityIdentity;
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
+use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_macros::command;
@@ -52,7 +52,7 @@ fn tp_to_command(
     args: (
         Query<(&Rotation, &Position)>,
         MessageWriter<TeleportPlayer>,
-        Query<(Entity, Option<&EntityIdentity>, Option<&PlayerIdentity>)>,
+        Query<(Entity, &Identity, Option<&PlayerMarker>)>,
     ),
 ) {
     let (query, mut tp_player_msg, resolve_q) = args;

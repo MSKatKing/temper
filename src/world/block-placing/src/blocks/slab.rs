@@ -165,7 +165,6 @@ mod tests {
     use std::collections::BTreeMap;
     use temper_components::player::rotation::Rotation;
     use temper_core::block_data::BlockData;
-    use temper_core::block_state_id::{init_block_mappings, init_item_to_block_mapping};
     use temper_core::dimension::Dimension;
     use temper_core::pos::BlockPos;
     use temper_macros::{block, item};
@@ -184,8 +183,6 @@ mod tests {
 
     #[test]
     fn test_combine_slab_into_double() {
-        init_item_to_block_mapping();
-        init_block_mappings();
         let (state, _tmp) = temper_state::create_test_state();
 
         // Place an oak bottom slab at (0,64,0)
@@ -239,8 +236,6 @@ mod tests {
 
     #[test]
     fn test_cancel_when_target_not_air() {
-        init_item_to_block_mapping();
-        init_block_mappings();
         let (state, _tmp) = temper_state::create_test_state();
 
         // Put a solid block (stone) at the target position
@@ -276,8 +271,6 @@ mod tests {
 
     #[test]
     fn test_cancel_when_target_already_double() {
-        init_item_to_block_mapping();
-        init_block_mappings();
         let (state, _tmp) = temper_state::create_test_state();
 
         // Put a double oak slab at (0,64,0)

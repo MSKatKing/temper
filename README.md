@@ -11,7 +11,8 @@
 ## About
 
 Temper is a Minecraft server implementation written in Rust, with the goals of being extremely fast and memory
-efficient, while also being easy to use and set up. With a focus on community, extensibility and performance, we hope to
+efficient, while also being easy to use and set up. With a focus on community, extensibility, and performance, we hope
+to
 create a server that can be used by everyone from casual players to large server owners.
 
 Originally a fork of the FerrumC project, Temper aims to supersede its predecessor by providing a more polished and
@@ -28,7 +29,7 @@ committed to building a strong community around Temper and welcome contributions
 
 ## Key Features and goals
 
-- **High Performance**: Temper is built with performance in mind, utilizing Rust's powerful features and optimizations
+- **High Performance**: Temper is built with performance in mind, using Rust's powerful features and optimizations
   to offer the best possible performance.
 - **Memory Efficiency**: Temper is designed to use as little memory as possible, making it suitable for servers of all
   sizes.
@@ -42,7 +43,8 @@ committed to building a strong community around Temper and welcome contributions
   prioritize fixing bugs and improving stability over adding new features, and we will always strive to maintain a high
   standard of quality in our codebase.
 - **Maintainable Codebase**: We want to maintain a clean and well-organized codebase that is easy to understand and
-  contribute to. We will follow best practices for code organization and documentation, and we will strive to make our
+  contribute to. We will follow the best practices for code organization and documentation, and we will strive to make
+  our
   code as readable and maintainable as possible. We will also prioritize code reviews and testing to ensure that our
   codebase remains healthy and maintainable over time.
 
@@ -52,7 +54,7 @@ committed to building a strong community around Temper and welcome contributions
 
 While it is recommended to compile from source for the best performance and latest features, we understand that not
 everyone may be comfortable with that process. Therefore, we provide pre-compiled binaries for Windows, Linux, and macOS
-on our Github Actions.
+on our GitHub Actions.
 At a later date we hope to make this easier by providing downloads on the Releases page, but for now you can follow the
 instructions below to download the latest pre-compiled binary.
 
@@ -124,61 +126,6 @@ We welcome contributions! If you'd like to contribute to Temper, please follow t
 
 The Discord server is where most of the development discussion happens, so feel free to join and ask any questions you
 may have or discuss your ideas with the community.
-
-## FAQ
-
-### How does this project differ from:
-
-- **Paper/Spigot/Bukkit**: These projects are the cornerstone of the Minecraft server ecosystem, and they have been
-  around for a long time. However, they are all written in Java and are based on the vanilla server codebase, which is
-  not very performant and has a lot of technical debt. We are taking a different approach by writing the server from
-  scratch in Rust, which allows us to take advantage of Rust's performance and safety features to create a much more
-  efficient and maintainable server implementation.
-- **Pumpkin**: Pumpkin's goal is to simply reimplement the vanilla server in Rust, but they are taking the approach of
-  just porting decompiled Java code to Rust. While easier to implement, this approach is not very maintainable and will
-  likely lead to a lot of technical debt and performance issues. We are taking a more holistic approach to the server
-  implementation, which lets the strengths of Rust shine through and allows us to make design decisions that are best
-  for the project rather than just porting a 17-year-old codebase.
-- **FerrumC**: FerrumC is our predecessor and the project that Temper was originally forked from. While we share the
-  same goals of performance and efficiency, Temper aims to shoot above and beyond what FerrumC was able to achieve by
-  focusing on open source values, community involvement, and a more polished and user-friendly experience. We are
-  committed to building a strong community around Temper and welcome contributions from developers of all skill levels,
-  while also maintaining a high standard of quality and stability in our codebase.
-
-### Will we be implementing terrain generation?
-
-Yes! We do have a somewhat simplistic terrain generator implemented right now for demonstration purposes, but we do plan
-to implement a more robust and feature-rich terrain generator in the future. Whether that will end up being 1:1 with the
-vanilla generator or something custom is still up in the air, but we are open to suggestions and ideas from the
-community on how to best implement this.
-
-### Will there be plugins? And how?
-
-We do very much plan to have a plugin system and as of right now we are planning to use
-some kind of FFI (foreign function interface) to allow for plugins to be written in Rust. Plugins are not our top
-priority
-right now, and we want to make sure the API is designed well before we start implementing it to avoid breaking changes
-later.
-We are open to suggestions and ideas from the community on how to best implement this.
-
-### Will I be able to use plugins or mods from paper/spigot/bukkit/forge/fabric etc.?
-
-No. Even if we did implement a perfect 1:1 API match for the vanilla server, the underlying implementation is still
-completely different.
-Java plugins and mods rely heavily on Java features such as reflection and dynamic class loading, which simply aren't
-possible in Rust.
-If we made a Java translation layer, it would be extremely slow and only the most basic plugins and mods would work. If
-a plugin
-or mod is basic enough to work through a translation layer, it would be much better to just rewrite it in Rust for
-performance
-and compatibility reasons.
-
-### Why did we fork from FerrumC?
-
-We decided to carry on the grand tradition of forking a Minecraft server implementation over management disagreements.
-In all seriousness, we had some differences in vision and approach to the project, and we felt that it would be best to
-start fresh with a new repository and a new name. We are grateful for the work that was done on FerrumC, and we hope to
-build on that foundation while also taking the project in a new direction that we are excited about.
 
 ## License
 

@@ -5,7 +5,7 @@
 //! 2. Broadcast PlayerInfoRemovePacket to remove from tab list
 
 use bevy_ecs::prelude::{Entity, MessageReader, Query, Res};
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
 use temper_messages::player_leave::PlayerLeft;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::player_info_remove::PlayerInfoRemovePacket;
@@ -16,7 +16,7 @@ use tracing::{error, trace};
 /// Listens for `PlayerLeft` events and broadcasts despawn packets to remaining players.
 pub fn handle(
     mut events: MessageReader<PlayerLeft>,
-    player_query: Query<(Entity, &PlayerIdentity, &StreamWriter)>,
+    player_query: Query<(Entity, &Identity, &StreamWriter)>,
     state: Res<GlobalStateResource>,
 ) {
     for event in events.read() {
@@ -58,7 +58,8 @@ pub fn handle(
 
         trace!(
             "Player {} left: notified {} remaining players",
-            left_player.username, notified_count
+            left_player.name.as_ref().expect("No Player Name"),
+            notified_count
         );
     }
 }

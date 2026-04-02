@@ -1,10 +1,10 @@
 use bevy_ecs::prelude::Query;
+use temper_components::entity_identity::Identity;
 use temper_components::player::keepalive::KeepAliveTracker;
-use temper_components::player::player_identity::PlayerIdentity;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::player_info_update::PlayerInfoUpdatePacket;
 
-pub fn handle(query: Query<(&PlayerIdentity, &KeepAliveTracker)>, conns: Query<&StreamWriter>) {
+pub fn handle(query: Query<(&Identity, &KeepAliveTracker)>, conns: Query<&StreamWriter>) {
     let packet = PlayerInfoUpdatePacket::update_players_ping(
         query
             .iter()

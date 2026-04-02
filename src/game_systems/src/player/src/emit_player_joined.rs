@@ -24,7 +24,8 @@ pub fn emit_player_joined(
     for (entity, pending) in query.iter() {
         trace!(
             "Emitting PlayerJoined event for {} ({:?})",
-            pending.0.username, entity
+            pending.0.name.clone().unwrap_or("Unknown".to_string()),
+            entity
         );
 
         events.write(PlayerJoined {
@@ -32,8 +33,8 @@ pub fn emit_player_joined(
             entity,
         });
 
-        // Remove marker so we don't fire again.
-        // This removal is deferred but that's fine - Added<T> only fires once per addition.
+        // Remove the marker so we don't fire again.
+        // This removal is deferred, but that's fine - Added<T> only fires once per addition.
         commands.entity(entity).remove::<PendingPlayerJoin>();
     }
 }

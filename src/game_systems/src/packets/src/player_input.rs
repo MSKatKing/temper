@@ -5,7 +5,7 @@
 
 use bevy_ecs::prelude::{Entity, Query, Res};
 use temper_codec::net_types::var_int::VarInt;
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
 use temper_components::player::sneak::SneakState;
 use temper_net_runtime::broadcast::broadcast_packet_except;
 use temper_net_runtime::connection::StreamWriter;
@@ -21,7 +21,7 @@ const FLAG_SNEAK: u8 = 0x20;
 pub fn handle(
     receiver: Res<PlayerInputReceiver>,
     conn_query: Query<(Entity, &StreamWriter)>,
-    identity_query: Query<&PlayerIdentity>,
+    identity_query: Query<&Identity>,
     mut sneak_query: Query<&mut SneakState>,
 ) {
     for (event, eid) in receiver.0.try_iter() {
@@ -33,7 +33,7 @@ pub fn handle(
         let Ok(mut sneak_state) = sneak_query.get_mut(eid) else {
             warn!(
                 "SneakState component missing for player {} - this shouldn't happen",
-                identity.username
+                identity.name.as_ref().expect("No Player Name")
             );
             continue;
         };
@@ -46,11 +46,13 @@ pub fn handle(
         }
 
         sneak_state.is_sneaking = is_sneaking;
-        let entity_id = VarInt::new(identity.short_uuid);
+        let entity_id = VarInt::new(identity.entity_id);
 
         debug!(
             "PlayerInput: sneak={} from {} (entity_id={})",
-            is_sneaking, identity.username, identity.short_uuid
+            is_sneaking,
+            identity.name.as_ref().expect("No Player Name"),
+            identity.entity_id
         );
 
         let packet = if is_sneaking {

@@ -4,7 +4,7 @@ use temper_commands::{
     messages::{CommandDispatched, ResolvedCommandDispatched},
     resolve,
 };
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
 use temper_core::mq;
 use temper_protocol::ChatCommandPacketReceiver;
 use temper_state::GlobalStateResource;
@@ -15,7 +15,7 @@ pub fn handle(
     mut dispatch_msgs: MessageWriter<CommandDispatched>,
     mut resolved_dispatch_msgs: MessageWriter<ResolvedCommandDispatched>,
     state: Res<GlobalStateResource>,
-    query: Query<&PlayerIdentity>,
+    query: Query<&Identity>,
 ) {
     for (event, entity) in receiver.0.try_iter() {
         let sender = Sender::Player(entity);
@@ -36,7 +36,8 @@ pub fn handle(
                 };
                 info!(
                     "Player {} executed command: /{}",
-                    player_id.username, event.command
+                    player_id.name.as_ref().expect("No Player Name"),
+                    event.command
                 );
                 resolved_dispatch_msgs.write(ResolvedCommandDispatched {
                     command,

@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
 
 /// Fired by the `new_connection` system when a player joins
 ///
@@ -8,6 +8,6 @@ use temper_components::player::player_identity::PlayerIdentity;
 /// and `player_spawn` to broadcast spawn packets
 #[derive(Message, Clone)]
 pub struct PlayerJoined {
-    pub identity: PlayerIdentity,
+    pub identity: Identity,
     pub entity: Entity,
 }

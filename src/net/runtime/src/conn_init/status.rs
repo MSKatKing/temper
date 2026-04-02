@@ -1,6 +1,6 @@
 use crate::conn_init::LoginResult;
 use crate::connection::StreamWriter;
-use rand::prelude::SliceRandom;
+use rand::prelude::IndexedRandom;
 use temper_codec::decode::{NetDecode, NetDecodeOpts};
 use temper_config::favicon::get_favicon_base64;
 use temper_config::server_config::get_global_config;
@@ -103,6 +103,7 @@ pub(super) async fn status(
             player_identity: None,
             compression: false,
             client_information_component: None,
+            player_properties: None,
         },
     ))
 }
@@ -200,7 +201,7 @@ fn get_server_status(state: &GlobalState) -> String {
     const DEFAULT_MOTD: &str = "A temper Server";
     let motd: &str = config
         .motd
-        .choose(&mut rand::thread_rng())
+        .choose(&mut rand::rng())
         .map(|s| s.as_str())
         .unwrap_or_else(|| {
             warn!("Add a MOTD line to your server config. Using default for now.");

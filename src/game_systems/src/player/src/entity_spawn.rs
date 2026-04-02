@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use temper_components::entity_identity::EntityIdentity;
+use temper_components::entity_identity::Identity;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_entities::bundles::*;
@@ -73,7 +73,7 @@ fn broadcast_entity_spawn(world: &mut World, entity: Entity) {
     };
     let protocol_id = metadata.protocol_id();
 
-    let identity = match world.get::<EntityIdentity>(entity) {
+    let identity = match world.get::<Identity>(entity) {
         Some(i) => i,
         None => {
             error!("Failed to get entity identity for {:?}", entity);

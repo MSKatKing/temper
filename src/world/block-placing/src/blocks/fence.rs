@@ -119,15 +119,12 @@ impl PlacableBlock for PlaceableFence {
 mod tests {
     use super::*;
     use crate::BlockFace;
-    use temper_core::block_state_id::{init_block_mappings, init_item_to_block_mapping};
     use temper_core::pos::BlockPos;
     use temper_macros::item;
     use temper_state::create_test_state;
 
     #[test]
     fn test_place_fence() {
-        init_block_mappings();
-        init_item_to_block_mapping();
         let (state, _) = create_test_state();
         let context = BlockPlaceContext {
             block_clicked: BlockStateId::new(0),
@@ -146,8 +143,6 @@ mod tests {
 
     #[test]
     fn test_connects_to_neighboring_fences() {
-        init_block_mappings();
-        init_item_to_block_mapping();
         let (state, _) = create_test_state();
         let base_position = BlockPos::of(0, 64, 0);
         // Place a fence at the base position

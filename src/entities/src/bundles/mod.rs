@@ -30,7 +30,7 @@ pub use passive::*;
 macro_rules! define_entity_bundle {
     ($bundle_name:ident, $vanilla_type:ident) => {
         use bevy_ecs::prelude::Bundle;
-        use temper_components::entity_identity::EntityIdentity;
+        use temper_components::entity_identity::Identity;
 
         use temper_components::player::{
             grounded::OnGround, position::Position, rotation::Rotation, velocity::Velocity,
@@ -43,7 +43,7 @@ macro_rules! define_entity_bundle {
 
         #[derive(Bundle)]
         pub struct $bundle_name {
-            pub identity: EntityIdentity,
+            pub identity: Identity,
             pub metadata: EntityMetadata,
             pub combat: CombatProperties,
             pub spawn: SpawnProperties,
@@ -61,7 +61,7 @@ macro_rules! define_entity_bundle {
                 let spawn = SpawnProperties::from_metadata(&metadata);
 
                 Self {
-                    identity: EntityIdentity::new(),
+                    identity: Identity::new(None),
                     metadata,
                     combat,
                     spawn,

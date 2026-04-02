@@ -4,7 +4,9 @@ use crate::errors::BinaryError;
 use std::time::Instant;
 use temper_components::player::offline_player_data::OfflinePlayerData;
 use temper_config::server_config::get_global_config;
-use temper_core::block_state_id::{init_block_mappings, init_item_to_block_mapping};
+use temper_core::block_state_id::{
+    BLOCK2ID, ID2BLOCK, ITEM_TO_BLOCK_MAPPING, create_block_mappings, create_item_to_block_mapping,
+};
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
 use temper_state::GlobalState;
@@ -75,6 +77,10 @@ pub fn setup_db(state: GlobalState) -> Result<(), BinaryError> {
 }
 
 pub fn setup_block_and_item_mapping() {
-    init_item_to_block_mapping();
-    init_block_mappings();
+    ITEM_TO_BLOCK_MAPPING
+        .set(create_item_to_block_mapping())
+        .ok();
+    let (id2block, block2id) = create_block_mappings();
+    ID2BLOCK.set(id2block).ok();
+    BLOCK2ID.set(block2id).ok();
 }

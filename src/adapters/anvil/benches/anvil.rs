@@ -11,7 +11,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     read_all_group.bench_function("temper Rayon", |b| {
         b.iter(|| {
-            let file_path = PathBuf::from("../../../../.etc/r.0.0.mca");
+            let file_path = PathBuf::from("../../../.etc/r.0.0.mca");
             let loaded_file = load_anvil_file(file_path).unwrap();
             let locations = loaded_file.get_locations();
             locations.chunks(96).par_bridge().for_each(|chunk| {
@@ -24,7 +24,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     read_all_group.bench_function("temper", |b| {
         b.iter(|| {
-            let file_path = PathBuf::from("../../../../.etc/r.0.0.mca");
+            let file_path = PathBuf::from("../../../.etc/r.0.0.mca");
             let loaded_file = load_anvil_file(file_path).unwrap();
             let locations = loaded_file.get_locations();
             locations.iter().for_each(|location| {
@@ -39,7 +39,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     read_all_group.bench_function("FastAnvil", |b| {
         b.iter(|| {
-            let file = File::open("../../../../.etc/r.0.0.mca").unwrap();
+            let file = File::open("../../../.etc/r.0.0.mca").unwrap();
             let mut region = Region::from_stream(file).unwrap();
             region.iter().for_each(|chunk| {
                 black_box(chunk.unwrap().data);
@@ -53,7 +53,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     read_one_group.bench_function("temper", |b| {
         b.iter(|| {
-            let file_path = PathBuf::from("../../../../.etc/r.0.0.mca");
+            let file_path = PathBuf::from("../../../.etc/r.0.0.mca");
             let loaded_file = load_anvil_file(file_path).unwrap();
             black_box(loaded_file.get_chunk(0, 0).expect("bad chunk"));
         });
@@ -61,7 +61,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     read_one_group.bench_function("FastAnvil", |b| {
         b.iter(|| {
-            let file = File::open("../../../../.etc/r.0.0.mca").unwrap();
+            let file = File::open("../../../.etc/r.0.0.mca").unwrap();
             let mut region = Region::from_stream(file).unwrap();
             black_box(region.read_chunk(0, 0).unwrap());
         });

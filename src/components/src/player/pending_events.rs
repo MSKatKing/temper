@@ -8,7 +8,7 @@
 //! This ensures events about entities only fire after the entity is fully queryable.
 //! See `docs/_internal/deferred-commands-event-timing.md` for details.
 
-use crate::player::player_identity::PlayerIdentity;
+use crate::entity_identity::Identity;
 use bevy_ecs::prelude::Component;
 
 /// Marker component indicating a player entity was just created and needs
@@ -16,4 +16,4 @@ use bevy_ecs::prelude::Component;
 ///
 /// Added by `accept_new_connections`, removed by `emit_player_joined`.
 #[derive(Component)]
-pub struct PendingPlayerJoin(pub PlayerIdentity);
+pub struct PendingPlayerJoin(pub Identity);

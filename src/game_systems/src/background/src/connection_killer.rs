@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::{Commands, Entity, MessageWriter, Query, Res};
+use temper_components::entity_identity::Identity;
 use temper_components::player::offline_player_data::OfflinePlayerData;
-use temper_components::player::player_identity::PlayerIdentity;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_components::{
@@ -22,7 +22,7 @@ use tracing::{debug, info, trace, warn};
 type PlayerCacheQuery<'a> = (
     Entity,
     &'a StreamWriter,
-    &'a PlayerIdentity,
+    &'a Identity,
     &'a PlayerAbilities,
     &'a GameModeComponent,
     &'a Position,
@@ -36,11 +36,11 @@ type PlayerCacheQuery<'a> = (
 );
 
 // This query is a "fallback" for half-connected players
-type PlayerIdentityQuery<'a> = &'a PlayerIdentity;
+type IdentityQuery<'a> = &'a Identity;
 
 pub fn connection_killer(
     full_player_query: Query<PlayerCacheQuery>,
-    identity_query: Query<PlayerIdentityQuery>,
+    identity_query: Query<IdentityQuery>,
     mut cmd: Commands,
     state: Res<GlobalStateResource>,
     mut leave_events: MessageWriter<PlayerLeft>,
@@ -69,20 +69,18 @@ pub fn connection_killer(
             effects,
         )) = full_player_query.get(disconnecting_entity)
         {
+            let username = player_identity.name.as_ref().expect("No Player Name");
             // --- SUCCESS: This is a fully-joined player ---
             info!(
                 "Player {} ({}) disconnected: {}.",
-                player_identity.username,
+                username,
                 player_identity.uuid,
                 reason.as_deref().unwrap_or("No reason")
             );
 
             // Send disconnect packet
             if conn.running.load(std::sync::atomic::Ordering::Relaxed) {
-                trace!(
-                    "Sending disconnect packet to player {}",
-                    player_identity.username
-                );
+                trace!("Sending disconnect packet to player {}", username);
                 if let Err(e) =
                     conn.send_packet_ref(&temper_protocol::outgoing::disconnect::DisconnectPacket {
                         reason: TextComponent::from(reason.as_deref().unwrap_or("Disconnected"))
@@ -91,13 +89,13 @@ pub fn connection_killer(
                 {
                     warn!(
                         "Failed to send disconnect packet to player {}: {:?}",
-                        player_identity.username, e
+                        username, e
                     );
                 }
             } else {
                 trace!(
                     "Connection for player {} is not running, skipping disconnect packet",
-                    player_identity.username
+                    username
                 );
             }
 
@@ -119,15 +117,9 @@ pub fn connection_killer(
                 .world
                 .save_player_data(player_identity.uuid, &data_to_cache)
             {
-                warn!(
-                    "Failed to save player data for {}: {:?}",
-                    player_identity.username, err
-                );
+                warn!("Failed to save player data for {}: {:?}", username, err);
             } else {
-                debug!(
-                    "Successfully saved player data for {}",
-                    player_identity.username
-                );
+                debug!("Successfully saved player data for {}", username);
             }
 
             // --- 3. Fire PlayerLeaveEvent ---
@@ -143,7 +135,7 @@ pub fn connection_killer(
             if let Ok(player_identity) = identity_query.get(disconnecting_entity) {
                 warn!(
                     "-> (Half-player had identity: {})",
-                    player_identity.username
+                    player_identity.name.as_ref().expect("No Player Name")
                 );
                 leave_events.write(PlayerLeft(player_identity.clone()));
             } else {

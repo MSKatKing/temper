@@ -1,7 +1,9 @@
 use crate::bounds::CollisionBounds;
+use crate::entity_identity::Identity;
 use crate::player::chunk_receiver::ChunkReceiver;
 use crate::player::grounded::OnGround;
-use crate::player::player_identity::PlayerIdentity;
+use crate::player::player_marker::PlayerMarker;
+use crate::player::player_properties::PlayerProperties;
 use crate::player::position::Position;
 use crate::player::rotation::Rotation;
 use crate::{
@@ -21,11 +23,12 @@ use temper_inventories::{hotbar::Hotbar, inventory::Inventory};
 #[derive(Bundle, Default)]
 pub struct PlayerBundle {
     // Identity
-    pub identity: PlayerIdentity,
+    pub identity: Identity,
 
     // Core State
     pub abilities: PlayerAbilities,
     pub gamemode: GameModeComponent,
+    pub player_properties: PlayerProperties,
 
     // Position/World
     pub position: Position,
@@ -48,4 +51,7 @@ pub struct PlayerBundle {
     // Movement State
     pub swimming: SwimmingState,
     pub sneak: SneakState,
+
+    // Player Marker
+    pub player_marker: PlayerMarker,
 }

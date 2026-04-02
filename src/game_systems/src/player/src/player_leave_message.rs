@@ -1,24 +1,24 @@
 use bevy_ecs::prelude::{Entity, MessageReader, Query};
-use temper_components::player::player_identity::PlayerIdentity;
+use temper_components::entity_identity::Identity;
 use temper_core::mq;
 use temper_messages::player_leave::PlayerLeft;
 use temper_text::{Color, NamedColor, TextComponent};
 
-use tracing::trace; // We only need trace, mq will handle errors
+use tracing::trace;
+// We only need trace, mq will handle errors
 
 /// Listens for `PlayerLeaveEvent` and broadcasts the "left" message
 /// to all other connected players via the Message Queue.
-pub fn handle(
-    mut events: MessageReader<PlayerLeft>,
-    player_query: Query<(Entity, &PlayerIdentity)>,
-) {
+pub fn handle(mut events: MessageReader<PlayerLeft>, player_query: Query<(Entity, &Identity)>) {
     // 1. Loop through each "player left" event
     for event in events.read() {
         let player_who_left = &event.0;
 
         // 2. Build the "Player <player> left the game" message
-        let mut message =
-            TextComponent::from(format!("{} left the game", player_who_left.username));
+        let mut message = TextComponent::from(format!(
+            "{} left the game",
+            player_who_left.name.as_ref().expect("No Player Name")
+        ));
         message.color = Some(Color::Named(NamedColor::Yellow));
 
         // 3. Loop through all players on the server
@@ -33,7 +33,8 @@ pub fn handle(
 
             trace!(
                 "Notified {} that {} left",
-                receiver_identity.username, player_who_left.username
+                receiver_identity.name.as_ref().expect("No Player Name"),
+                player_who_left.name.as_ref().expect("No Player Name")
             );
         }
     }
