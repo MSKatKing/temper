@@ -78,8 +78,10 @@ macro_rules! block_behavior_trait {
 
         #[allow(dead_code)]
         pub trait BlockDispatch {
+            fn try_cast<T: BlockBehavior>(&self) -> Option<T>;
+
             $(
-                fn $name(&$($mut_meta)? self, $($argument: $ty),*) $(-> $ret)? { $($default)? }
+                fn $name(&$($mut_meta)? self, $($argument: $ty),*) $(-> $ret)?;
             )*
         }
 
@@ -130,6 +132,10 @@ macro_rules! block_behavior_trait {
         }
 
         impl BlockDispatch for BlockStateId {
+            fn try_cast<T: BlockBehavior>(&self) -> Option<T> {
+                T::try_from(self.raw()).ok()
+            }
+
             $(
                 fn $name(& $($mut_meta)? self, $($argument: $ty),*) $(-> $ret)? {
                     let (_new_id, _ret) = id_ret_decode!{$($mut_meta)? $($ret)?, BLOCK_MAPPINGS[self.raw() as usize].$name($($argument),*)};

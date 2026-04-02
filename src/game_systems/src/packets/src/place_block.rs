@@ -7,12 +7,6 @@ use temper_components::{bounds::CollisionBounds, player::sneak::SneakState};
 use temper_core::pos::BlockPos;
 use temper_messages::BlockInteractMessage;
 
-use temper_net_runtime::connection::StreamWriter;
-use temper_protocol::PlaceBlockReceiver;
-use temper_protocol::outgoing::block_change_ack::BlockChangeAck;
-use temper_protocol::outgoing::block_update::BlockUpdate;
-use temper_state::GlobalStateResource;
-use tracing::{debug, error, trace};
 use bevy_math::DVec2;
 use temper_blocks::BlockDispatch;
 use temper_components::player::rotation::Rotation;
@@ -23,7 +17,13 @@ use temper_core::mq;
 use temper_inventories::hotbar::Hotbar;
 use temper_inventories::inventory::Inventory;
 use temper_messages::world_change::WorldChange;
+use temper_net_runtime::connection::StreamWriter;
+use temper_protocol::PlaceBlockReceiver;
+use temper_protocol::outgoing::block_change_ack::BlockChangeAck;
+use temper_protocol::outgoing::block_update::BlockUpdate;
+use temper_state::GlobalStateResource;
 use temper_text::{Color, NamedColor, TextComponentBuilder};
+use tracing::{debug, error, trace};
 
 pub fn handle(
     receiver: Res<PlaceBlockReceiver>,
