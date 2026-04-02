@@ -1,0 +1,16 @@
+mod note_block;
+mod chiseled_bookshelf;
+mod sign;
+mod door;
+mod waterloggable_wall;
+mod hanging_sign;
+mod fence_pane;
+mod trapdoor;
+mod chain;
+mod fence_gate;
+mod wall;
+mod lantern;
+mod bell;
+mod banner;
+mod candle;
+mod decorated_pot;

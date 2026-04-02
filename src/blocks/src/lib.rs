@@ -1,5 +1,3 @@
-#![feature(min_specialization)]
-
 use bevy_math::DVec2;
 use temper_block_properties::SlabType;
 use temper_blocks_generated::{SlabBlock, SnowyBlock};
@@ -11,6 +9,22 @@ use temper_macros::match_block;
 use temper_world::World;
 
 mod behavior_trait;
+mod liquid;
+mod suspicious_block;
+mod waterloggable_block;
+mod bed_block;
+mod facing_block;
+mod fire;
+mod nature;
+mod building;
+mod decorative;
+mod redstone;
+mod cake;
+mod functional;
+mod candle_cake;
+mod bubble_column;
+mod skull;
+mod wall_skull;
 
 #[allow(unused_imports)] // Used in the include!
 use crate::behavior_trait::BlockBehaviorTable;

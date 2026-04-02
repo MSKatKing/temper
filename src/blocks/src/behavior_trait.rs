@@ -83,16 +83,6 @@ macro_rules! block_behavior_trait {
             )*
         }
 
-        impl<T> BlockBehavior for T
-        where
-            T: TryInto<u32, Error = ()> + TryFrom<u32, Error = ()> + Clone + std::fmt::Debug,
-        {
-            $(
-                #[inline(always)]
-                default fn $name(&$($mut_meta)? self, $($argument: $ty),*) $(-> $ret)? { $($default)? }
-            )*
-        }
-
         pub struct BlockBehaviorTable {
             $(
                 $name: fn(id: u32, $($argument: $ty),*) -> ptr_ret_ty!{$($mut_meta)?}
