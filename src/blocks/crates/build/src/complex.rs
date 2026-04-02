@@ -1,10 +1,10 @@
 use crate::config::{BuildConfig, SingleOrMultiple};
-use temper_block_properties::{PropertyDescriptor, TYPES};
 use fxhash::FxHashMap;
 use heck::{ToPascalCase, ToShoutySnakeCase, ToSnakeCase};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use std::collections::HashMap;
+use temper_block_properties::{PropertyDescriptor, TYPES};
 
 struct BlockStateConfiguration<'a> {
     name: &'a str,

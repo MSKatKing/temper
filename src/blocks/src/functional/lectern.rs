@@ -1,6 +1,4 @@
-use temper_blocks_generated::LecternBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::LecternBlock;
 
-impl BlockBehavior for LecternBlock {
-    
-}
+impl BlockBehavior for LecternBlock {}

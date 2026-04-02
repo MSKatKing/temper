@@ -1,6 +1,4 @@
-use temper_blocks_generated::ScaffoldingBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::ScaffoldingBlock;
 
-impl BlockBehavior for ScaffoldingBlock {
-    
-}
+impl BlockBehavior for ScaffoldingBlock {}

@@ -1,6 +1,4 @@
-use temper_blocks_generated::DoorBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::DoorBlock;
 
-impl BlockBehavior for DoorBlock {
-    
-}
+impl BlockBehavior for DoorBlock {}

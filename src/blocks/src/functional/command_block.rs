@@ -1,6 +1,4 @@
-use temper_blocks_generated::CommandBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::CommandBlock;
 
-impl BlockBehavior for CommandBlock {
-    
-}
+impl BlockBehavior for CommandBlock {}

@@ -1,6 +1,4 @@
-use temper_blocks_generated::LichenBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::LichenBlock;
 
-impl BlockBehavior for LichenBlock {
-    
-}
+impl BlockBehavior for LichenBlock {}

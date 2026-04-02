@@ -1,6 +1,4 @@
-use temper_blocks_generated::PitcherCropBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::PitcherCropBlock;
 
-impl BlockBehavior for PitcherCropBlock {
-    
-}
+impl BlockBehavior for PitcherCropBlock {}

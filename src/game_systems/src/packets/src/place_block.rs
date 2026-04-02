@@ -13,17 +13,13 @@ use temper_protocol::outgoing::block_change_ack::BlockChangeAck;
 use temper_protocol::outgoing::block_update::BlockUpdate;
 use temper_state::GlobalStateResource;
 use tracing::{debug, error, trace};
-
-use bevy_math::{DVec2, DVec3, Vec2};
-use block_placing::PlacedBlocks;
-use std::collections::HashMap;
+use bevy_math::DVec2;
+use temper_blocks::BlockDispatch;
 use temper_components::player::rotation::Rotation;
 use temper_config::server_config::get_global_config;
 use temper_core::block_state_id::ITEM_TO_BLOCK_MAPPING;
 use temper_core::dimension::Dimension;
 use temper_core::mq;
-use temper_blocks::BlockDispatch;
-use temper_core::block_face::BlockFace;
 use temper_inventories::hotbar::Hotbar;
 use temper_inventories::inventory::Inventory;
 use temper_messages::world_change::WorldChange;
@@ -46,7 +42,7 @@ pub fn handle(
     mut block_interact: MessageWriter<BlockInteractMessage>,
 ) {
     'ev_loop: for (event, eid) in receiver.0.try_iter() {
-        let Ok((entity, conn, inventory, hotbar, pos, rot, sneak)) = query.get(eid) else {
+        let Ok((entity, conn, inventory, hotbar, _pos, _rot, sneak)) = query.get(eid) else {
             debug!("Could not get connection for entity {:?}", eid);
             continue;
         };
@@ -115,7 +111,7 @@ pub fn handle(
                     }
                     let offset_pos = block_pos + event.face.translation_vec().into();
 
-                    let block_clicked = {
+                    let _block_clicked = {
                         let chunk = state
                             .0
                             .world
@@ -159,14 +155,14 @@ pub fn handle(
                             .expect("Failed to load or generate chunk");
                         chunk.get_block(offset_pos.chunk_block_pos())
                     };
-                    
+
                     let mut block_state = ITEM_TO_BLOCK_MAPPING
                         .get()
                         .unwrap()
                         .get(&(item_id.as_u32() as i32))
                         .copied()
                         .unwrap();
-                    
+
                     block_state.get_placement_state(
                         temper_blocks::PlacementContext {
                             face: event.face,
@@ -176,7 +172,7 @@ pub fn handle(
                         offset_pos,
                     );
 
-                    let placed_blocks = vec![(block_pos, block_state)];
+                    let placed_blocks = vec![(offset_pos, block_state)];
 
                     // let placed_blocks = block_placing::place_item(
                     //     state.0.clone(),

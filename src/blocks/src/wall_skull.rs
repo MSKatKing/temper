@@ -1,6 +1,4 @@
-use temper_blocks_generated::WallSkullBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::WallSkullBlock;
 
-impl BlockBehavior for WallSkullBlock {
-    
-}
+impl BlockBehavior for WallSkullBlock {}

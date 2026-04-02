@@ -1,6 +1,4 @@
-use temper_blocks_generated::JukeboxBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::JukeboxBlock;
 
-impl BlockBehavior for JukeboxBlock {
-    
-}
+impl BlockBehavior for JukeboxBlock {}

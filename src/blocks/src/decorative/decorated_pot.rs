@@ -1,6 +1,4 @@
-use temper_blocks_generated::DecoratedPotBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::DecoratedPotBlock;
 
-impl BlockBehavior for DecoratedPotBlock {
-    
-}
+impl BlockBehavior for DecoratedPotBlock {}

@@ -1,6 +1,4 @@
-use temper_blocks_generated::FireBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::FireBlock;
 
-impl BlockBehavior for FireBlock {
-
-}
+impl BlockBehavior for FireBlock {}

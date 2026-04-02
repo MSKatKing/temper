@@ -1,9 +1,9 @@
+use heck::ToSnakeCase;
+use std::fs;
 use temper_blocks_build::complex::generate_complex_blocks;
 use temper_blocks_build::config::{get_block_states, get_build_config};
 use temper_blocks_build::simple::generate_simple_block_enum;
 use temper_blocks_build::{format_code, separate_blocks};
-use heck::ToSnakeCase;
-use std::fs;
 
 fn main() {
     let build_config = get_build_config();

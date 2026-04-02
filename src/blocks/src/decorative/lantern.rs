@@ -1,6 +1,4 @@
-use temper_blocks_generated::LanternBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::LanternBlock;
 
-impl BlockBehavior for LanternBlock {
-    
-}
+impl BlockBehavior for LanternBlock {}

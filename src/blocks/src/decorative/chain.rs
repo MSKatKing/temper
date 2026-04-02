@@ -1,6 +1,4 @@
-use temper_blocks_generated::ChainBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::ChainBlock;
 
-impl BlockBehavior for ChainBlock {
-    
-}
+impl BlockBehavior for ChainBlock {}

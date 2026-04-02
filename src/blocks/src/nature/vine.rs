@@ -1,6 +1,4 @@
-use temper_blocks_generated::VineBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::VineBlock;
 
-impl BlockBehavior for VineBlock {
-    
-}
+impl BlockBehavior for VineBlock {}

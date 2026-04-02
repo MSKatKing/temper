@@ -1,6 +1,4 @@
-use temper_blocks_generated::FurnaceBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::FurnaceBlock;
 
-impl BlockBehavior for FurnaceBlock {
-    
-}
+impl BlockBehavior for FurnaceBlock {}

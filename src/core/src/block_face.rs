@@ -1,7 +1,7 @@
-use std::io::Read;
 use bevy_math::IVec3;
-use temper_codec::decode::{NetDecode, NetDecodeOpts};
+use std::io::Read;
 use temper_codec::decode::errors::NetDecodeError;
+use temper_codec::decode::{NetDecode, NetDecodeOpts};
 use temper_codec::net_types::var_int::VarInt;
 use temper_nbt::tokio::io::AsyncRead;
 

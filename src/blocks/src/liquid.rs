@@ -1,6 +1,4 @@
-use temper_blocks_generated::LiquidBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::LiquidBlock;
 
-impl BlockBehavior for LiquidBlock {
-    
-}
+impl BlockBehavior for LiquidBlock {}

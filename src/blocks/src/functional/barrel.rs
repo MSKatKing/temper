@@ -1,6 +1,4 @@
-use temper_blocks_generated::BarrelBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::BarrelBlock;
 
-impl BlockBehavior for BarrelBlock {
-    
-}
+impl BlockBehavior for BarrelBlock {}

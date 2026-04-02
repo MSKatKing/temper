@@ -1,6 +1,4 @@
-use temper_blocks_generated::StructureBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::StructureBlock;
 
-impl BlockBehavior for StructureBlock {
-    
-}
+impl BlockBehavior for StructureBlock {}

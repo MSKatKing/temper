@@ -1,6 +1,4 @@
-use temper_blocks_generated::DoublePlantBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::DoublePlantBlock;
 
-impl BlockBehavior for DoublePlantBlock {
-    
-}
+impl BlockBehavior for DoublePlantBlock {}

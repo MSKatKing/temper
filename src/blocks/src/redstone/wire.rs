@@ -1,6 +1,4 @@
-use temper_blocks_generated::RedstoneWireBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::RedstoneWireBlock;
 
-impl BlockBehavior for RedstoneWireBlock {
-    
-}
+impl BlockBehavior for RedstoneWireBlock {}

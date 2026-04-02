@@ -1,6 +1,4 @@
-use temper_blocks_generated::LeverBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::LeverBlock;
 
-impl BlockBehavior for LeverBlock {
-    
-}
+impl BlockBehavior for LeverBlock {}

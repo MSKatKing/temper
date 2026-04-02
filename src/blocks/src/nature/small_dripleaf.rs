@@ -1,6 +1,4 @@
-use temper_blocks_generated::SmallDripleafBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::SmallDripleafBlock;
 
-impl BlockBehavior for SmallDripleafBlock {
-    
-}
+impl BlockBehavior for SmallDripleafBlock {}

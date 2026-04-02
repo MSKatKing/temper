@@ -1,9 +1,7 @@
-use temper_blocks_generated::PistonBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::PistonBlock;
 
 mod head;
 mod moving_head;
 
-impl BlockBehavior for PistonBlock {
-    
-}
+impl BlockBehavior for PistonBlock {}

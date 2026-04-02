@@ -8,23 +8,23 @@ use temper_core::pos::BlockPos;
 use temper_macros::match_block;
 use temper_world::World;
 
-mod behavior_trait;
-mod liquid;
-mod suspicious_block;
-mod waterloggable_block;
 mod bed_block;
+mod behavior_trait;
+mod bubble_column;
+mod building;
+mod cake;
+mod candle_cake;
+mod decorative;
 mod facing_block;
 mod fire;
-mod nature;
-mod building;
-mod decorative;
-mod redstone;
-mod cake;
 mod functional;
-mod candle_cake;
-mod bubble_column;
+mod liquid;
+mod nature;
+mod redstone;
 mod skull;
+mod suspicious_block;
 mod wall_skull;
+mod waterloggable_block;
 
 #[allow(unused_imports)] // Used in the include!
 use crate::behavior_trait::BlockBehaviorTable;

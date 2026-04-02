@@ -1,6 +1,4 @@
-use temper_blocks_generated::PaleHangingMossBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::PaleHangingMossBlock;
 
-impl BlockBehavior for PaleHangingMossBlock {
-    
-}
+impl BlockBehavior for PaleHangingMossBlock {}

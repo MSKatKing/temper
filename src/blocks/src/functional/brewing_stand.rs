@@ -1,6 +1,4 @@
-use temper_blocks_generated::BrewingStandBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::BrewingStandBlock;
 
-impl BlockBehavior for BrewingStandBlock {
-    
-}
+impl BlockBehavior for BrewingStandBlock {}

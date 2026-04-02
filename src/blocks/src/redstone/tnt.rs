@@ -1,6 +1,4 @@
-use temper_blocks_generated::TntBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::TntBlock;
 
-impl BlockBehavior for TntBlock {
-    
-}
+impl BlockBehavior for TntBlock {}

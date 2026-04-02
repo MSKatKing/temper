@@ -1,6 +1,4 @@
-use temper_blocks_generated::GlowBerriesPlantBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::GlowBerriesPlantBlock;
 
-impl BlockBehavior for GlowBerriesPlantBlock {
-    
-}
+impl BlockBehavior for GlowBerriesPlantBlock {}

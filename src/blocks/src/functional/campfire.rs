@@ -1,6 +1,4 @@
-use temper_blocks_generated::CampfireBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::CampfireBlock;
 
-impl BlockBehavior for CampfireBlock {
-    
-}
+impl BlockBehavior for CampfireBlock {}

@@ -1,6 +1,4 @@
-use temper_blocks_generated::FarmlandBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::FarmlandBlock;
 
-impl BlockBehavior for FarmlandBlock {
-    
-}
+impl BlockBehavior for FarmlandBlock {}

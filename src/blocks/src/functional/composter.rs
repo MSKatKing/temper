@@ -1,6 +1,4 @@
-use temper_blocks_generated::ComposterBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::ComposterBlock;
 
-impl BlockBehavior for ComposterBlock {
-    
-}
+impl BlockBehavior for ComposterBlock {}

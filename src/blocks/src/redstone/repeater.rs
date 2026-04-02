@@ -1,6 +1,4 @@
-use temper_blocks_generated::RepeaterBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::RepeaterBlock;
 
-impl BlockBehavior for RepeaterBlock {
-    
-}
+impl BlockBehavior for RepeaterBlock {}

@@ -1,6 +1,4 @@
-use temper_blocks_generated::SculkCatalystBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::SculkCatalystBlock;
 
-impl BlockBehavior for SculkCatalystBlock {
-    
-}
+impl BlockBehavior for SculkCatalystBlock {}

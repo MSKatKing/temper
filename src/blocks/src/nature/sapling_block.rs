@@ -1,6 +1,4 @@
-use temper_blocks_generated::SaplingBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::SaplingBlock;
 
-impl BlockBehavior for SaplingBlock {
-    
-}
+impl BlockBehavior for SaplingBlock {}

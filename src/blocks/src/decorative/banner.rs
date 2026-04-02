@@ -1,6 +1,4 @@
-use temper_blocks_generated::BannerBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::BannerBlock;
 
-impl BlockBehavior for BannerBlock {
-    
-}
+impl BlockBehavior for BannerBlock {}

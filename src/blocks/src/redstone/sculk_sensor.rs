@@ -1,6 +1,4 @@
-use temper_blocks_generated::SculkSensorBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::SculkSensorBlock;
 
-impl BlockBehavior for SculkSensorBlock {
-    
-}
+impl BlockBehavior for SculkSensorBlock {}

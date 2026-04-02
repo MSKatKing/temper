@@ -1,6 +1,4 @@
-use temper_blocks_generated::PressurePlateBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::PressurePlateBlock;
 
-impl BlockBehavior for PressurePlateBlock {
-    
-}
+impl BlockBehavior for PressurePlateBlock {}

@@ -1,6 +1,4 @@
-use temper_blocks_generated::RedstoneLampBlock;
 use crate::BlockBehavior;
+use temper_blocks_generated::RedstoneLampBlock;
 
-impl BlockBehavior for RedstoneLampBlock {
-    
-}
+impl BlockBehavior for RedstoneLampBlock {}
