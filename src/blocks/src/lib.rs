@@ -1,4 +1,4 @@
-use bevy_math::DVec2;
+use bevy_math::DVec3;
 use temper_block_properties::SlabType;
 use temper_blocks_generated::{SlabBlock, SnowyBlock};
 use temper_core::block_face::BlockFace;
@@ -34,31 +34,46 @@ pub use crate::behavior_trait::{BlockBehavior, BlockDispatch, StateBehaviorTable
 pub const BLOCK_MAPPINGS: &[StateBehaviorTable] =
     include!(concat!(env!("OUT_DIR"), "/mappings.rs"));
 
-pub struct PlacementContext {
+pub struct PlacementContext<'a> {
     pub face: BlockFace,
-    pub cursor: DVec2,
+    pub cursor: DVec3,
+    pub block_clicked: BlockPos,
+    pub block_pos: BlockPos,
+    pub level: &'a World,
+    pub dimension: Dimension,
 }
 
 impl BlockBehavior for SlabBlock {
     #[inline(always)]
-    fn get_placement_state(&mut self, context: PlacementContext, world: &World, pos: BlockPos) {
-        let block = world
-            .get_chunk(pos.chunk(), Dimension::Overworld)
-            .map(|c| c.get_block(pos.chunk_block_pos()))
+    fn get_placement_state(&mut self, context: PlacementContext) {
+        let block = context
+            .level
+            .get_chunk(context.block_pos.chunk(), context.dimension)
+            .map(|c| c.get_block(context.block_pos.chunk_block_pos()))
             .unwrap_or(BlockStateId::new(0));
 
-        self.waterlogged = match_block!("water", block);
-        self.ty = match context.face {
-            BlockFace::Top => SlabType::Bottom,
-            BlockFace::Bottom => SlabType::Top,
-            _ => {
-                if context.cursor.y > 0.5 {
-                    SlabType::Top
-                } else {
-                    SlabType::Bottom
+        self.ty = if block.try_cast::<SlabBlock>().is_some() {
+            SlabType::Double
+        } else {
+            match context.face {
+                BlockFace::Top => SlabType::Bottom,
+                BlockFace::Bottom => SlabType::Top,
+                _ => {
+                    if context.cursor.y > 0.5 {
+                        SlabType::Top
+                    } else {
+                        SlabType::Bottom
+                    }
                 }
             }
-        }
+        };
+
+        self.waterlogged = match_block!("water", block);
+    }
+
+    #[inline(always)]
+    fn can_be_replaced(&self, _context: PlacementContext) -> bool {
+        true
     }
 
     #[inline(always)]
@@ -77,8 +92,8 @@ fn has_snow_above(world: &World, pos: BlockPos) -> bool {
 }
 
 impl BlockBehavior for SnowyBlock {
-    fn get_placement_state(&mut self, _context: PlacementContext, world: &World, pos: BlockPos) {
-        self.snowy = has_snow_above(world, pos);
+    fn get_placement_state(&mut self, _context: PlacementContext) {
+        self.snowy = has_snow_above(_context.level, _context.block_pos);
     }
 
     fn update(&mut self, world: &World, pos: BlockPos) {

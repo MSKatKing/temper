@@ -7,7 +7,7 @@ use temper_components::{bounds::CollisionBounds, player::sneak::SneakState};
 use temper_core::pos::BlockPos;
 use temper_messages::BlockInteractMessage;
 
-use bevy_math::DVec2;
+use bevy_math::DVec3;
 use temper_blocks::BlockDispatch;
 use temper_components::player::rotation::Rotation;
 use temper_config::server_config::get_global_config;
@@ -163,14 +163,18 @@ pub fn handle(
                         .copied()
                         .unwrap();
 
-                    block_state.get_placement_state(
-                        temper_blocks::PlacementContext {
-                            face: event.face,
-                            cursor: DVec2::new(event.cursor_x as _, event.cursor_y as _),
-                        },
-                        &state.0.world,
-                        offset_pos,
-                    );
+                    block_state.get_placement_state(temper_blocks::PlacementContext {
+                        face: event.face,
+                        cursor: DVec3::new(
+                            event.cursor_x as _,
+                            event.cursor_y as _,
+                            event.cursor_z as _,
+                        ),
+                        block_clicked: block_pos,
+                        block_pos: offset_pos,
+                        level: &state.0.world,
+                        dimension: Dimension::Overworld,
+                    });
 
                     let placed_blocks = vec![(offset_pos, block_state)];
 

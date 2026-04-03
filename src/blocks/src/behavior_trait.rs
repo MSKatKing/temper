@@ -42,7 +42,7 @@ macro_rules! block_behavior_trait {
                 $in_data
             };
             ($retb:ty, $in_data:expr) => {
-                ((), $retb)
+                ((), $in_data)
             };
         }
 
@@ -55,16 +55,16 @@ macro_rules! block_behavior_trait {
             () => {
                 ()
             };
-            (mut; $data:expr; $retb:ty) => {
+            (mut; $data:expr; $retb:ty; $ret_val:expr) => {
                 (
                     $data
                         .try_into()
                         .unwrap_or_else(|_| panic!("Failed to convert block data back into id")),
-                    _ret,
+                    $ret_val,
                 )
             };
-            ($retb:ty) => {
-                _ret
+            ($retb:ty; $ret_val:expr) => {
+                $ret_val
             };
         }
 
@@ -87,7 +87,7 @@ macro_rules! block_behavior_trait {
 
         pub struct BlockBehaviorTable {
             $(
-                $name: fn(id: u32, $($argument: $ty),*) -> ptr_ret_ty!{$($mut_meta)?}
+                $name: fn(id: u32, $($argument: $ty),*) -> ptr_ret_ty!{$($mut_meta)? $($ret)?}
             ),*
         }
 
@@ -98,7 +98,7 @@ macro_rules! block_behavior_trait {
                         $name: |id, $($argument),*| {
                             let $($mut_meta)? data = T::try_from(id).unwrap_or_else(|_| panic!("Failed to convert id to data"));
                             let _ret = data.$name($($argument),*);
-                            lambda_ret_ty!($($mut_meta; data;)? $($ret)?)
+                            lambda_ret_ty!($($mut_meta; data;)? $($ret; _ret)?)
                         }
                     ),*
                 }
@@ -151,7 +151,8 @@ macro_rules! block_behavior_trait {
 //
 // This is the only place where the `block_behavior_trait!` macro should be used.
 block_behavior_trait!(
-    fn get_placement_state(mut; _context: PlacementContext, _world: &World, _pos: BlockPos),
+    fn get_placement_state(mut; _context: PlacementContext),
+    fn can_be_replaced(; _context: PlacementContext) -> bool; false,
     fn update(mut; _world: &World, _pos: BlockPos),
     fn test(;),
 );
