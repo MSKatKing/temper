@@ -25,6 +25,7 @@ mod sea_pickle;
 mod small_dripleaf;
 mod sniffer_egg;
 mod snow;
+mod snowy;
 mod stem;
 mod turtle_egg;
 mod vine;

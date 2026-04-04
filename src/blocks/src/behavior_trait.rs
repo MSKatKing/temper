@@ -154,5 +154,4 @@ block_behavior_trait!(
     fn get_placement_state(mut; _context: PlacementContext),
     fn can_be_replaced(; _context: PlacementContext) -> bool; false,
     fn update(mut; _world: &World, _pos: BlockPos),
-    fn test(;),
 );
