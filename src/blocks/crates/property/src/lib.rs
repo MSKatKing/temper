@@ -84,7 +84,16 @@ pub trait BlockStateProperty: FromStr + ToString {
 impl BlockStateProperty for i32 {}
 impl BlockStateProperty for bool {}
 
-/// Helper macro to implement enum property types
+/// Helper macro to implement enum property types. The syntax is simple:
+/// 
+/// ```rust
+/// enum_property!(
+///     MyBlockStateProperty, // Enum name
+///     A => "a", // Enum variants and their block state property string value
+///     West => "west",
+///     // Etc...
+/// );
+/// ```
 #[macro_export]
 macro_rules! enum_property {
     ($name:ident, $($variant:ident => $variant_str:expr),* $(,)?) => {
