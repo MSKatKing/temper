@@ -1,6 +1,6 @@
 use crate::section::AIR;
-use bitcode_derive::{Decode, Encode};
 use deepsize::DeepSizeOf;
+use serde_derive::{Deserialize, Serialize};
 use std::num::NonZeroU16;
 use temper_core::block_state_id::BlockStateId;
 use type_hash::TypeHash;
@@ -18,7 +18,7 @@ pub enum BlockPaletteResult {
     ConvertToUniform(BlockStateId),
 }
 
-#[derive(Clone, DeepSizeOf, Encode, Decode, TypeHash)]
+#[derive(Clone, DeepSizeOf, Serialize, Deserialize, TypeHash)]
 pub struct BlockPalette {
     pub(crate) palette: Vec<Option<(BlockStateId, NonZeroU16)>>,
     pub(crate) free_count: u16,

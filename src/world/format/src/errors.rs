@@ -27,10 +27,10 @@ pub enum WorldError {
     GenericIOError(String),
     #[error("A database error occurred from the world crate: {0}")]
     DatabaseError(StorageError),
-    #[error("There was an error with bitcode's decoding: {0}")]
-    BitcodeDecodeError(String),
-    #[error("There was an error with bitcode's encoding: {0}")]
-    BitcodeEncodeError(String),
+    #[error("There was an error with bitcode's deserializing: {0}")]
+    BitcodeDeserializeError(String),
+    #[error("There was an error with bitcode's serializing: {0}")]
+    BitcodeSerializeError(String),
     #[error("Chunk not found")]
     ChunkNotFound,
     #[error("Anvil Decode Error: {0}")]

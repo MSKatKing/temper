@@ -2,8 +2,8 @@ use crate::BlockStateId;
 use crate::palette::{BlockPalette, BlockPaletteResult, PaletteIndex};
 use crate::section::uniform::UniformSection;
 use crate::section::{AIR, CHUNK_SECTION_LENGTH};
-use bitcode_derive::{Decode, Encode};
 use deepsize::DeepSizeOf;
+use serde_derive::{Deserialize, Serialize};
 use std::num::NonZeroU16;
 use type_hash::TypeHash;
 
@@ -13,7 +13,7 @@ pub enum PalettedSectionResult {
     Shrink(BlockStateId),
 }
 
-#[derive(Clone, DeepSizeOf, Encode, Decode, TypeHash)]
+#[derive(Clone, DeepSizeOf, Serialize, Deserialize, TypeHash)]
 pub struct PalettedSection {
     pub(crate) palette: BlockPalette,
     pub(crate) block_data: Box<[u64]>,

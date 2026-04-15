@@ -13,7 +13,7 @@ fn get_rand_in_range(min: i32, max: i32) -> i32 {
 #[expect(clippy::unit_arg)]
 pub(crate) fn bench_edits(c: &mut Criterion) {
     let chunk_data = include_bytes!("../../../../.etc/raw_chunk.dat");
-    let chunk: Chunk = bitcode::decode(chunk_data)
+    let chunk: Chunk = bitcode::deserialize(chunk_data)
         .expect("If this fails, go run the dump_chunk test at src/lib/world/src/mod");
 
     let mut read_group = c.benchmark_group("edit_read");

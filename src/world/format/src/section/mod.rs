@@ -5,8 +5,8 @@ use crate::section::direct::DirectSection;
 use crate::section::paletted::{PalettedSection, PalettedSectionResult};
 use crate::section::uniform::UniformSection;
 use crate::vanilla_chunk_format::Section;
-use bitcode_derive::{Decode, Encode};
 use deepsize::DeepSizeOf;
+use serde_derive::{Deserialize, Serialize};
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::SectionBlockPos;
 use temper_macros::block;
@@ -22,7 +22,7 @@ pub const CHUNK_SECTION_LENGTH: usize = 16 * 16 * 16;
 
 pub(crate) const AIR: BlockStateId = block!("air");
 
-#[derive(Clone, DeepSizeOf, Encode, Decode, TypeHash)]
+#[derive(Clone, DeepSizeOf, Serialize, Deserialize, TypeHash)]
 pub(crate) enum ChunkSectionType {
     Uniform(UniformSection),
     Paletted(PalettedSection),
@@ -95,7 +95,7 @@ impl ChunkSectionType {
     }
 }
 
-#[derive(Clone, DeepSizeOf, Encode, Decode, TypeHash)]
+#[derive(Clone, DeepSizeOf, Serialize, Deserialize, TypeHash)]
 pub struct ChunkSection {
     pub(crate) inner: ChunkSectionType,
     pub(crate) light: SectionLightData,

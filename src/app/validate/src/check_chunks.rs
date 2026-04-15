@@ -25,7 +25,7 @@ pub fn check_chunks(state: &ServerState) -> Result<(), String> {
             if chunk_format_hash_str != Chunk::type_hash() {
                 error!(
                     "Chunk format hash mismatch. Expected 0X{:0X}, got 0X{:0X}. This likely means that the chunk format has changed since saving. If you have \
-                    recently updated Temper you will have to go back to the older version until a world format converter is implemented.)",
+                    recently updated Temper you will have to go back to the older version until a world format converter is implemented.",
                     Chunk::type_hash(),
                     chunk_format_hash_str
                 );
@@ -36,7 +36,7 @@ pub fn check_chunks(state: &ServerState) -> Result<(), String> {
                 "Could not find 'chunk-format-hash' in metadata. This likely means that the world was saved with an older version of Temper that did not include this metadata, or that the metadata is corrupted."
             );
             error!(
-                "If you have recently updated Temper you will have to go back to the older version until a world format converter is implemented.)"
+                "If you have recently updated Temper you will have to go back to the older version until a world format converter is implemented."
             );
             exit(1);
         }
@@ -100,12 +100,12 @@ pub fn check_chunks(state: &ServerState) -> Result<(), String> {
                 exit(1);
             }
         }
-        if let Err(e) = bitcode::decode::<Chunk>(&data) {
+        if let Err(e) = bitcode::deserialize::<Chunk>(&data) {
             progress_bar.finish();
             error!("Chunk {} failed to decode: {}", decoded_key, e);
             error!(
                 "This generally means that the chunk format has changed since saving. If you have \
-                recently updated Temper you will have to go back to the older version until a world format converter is implemented.)"
+                recently updated Temper you will have to go back to the older version until a world format converter is implemented."
             );
             exit(1);
         }

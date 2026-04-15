@@ -11,8 +11,8 @@ use bevy_math::U8Vec3;
 use bevy_math::Vec2Swizzles;
 use bevy_math::Vec3Swizzles;
 use bevy_math::{DVec3, I16Vec3};
-use bitcode_derive::{Decode, Encode};
 use deepsize::DeepSizeOf;
+use serde::{Deserialize, Serialize};
 use temper_codec::net_types::network_position::NetworkPosition;
 use type_hash::TypeHash;
 
@@ -92,7 +92,7 @@ impl Add<(i32, i32, i32)> for BlockPos {
     }
 }
 
-#[derive(Clone, Copy, DeepSizeOf, Encode, Decode, TypeHash)]
+#[derive(Clone, Copy, DeepSizeOf, Serialize, Deserialize, TypeHash)]
 pub struct ChunkHeight {
     pub min_y: i16,
     pub height: u16,

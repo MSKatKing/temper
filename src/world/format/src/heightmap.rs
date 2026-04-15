@@ -1,19 +1,19 @@
 use crate::errors::WorldError;
 use crate::vanilla_chunk_format::VanillaHeightmaps;
-use bitcode_derive::{Decode, Encode};
 use deepsize::DeepSizeOf;
+use serde_derive::{Deserialize, Serialize};
 use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
 use temper_codec::net_types::var_int::VarInt;
 use temper_macros::NetEncode;
 use type_hash::TypeHash;
 
-#[derive(Default, Clone, DeepSizeOf, Encode, Decode, TypeHash)]
+#[derive(Default, Clone, DeepSizeOf, Serialize, Deserialize, TypeHash)]
 pub struct Heightmaps {
     pub world_surface: ChunkHeightmap,
     pub motion_blocking: ChunkHeightmap,
 }
 
-#[derive(Clone, DeepSizeOf, Encode, Decode, TypeHash)]
+#[derive(Clone, DeepSizeOf, Serialize, Deserialize, TypeHash)]
 pub struct ChunkHeightmap {
     data: Box<[i16]>,
 }

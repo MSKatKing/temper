@@ -1,8 +1,8 @@
 use crate::block_data::BlockData;
 use ahash::RandomState;
-use bitcode_derive::{Decode, Encode};
 use deepsize::DeepSizeOf;
 use once_cell::sync::OnceCell;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::process::exit;
@@ -53,7 +53,7 @@ pub fn create_block_mappings() -> (Vec<BlockData>, HashMap<BlockData, i32, Rando
 ///
 /// This should be used over `BlockData` in most cases, as it's much more efficient to store and pass around.
 /// You can also generate a block's id at runtime with the [temper_macros::block!] macro.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Encode, Decode, DeepSizeOf, TypeHash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, DeepSizeOf, TypeHash)]
 pub struct BlockStateId(u32);
 
 impl BlockStateId {

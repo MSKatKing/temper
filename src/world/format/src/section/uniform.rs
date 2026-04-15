@@ -1,10 +1,10 @@
 use crate::BlockStateId;
 use crate::section::AIR;
-use bitcode_derive::{Decode, Encode};
 use deepsize::DeepSizeOf;
+use serde_derive::{Deserialize, Serialize};
 use type_hash::TypeHash;
 
-#[derive(Clone, DeepSizeOf, Encode, Decode, TypeHash)]
+#[derive(Clone, DeepSizeOf, Serialize, Deserialize, TypeHash)]
 pub struct UniformSection(BlockStateId);
 
 impl UniformSection {

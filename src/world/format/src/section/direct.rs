@@ -1,8 +1,8 @@
 use crate::section::paletted::PalettedSection;
 use crate::section::uniform::UniformSection;
 use crate::section::{AIR, CHUNK_SECTION_LENGTH};
-use bitcode_derive::{Decode, Encode};
 use deepsize::DeepSizeOf;
+use serde_derive::{Deserialize, Serialize};
 use temper_core::block_state_id::BlockStateId;
 use type_hash::TypeHash;
 
@@ -11,7 +11,7 @@ type CompactBlockStateId = u16;
 
 const AIR_COMPACT: CompactBlockStateId = AIR.raw() as CompactBlockStateId;
 
-#[derive(Clone, DeepSizeOf, Encode, Decode, TypeHash)]
+#[derive(Clone, DeepSizeOf, Serialize, Deserialize, TypeHash)]
 pub struct DirectSection(pub(crate) Box<[CompactBlockStateId]>, u16);
 
 impl Default for DirectSection {

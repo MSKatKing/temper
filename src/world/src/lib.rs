@@ -175,7 +175,7 @@ mod tests {
                 "Failed to load chunk. If it's a bitcode error, chances are the chunk format \
              has changed since last generating a world so you'll need to regenerate",
             );
-        let encoded = bitcode::encode(&*chunk);
+        let encoded = bitcode::serialize(&*chunk).unwrap();
         std::fs::write("../../../.etc/raw_chunk.dat", encoded).unwrap();
     }
 }

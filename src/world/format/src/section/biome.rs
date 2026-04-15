@@ -1,14 +1,16 @@
-use bitcode_derive::{Decode, Encode};
 use bytemuck::{Pod, Zeroable};
 use deepsize::DeepSizeOf;
+use serde_derive::{Deserialize, Serialize};
 use temper_core::pos::SectionBlockPos;
 use type_hash::TypeHash;
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Encode, Decode, Default, PartialEq, DeepSizeOf, Pod, Zeroable, TypeHash)]
+#[derive(
+    Copy, Clone, Serialize, Deserialize, Default, PartialEq, DeepSizeOf, Pod, Zeroable, TypeHash,
+)]
 pub struct BiomeType(pub u8);
 
-#[derive(Clone, DeepSizeOf, Encode, Decode, TypeHash)]
+#[derive(Clone, DeepSizeOf, Serialize, Deserialize, TypeHash)]
 pub enum BiomeData {
     Uniform(BiomeType),
     Mixed(Box<[BiomeType]>),

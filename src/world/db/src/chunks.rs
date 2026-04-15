@@ -19,7 +19,7 @@ pub fn save_chunk_internal(
         storage.create_table("chunks".to_string())?;
     }
     let as_bytes = yazi::compress(
-        &bitcode::encode(chunk),
+        &bitcode::serialize(chunk).expect("Unable to serialize chunk"),
         yazi::Format::Zlib,
         CompressionLevel::BestSpeed,
     )?;
@@ -47,8 +47,8 @@ pub fn load_chunk_internal(
                     warn!("Chunk data does not have a checksum, skipping verification.");
                 }
             }
-            let chunk: Chunk = bitcode::decode(&data)
-                .map_err(|e| WorldError::BitcodeDecodeError(e.to_string()))?;
+            let chunk: Chunk = bitcode::deserialize(&data)
+                .map_err(|e| WorldError::BitcodeDeserializeError(e.to_string()))?;
             Ok(chunk)
         }
         None => Err(WorldError::ChunkNotFound),

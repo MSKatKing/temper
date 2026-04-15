@@ -45,8 +45,11 @@
           nativeBuildInputs = [
             rust-toolchain
             pkgs.pkg-config
+          ];
+          buildInputs = [
             pkgs.openssl
           ];
+          LD_LIBRARY_PATH = "${pkgs.openssl.out}/lib";
         };
       };
     };
