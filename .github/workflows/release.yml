@@ -81,7 +81,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }} --bin temper
+        run: cargo build --profile hyper --target ${{ matrix.target }} --bin temper
 
       - name: Package Unix executable
         if: runner.os != 'Windows'
