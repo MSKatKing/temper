@@ -11,6 +11,20 @@ pub struct BossBarData {
     pub flags: BossbarFlags,
 }
 
+impl std::fmt::Display for BossBarData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            r#"{{ "title": "{}", "health": {}, "color": "{:?}", "dividers": "{:?}", "flags": "{:?}" }}"#,
+            self.title,
+            self.health,
+            self.color.to_string(),
+            self.dividers.to_string(),
+            self.flags.to_string(),
+        )
+    }
+}
+
 #[derive(Clone, Discriminant)]
 pub enum BossbarColor {
     Pink,
@@ -22,6 +36,21 @@ pub enum BossbarColor {
     White,
 }
 
+impl std::fmt::Display for BossbarColor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            BossbarColor::Pink => "pink",
+            BossbarColor::Blue => "blue",
+            BossbarColor::Red => "red",
+            BossbarColor::Green => "green",
+            BossbarColor::Yellow => "yellow",
+            BossbarColor::Purple => "purple",
+            BossbarColor::White => "white",
+        };
+        write!(f, "{}", s)
+    }
+}
+
 #[derive(Clone, Discriminant)]
 pub enum BossbarDividers {
     None,
@@ -31,8 +60,42 @@ pub enum BossbarDividers {
     TwentyNotches,
 }
 
+impl std::fmt::Display for BossbarDividers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            BossbarDividers::None => "none",
+            BossbarDividers::SixNotches => "6_notches",
+            BossbarDividers::TenNotches => "10_notches",
+            BossbarDividers::TwelveNotches => "12_notches",
+            BossbarDividers::TwentyNotches => "20_notches",
+        };
+        write!(f, "{}", s)
+    }
+}
+
 #[derive(Clone)]
 pub struct BossbarFlags(u8);
+
+impl std::fmt::Display for BossbarFlags {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.0 == Self::NONE {
+            return write!(f, "none");
+        }
+
+        let mut flags = vec![];
+        if self.0 & Self::DARKSKY != 0 {
+            flags.push("darkened_sky");
+        }
+        if self.0 & Self::DRAGON != 0 {
+            flags.push("dragon_bar");
+        }
+        if self.0 & Self::FOG != 0 {
+            flags.push("fog");
+        }
+
+        write!(f, "[{}]", flags.join(", "))
+    }
+}
 
 impl BossbarFlags {
     const NONE: u8 = 0x0;
@@ -49,14 +112,14 @@ impl BossbarFlags {
     }
 
     pub fn add_fog(&mut self) {
-        let _ = self.0.add(Self::FOG);
+        self.0 |= Self::FOG;
     }
 
     pub fn add_dragon_bar(&mut self) {
-        let _ = self.0.add(Self::DRAGON);
+        self.0 |= Self::DRAGON;
     }
 
     pub fn add_darkened_sky(&mut self) {
-        let _ = self.0.add(Self::DARKSKY);
+        self.0 |= Self::DARKSKY;
     }
 }

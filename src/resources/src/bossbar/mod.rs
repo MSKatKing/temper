@@ -16,32 +16,32 @@ pub struct BossBarResource {
 }
 
 impl BossBarResource {
-    pub fn add_bar(self, data: BossBarData) -> Uuid {
+    pub fn add_bar(&self, data: BossBarData) -> Uuid {
         let uuid = Uuid::new_v4();
         self.update_queue.push((uuid, UpdateBBKind::Add { data }));
         uuid
     }
 
-    pub fn remove_bar(self, uuid: Uuid) {
+    pub fn remove_bar(&self, uuid: Uuid) {
         self.update_queue.push((uuid, UpdateBBKind::Remove));
     }
 
-    pub fn update_health(self, uuid: Uuid, new_health: f32) {
+    pub fn update_health(&self, uuid: Uuid, new_health: f32) {
         self.update_queue
             .push((uuid, UpdateBBKind::UpdateHealth { new_health }));
     }
 
-    pub fn update_title(self, uuid: Uuid, title: TextComponent) {
+    pub fn update_title(&self, uuid: Uuid, title: TextComponent) {
         self.update_queue
             .push((uuid, UpdateBBKind::UpdateTitle { title }));
     }
 
-    pub fn update_style(self, uuid: Uuid, color: BossbarColor, dividers: BossbarDividers) {
+    pub fn update_style(&self, uuid: Uuid, color: BossbarColor, dividers: BossbarDividers) {
         self.update_queue
             .push((uuid, UpdateBBKind::UpdateStyle { color, dividers }));
     }
 
-    pub fn update_flags(self, uuid: Uuid, flags: BossbarFlags) {
+    pub fn update_flags(&self, uuid: Uuid, flags: BossbarFlags) {
         self.update_queue
             .push((uuid, UpdateBBKind::UpdateFlags { flags }));
     }
