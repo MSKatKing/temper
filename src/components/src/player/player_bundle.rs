@@ -19,6 +19,7 @@ use crate::{
 use bevy_ecs::prelude::Bundle;
 use temper_inventories::{hotbar::Hotbar, inventory::Inventory};
 use temper_permissions::player::PlayerPermission;
+use crate::player::bossbar_sender::BossbarSender;
 
 /// A Bevy Bundle containing all components required for a player entity.
 /// This groups all 17+ components into a single, spawnable unit.
@@ -60,4 +61,7 @@ pub struct PlayerBundle {
 
     // Player Marker
     pub player_marker: PlayerMarker,
+
+    // Bossbar Sender
+    pub bossbar_sender: BossbarSender
 }

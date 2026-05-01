@@ -65,3 +65,5 @@ pub mod synchronise_vehicle_position;
 
 pub mod open_screen;
 pub mod show_dialog;
+
+pub mod bossbar_packet;
