@@ -1,4 +1,3 @@
-use std::ops::Add;
 use temper_macros::Discriminant;
 use temper_text::TextComponent;
 
