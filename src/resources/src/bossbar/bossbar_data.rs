@@ -43,8 +43,8 @@ impl BossbarFlags {
     pub fn none() -> BossbarFlags {
         BossbarFlags(Self::NONE)
     }
-    
-    pub fn get(&self) -> u8 { 
+
+    pub fn get(&self) -> u8 {
         self.0
     }
 

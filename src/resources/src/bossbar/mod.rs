@@ -16,13 +16,13 @@ pub struct BossBarResource {
 }
 
 impl BossBarResource {
-    pub fn add(self, data: BossBarData) -> Uuid {
+    pub fn add_bar(self, data: BossBarData) -> Uuid {
         let uuid = Uuid::new_v4();
         self.update_queue.push((uuid, UpdateBBKind::Add { data }));
         uuid
     }
 
-    pub fn remove(self, uuid: Uuid) {
+    pub fn remove_bar(self, uuid: Uuid) {
         self.update_queue.push((uuid, UpdateBBKind::Remove));
     }
 

@@ -2,7 +2,7 @@ use std::io::Write;
 use temper_codec::encode::errors::NetEncodeError;
 use temper_codec::encode::{NetEncode, NetEncodeOpts};
 use temper_codec::net_types::var_int::VarInt;
-use temper_macros::{packet, Discriminant, NetEncode};
+use temper_macros::{Discriminant, NetEncode, packet};
 use temper_nbt::NBT;
 use temper_text::TextComponent;
 use tokio::io::AsyncWrite;
@@ -172,7 +172,7 @@ impl NetEncode for BossbarPacket {
                         .expect("Failed to encode flags");
                 }
             }
-        };
+        }
         match opts {
             NetEncodeOpts::None => {
                 <VarInt as temper_codec::encode::NetEncode>::encode(

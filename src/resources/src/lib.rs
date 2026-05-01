@@ -8,11 +8,11 @@ use temper_entities::PhysicalRegistry;
 use temper_net_runtime::connection::NewConnection;
 use temper_state::GlobalStateResource;
 
+pub mod bossbar;
 pub mod new_conn;
 pub mod server_command_rx;
 pub mod time;
 pub mod world_sync_tracker;
-pub mod bossbar;
 
 pub fn register_resources(
     world: &mut World,

@@ -1,3 +1,4 @@
+pub mod bossbar_update;
 pub mod chunk_sending;
 pub mod chunk_unloader;
 pub mod connection_killer;
@@ -13,4 +14,3 @@ pub mod mq;
 pub mod send_entity_updates;
 pub mod server_command;
 pub mod world_sync;
-pub mod bossbar_update;

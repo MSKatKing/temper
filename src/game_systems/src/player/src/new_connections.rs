@@ -1,6 +1,7 @@
 use bevy_ecs::prelude::{Commands, MessageWriter, Res};
 use std::time::Instant;
 use temper_components::bounds::CollisionBounds;
+use temper_components::player::bossbar_sender::BossbarSender;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::grounded::OnGround;
@@ -82,6 +83,7 @@ pub fn accept_new_connections(
             player_marker: PlayerMarker,
             entity_tracker: EntityTracker::default(),
             permissions: new_connection.permissions,
+            bossbar_sender: BossbarSender::default(),
         };
 
         // --- 3. Spawn the PlayerBundle, then .insert() the network components ---
