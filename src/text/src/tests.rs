@@ -52,7 +52,7 @@ fn test_to_string() {
         .build();
     assert_eq!(
         component.to_string(),
-        ("This is a test!".into_text().on_hover_show_text("boo")).to_string()
+        ("{\"text\":\"This is a test!\",\"hover_event\":{\"action\":\"show_text\",\"value\":{\"text\":\"boo\"}}}").to_string()
     );
     let component = ComponentBuilder::text("This is a test!")
         .underlined()
@@ -60,11 +60,7 @@ fn test_to_string() {
         .build();
     assert_eq!(
         component.to_string(),
-        ("This is a test!"
-            .into_text()
-            .underlined()
-            .on_hover_show_text("boo"))
-        .to_string()
+        ("{\"text\":\"This is a test!\",\"underlined\":true,\"hover_event\":{\"action\":\"show_text\",\"value\":{\"text\":\"boo\"}}}").to_string()
     );
     let component = ComponentBuilder::text("This is a test!")
         .underlined()
@@ -73,11 +69,7 @@ fn test_to_string() {
         .build();
     assert_eq!(
         component.to_string(),
-        ("This is a test!"
-            .underlined()
-            .bold()
-            .on_hover_show_text("boo"))
-        .to_string()
+        ("{\"text\":\"This is a test!\",\"bold\":true,\"underlined\":true,\"hover_event\":{\"action\":\"show_text\",\"value\":{\"text\":\"boo\"}}}").to_string()
     );
     let component = ComponentBuilder::keybind("key.jump");
     assert_eq!(component.to_string(), Text::keybind("key.jump").to_string());
