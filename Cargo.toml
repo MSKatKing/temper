@@ -99,6 +99,7 @@ debug = true
 [profile.release]
 debug = true
 
+# This profile is used for release builds
 [profile.hyper]
 inherits = "release"
 strip = "symbols"
@@ -107,7 +108,6 @@ opt-level = 3
 debug = false
 debug-assertions = false
 overflow-checks = false
-panic = "abort"
 codegen-units = 1
 
 [profile.bench]
