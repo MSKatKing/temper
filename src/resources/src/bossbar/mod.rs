@@ -16,6 +16,13 @@ pub struct BossBarResource {
 }
 
 impl BossBarResource {
+    pub fn new() -> Self {
+        Self {
+            update_queue: Default::default(),
+            boss_bars: Default::default(),
+        }
+    }
+
     pub fn add_bar(&self, data: BossBarData) -> Uuid {
         let uuid = Uuid::new_v4();
         self.update_queue.push((uuid, UpdateBBKind::Add { data }));
@@ -26,9 +33,14 @@ impl BossBarResource {
         self.update_queue.push((uuid, UpdateBBKind::Remove));
     }
 
-    pub fn update_health(&self, uuid: Uuid, new_health: f32) {
-        self.update_queue
-            .push((uuid, UpdateBBKind::UpdateHealth { new_health }));
+    pub fn update_health(&self, uuid: Uuid, new_health: f32, new_max: f32) {
+        self.update_queue.push((
+            uuid,
+            UpdateBBKind::UpdateHealth {
+                new_health,
+                new_max,
+            },
+        ));
     }
 
     pub fn update_title(&self, uuid: Uuid, title: TextComponent) {
@@ -44,5 +56,10 @@ impl BossBarResource {
     pub fn update_flags(&self, uuid: Uuid, flags: BossbarFlags) {
         self.update_queue
             .push((uuid, UpdateBBKind::UpdateFlags { flags }));
+    }
+
+    pub fn queue_networking(&self, uuid: Uuid, additive: bool) {
+        self.update_queue
+            .push((uuid, UpdateBBKind::UpdateNetworking { additive }));
     }
 }

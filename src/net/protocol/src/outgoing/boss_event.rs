@@ -61,12 +61,14 @@ impl BossbarPacket {
         }
     }
 
-    pub fn update_health(uuid: u128, health: f32) -> BossbarPacket {
+    pub fn update_health(uuid: u128, health: f32, max_health: f32) -> BossbarPacket {
+        let percentage = health / max_health;
+
         BossbarPacket {
             uuid,
             action: BossbarAction::UpdateHealth,
             title: Default::default(),
-            health,
+            health: percentage,
             color: Default::default(),
             division: Default::default(),
             flags: 0,

@@ -1,3 +1,4 @@
+use crate::bossbar::BossBarResource;
 use crate::new_conn::NewConnectionRecv;
 use crate::server_command_rx::ServerCommandReceiver;
 use crate::time::WorldTime;
@@ -28,4 +29,6 @@ pub fn register_resources(
     world.insert_resource(WorldTime::default());
     world.insert_resource(ServerCommandReceiver(server_command_recv));
     world.insert_resource(PhysicalRegistry::new());
+
+    world.insert_resource(BossBarResource::new());
 }

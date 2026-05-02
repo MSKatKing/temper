@@ -1,5 +1,6 @@
-use bevy_ecs::prelude::{Commands, Entity, Has, MessageReader, Query, Res};
+use bevy_ecs::prelude::{Commands, Entity, Has, MessageReader, Query, Res, ResMut};
 use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
+use temper_components::bossbar::BossbarOwner;
 use temper_components::entity_identity::Identity;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
@@ -8,9 +9,11 @@ use temper_messages::destroy_entity::DestroyEntity;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::remove_entities::RemoveEntitiesPacket;
 use temper_protocol::outgoing::system_message::SystemMessagePacket;
+use temper_resources::bossbar::BossBarResource;
 use temper_state::GlobalStateResource;
 use temper_text::{Color, NamedColor, TextComponentBuilder};
 use tracing::trace;
+use uuid::Uuid;
 
 pub fn destroy_entity_system(
     mut commands: Commands,
@@ -21,8 +24,10 @@ pub fn destroy_entity_system(
         &Identity,
         Has<PlayerMarker>,
         Option<&StreamWriter>,
+        Option<&BossbarOwner>,
     )>,
     state: Res<GlobalStateResource>,
+    bossbar_res: ResMut<BossBarResource>,
 ) {
     let mut destroyed_entities = Vec::new();
     let killed_message = SystemMessagePacket {
@@ -36,10 +41,16 @@ pub fn destroy_entity_system(
     };
 
     for event in destroy_entity_events.read() {
-        if let Ok((_, position, identity, has_player_marker, conn_opt)) = query.get(event.0) {
+        if let Ok((_, position, identity, has_player_marker, conn_opt, bossbar_own)) =
+            query.get(event.0)
+        {
             if !has_player_marker {
                 destroyed_entities.push(identity.entity_id.into());
                 commands.entity(event.0).despawn();
+                if let Some(owner) = bossbar_own {
+                    bossbar_res.remove_bar(Uuid::from_u128(owner.id()));
+                }
+
                 let Ok(chunk) = state.0.world.get_chunk(position.chunk(), Overworld) else {
                     continue;
                 };
@@ -63,7 +74,7 @@ pub fn destroy_entity_system(
         entity_ids: LengthPrefixedVec::new(destroyed_entities),
     };
 
-    for (_, _, _, has_player_marker, conn_opt) in query.iter() {
+    for (_, _, _, has_player_marker, conn_opt, _) in query.iter() {
         if has_player_marker
             && let Some(conn) = conn_opt
             && let Err(err) = conn.send_packet_ref(&packet)

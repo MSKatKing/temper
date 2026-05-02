@@ -5,18 +5,33 @@ use temper_text::TextComponent;
 pub struct BossBarData {
     pub title: TextComponent,
     pub health: f32,
+    pub max: f32,
     pub color: BossbarColor,
     pub dividers: BossbarDividers,
     pub flags: BossbarFlags,
+}
+
+impl BossBarData {
+    pub fn new(title: TextComponent, health: f32, max: f32, color: BossbarColor) -> Self {
+        Self {
+            title,
+            health,
+            max,
+            color,
+            dividers: BossbarDividers::None,
+            flags: BossbarFlags::none(),
+        }
+    }
 }
 
 impl std::fmt::Display for BossBarData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            r#"{{ "title": "{}", "health": {}, "color": "{:?}", "dividers": "{:?}", "flags": "{:?}" }}"#,
+            r#"{{ "title": "{}", "health": {}/{}, "color": "{:?}", "dividers": "{:?}", "flags": "{:?}" }}"#,
             self.title,
             self.health,
+            self.max,
             self.color.to_string(),
             self.dividers.to_string(),
             self.flags.to_string(),
