@@ -37,7 +37,7 @@ impl CommandArgument for BossbarSetOptions {
                     "purple" => BossbarCommandColor::Purple,
                     "red" => BossbarCommandColor::Red,
                     "yellow" => BossbarCommandColor::Yellow,
-                    "white" | _ => BossbarCommandColor::White,
+                    _ => BossbarCommandColor::White,
                 };
                 BossbarSetOptions::Color(color)
             }
