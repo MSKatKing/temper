@@ -40,7 +40,7 @@ impl std::fmt::Display for BossBarData {
     }
 }
 
-#[derive(Clone, Discriminant)]
+#[derive(Clone, Discriminant, Copy)]
 pub enum BossbarColor {
     Pink,
     Blue,
@@ -83,13 +83,28 @@ impl std::fmt::Display for BossbarColor {
     }
 }
 
-#[derive(Clone, Discriminant)]
+#[derive(Clone, Discriminant, Copy)]
 pub enum BossbarDividers {
     None,
     SixNotches,
     TenNotches,
     TwelveNotches,
     TwentyNotches,
+}
+
+impl FromStr for BossbarDividers {
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        match input.to_ascii_lowercase().as_str() {
+            "progress" => Ok(Self::None),
+            "notched_6" => Ok(Self::SixNotches),
+            "notched_10" => Ok(Self::TenNotches),
+            "notched_12" => Ok(Self::TwelveNotches),
+            "notched_20" => Ok(Self::TwentyNotches),
+            _ => Err(()),
+        }
+    }
 }
 
 impl std::fmt::Display for BossbarDividers {

@@ -61,7 +61,7 @@
 use bevy_ecs::entity::Entity;
 use bevy_ecs::prelude::Query;
 use bevy_ecs::system::ResMut;
-use temper_commands::arg::bossbar_set::{BossbarCommandColor, BossbarSetOptions};
+use temper_commands::arg::bossbar_set::BossbarSetOptions;
 use temper_commands::arg::primitive::string::{GreedyString, QuotableString};
 use temper_commands::Sender;
 use temper_components::entity_identity::Identity;
@@ -208,17 +208,22 @@ fn set_bossbar_command(
 
     if let Some(bossbar) = bossbar {
         match option {
-            BossbarSetOptions::Color(color) => {
+            BossbarSetOptions::Color(color_str) => {
                 let divider = &bossbar.dividers;
-
-                let color = color
+                let color = color_str
                     .parse::<BossbarColor>()
                     .unwrap_or(BossbarColor::White);
 
-                boss_res.update_style(uuid_obj, color, divider.clone());
+                for (_, _, mut sender, _) in query.iter_mut() {
+                    sender.update(uuid_obj);
+                    boss_res.update_style(uuid_obj, color, *divider);
+                }
             }
             BossbarSetOptions::Name(title) => {
-                boss_res.update_title(uuid_obj, TextComponent::from(title.as_str()));
+                for (_, _, mut sender, _) in query.iter_mut() {
+                    sender.update(uuid_obj);
+                    boss_res.update_title(uuid_obj, TextComponent::from(title.as_str()));
+                }
             }
             BossbarSetOptions::Players(players) => {
                 let option_value = players.first().map(|s| s.as_str()).unwrap_or("");
@@ -263,24 +268,31 @@ fn set_bossbar_command(
                 }
             }
             BossbarSetOptions::Style((_, divider_str)) => {
-                let divider = match divider_str.as_str() {
-                    "notched_6" => BossbarDividers::SixNotches,
-                    "notched_10" => BossbarDividers::TenNotches,
-                    "notched_12" => BossbarDividers::TwelveNotches,
-                    "notched_20" => BossbarDividers::TwentyNotches,
-                    _ => BossbarDividers::None,
-                };
-
+                let divider = divider_str
+                    .parse::<BossbarDividers>()
+                    .unwrap_or(BossbarDividers::None);
                 let color = &bossbar.color;
-                boss_res.update_style(uuid_obj, color.clone(), divider);
+
+                for (_, _, mut sender, _) in query.iter_mut() {
+                    sender.update(uuid_obj);
+                    boss_res.update_style(uuid_obj, *color, divider);
+                }
             }
             BossbarSetOptions::Value(value) => {
                 let max = boss_res.boss_bars.get(&uuid_obj).unwrap().max;
-                boss_res.update_health(uuid_obj, value, max);
+
+                for (_, _, mut sender, _) in query.iter_mut() {
+                    sender.update(uuid_obj);
+                    boss_res.update_health(uuid_obj, value, max);
+                }
             }
             BossbarSetOptions::Max(value) => {
                 let health = boss_res.boss_bars.get(&uuid_obj).unwrap().health;
-                boss_res.update_health(uuid_obj, health, value);
+
+                for (_, _, mut sender, _) in query.iter_mut() {
+                    sender.update(uuid_obj);
+                    boss_res.update_health(uuid_obj, health, value);
+                }
             }
         }
     } else {
