@@ -1,8 +1,8 @@
 use bevy_ecs::prelude::{Query, ResMut};
-use temper_components::player::bossbar_sender::BossbarSender;
+use temper_components::player::bossbar_sender::{BossbarSender, BossbarSenderState};
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::boss_event::BossbarPacket;
-use temper_resources::bossbar::{BossBarResource, UpdateBBKind};
+use temper_resources::bossbar::{BossBarData, BossBarResource, UpdateBBKind};
 use tracing::warn;
 use uuid::Uuid;
 
@@ -12,14 +12,17 @@ pub fn handle(
 ) {
     let mut updated: Vec<(Uuid, UpdateBBKind)> = Vec::new();
 
+    // --- Resource update phase ---
     while let Some((uuid, update_kind)) = boss_bar_resource.update_queue.pop() {
         match &update_kind {
             UpdateBBKind::Add { data } => {
                 boss_bar_resource.boss_bars.insert(uuid, data.clone());
             }
+
             UpdateBBKind::Remove => {
                 boss_bar_resource.boss_bars.remove(&uuid);
             }
+
             UpdateBBKind::UpdateHealth {
                 new_health,
                 new_max,
@@ -29,74 +32,67 @@ pub fn handle(
                     data.max = *new_max;
                 }
             }
+
             UpdateBBKind::UpdateTitle { title } => {
                 if let Some(data) = boss_bar_resource.boss_bars.get_mut(&uuid) {
                     data.title = title.clone();
                 }
             }
+
             UpdateBBKind::UpdateStyle { color, dividers } => {
                 if let Some(data) = boss_bar_resource.boss_bars.get_mut(&uuid) {
                     data.color = color.clone();
                     data.dividers = dividers.clone();
                 }
             }
+
             UpdateBBKind::UpdateFlags { flags } => {
                 if let Some(data) = boss_bar_resource.boss_bars.get_mut(&uuid) {
                     data.flags = flags.clone();
                 }
             }
-            UpdateBBKind::UpdateNetworking {
-                additive: _additive,
-            } => if let Some(_data) = boss_bar_resource.boss_bars.get_mut(&uuid) {},
+
+            UpdateBBKind::UpdateNetworking { .. } => {}
         }
+
         updated.push((uuid, update_kind));
     }
 
+    // --- Player sync phase ---
     for (writer, mut bossbar_sender) in player_query.iter_mut() {
         for (uuid, update_kind) in &updated {
+            let id = uuid.as_u128();
+            let state = bossbar_sender.get_state(*uuid);
+
             match update_kind {
                 UpdateBBKind::Add { .. } => continue,
+
                 UpdateBBKind::Remove => {
-                    if bossbar_sender.0.contains(&uuid.as_u128()) {
-                        bossbar_sender.remove(*uuid);
-                        let packet = BossbarPacket::remove_bossbar(uuid.as_u128());
-                        writer.send_packet_ref(&packet).unwrap_or_else(|_| {
-                            warn!("Failed to send Bossbar Packet to player");
-                        });
-                    }
-                    boss_bar_resource.remove_bar(*uuid);
+                    remove_bb_player(writer, *uuid, &mut bossbar_sender);
                     continue;
                 }
+
                 UpdateBBKind::UpdateNetworking { additive } => {
-                    if *additive {
-                        let bar = boss_bar_resource.boss_bars.get(uuid).unwrap();
-                        bossbar_sender.add(*uuid);
-                        let packet = BossbarPacket::add_bossbar(
-                            uuid.as_u128(),
-                            bar.title.clone(),
-                            bar.health / bar.max,
-                            bar.color.discriminant().into(),
-                            bar.dividers.discriminant().into(),
-                            bar.flags.get(),
-                        );
-                        writer.send_packet_ref(&packet).unwrap_or_else(|_| {
-                            warn!("Failed to send Bossbar Packet to player");
-                        });
-                    } else {
-                        if bossbar_sender.0.contains(&uuid.as_u128()) {
-                            bossbar_sender.remove(*uuid);
-                            let packet = BossbarPacket::remove_bossbar(uuid.as_u128());
-                            writer.send_packet_ref(&packet).unwrap_or_else(|_| {
-                                warn!("Failed to send Bossbar Packet to player");
-                            });
+                    let Some(bar) = boss_bar_resource.boss_bars.get(uuid) else {
+                        continue;
+                    };
+
+                    if let Some(BossbarSenderState::Additive | BossbarSenderState::Subtractive) = state {
+                        if !additive {
+                            remove_bb_player(writer, *uuid, &mut bossbar_sender);
+                        } else {
+                            add_bb_player(writer, *uuid, &mut bossbar_sender, bar);
                         }
                     }
+
                     continue;
                 }
+
                 _ => {}
             }
 
-            if !bossbar_sender.0.contains(&uuid.as_u128()) {
+            // --- update packets ---
+            if state != Some(BossbarSenderState::Update) {
                 continue;
             }
 
@@ -104,24 +100,60 @@ pub fn handle(
                 UpdateBBKind::UpdateHealth {
                     new_health,
                     new_max,
-                } => BossbarPacket::update_health(uuid.as_u128(), *new_health, *new_max),
+                } => BossbarPacket::update_health(id, *new_health, *new_max),
+
                 UpdateBBKind::UpdateTitle { title } => {
-                    BossbarPacket::update_title(uuid.as_u128(), title.clone())
+                    BossbarPacket::update_title(id, title.clone())
                 }
+
                 UpdateBBKind::UpdateStyle { color, dividers } => BossbarPacket::update_style(
-                    uuid.as_u128(),
+                    id,
                     color.discriminant().into(),
                     dividers.discriminant().into(),
                 ),
-                UpdateBBKind::UpdateFlags { flags } => {
-                    BossbarPacket::update_flags(uuid.as_u128(), flags.get())
-                }
-                _ => unreachable!(),
+
+                UpdateBBKind::UpdateFlags { flags } => BossbarPacket::update_flags(id, flags.get()),
+
+                _ => continue,
             };
 
-            writer.send_packet_ref(&packet).unwrap_or_else(|_| {
+            if writer.send_packet_ref(&packet).is_ok() {
+                bossbar_sender.informed(*uuid);
+            } else {
                 warn!("Failed to send Bossbar Packet to player");
-            });
+            }
+        }
+    }
+}
+fn add_bb_player(writer: &StreamWriter, uuid: Uuid, sender: &mut BossbarSender, bar: &BossBarData) {
+    let id = uuid.as_u128();
+
+    let packet = BossbarPacket::add_bossbar(
+        id,
+        bar.title.clone(),
+        bar.health / bar.max,
+        bar.color.discriminant().into(),
+        bar.dividers.discriminant().into(),
+        bar.flags.get(),
+    );
+
+    if writer.send_packet_ref(&packet).is_ok() {
+        sender.informed(uuid);
+    } else {
+        warn!("Failed to send Bossbar Packet to player");
+    }
+}
+
+fn remove_bb_player(writer: &StreamWriter, uuid: Uuid, sender: &mut BossbarSender) {
+    let id = uuid.as_u128();
+
+    if sender.0.contains_key(&id) {
+        let packet = BossbarPacket::remove_bossbar(id);
+
+        if writer.send_packet_ref(&packet).is_ok() {
+            sender.informed(uuid);
+        } else {
+            warn!("Failed to send Bossbar Packet to player");
         }
     }
 }

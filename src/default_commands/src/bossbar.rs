@@ -1,7 +1,66 @@
+//! Bossbar Command System
+//!
+//! This module provides command handlers for creating, managing, and assigning bossbars
+//! to players. Bossbars are stored in `BossBarResource` and synced to clients via
+//! `BossbarSender`.
+//!
+//! ---
+//!
+//! ## Commands
+//!
+//! ### `bossbar add <name>`
+//! Creates a new bossbar with the given display name.
+//! Returns the generated UUID of the bossbar.
+//!
+//! ---
+//!
+//! ### `bossbar get <uuid>`
+//! Retrieves information about a specific bossbar.
+//! Prints its current state if it exists.
+//!
+//! ---
+//!
+//! ### `bossbar list`
+//! Lists all currently existing bossbars by UUID.
+//!
+//! ---
+//!
+//! ### `bossbar remove <uuid>`
+//! Deletes a bossbar from the system and stops tracking it.
+//!
+//! ---
+//!
+//! ### `bossbar set <uuid> <option>`
+//! Modifies an existing bossbar.
+//!
+//! Supported options:
+//!
+//! - `Color <color>`
+//!   Changes the bossbar color.
+//!
+//! - `Name <title>`
+//!   Updates the displayed title text.
+//!
+//! - `Players <selector | name | @a | @e | @r>`
+//!   Assigns or removes players from a bossbar.
+//!   - `@a`, `@e`: applies to all players
+//!   - `@r`: applies to a random player
+//!   - name: targets specific player by identity
+//!
+//! - `Style (<color>, <divider>)`
+//!   Updates both color and divider style.
+//!
+//! - `Value <value>`
+//!   Sets current health/value of the bossbar.
+//!
+//! - `Max <value>`
+//!   Sets maximum health/value of the bossbar.
+//!
+//! ---
+
 use bevy_ecs::entity::Entity;
 use bevy_ecs::prelude::Query;
 use bevy_ecs::system::ResMut;
-use rand::prelude::IteratorRandom;
 use temper_commands::arg::bossbar_set::{BossbarCommandColor, BossbarSetOptions};
 use temper_commands::arg::primitive::string::{GreedyString, QuotableString};
 use temper_commands::Sender;
@@ -144,8 +203,8 @@ fn set_bossbar_command(
         return;
     }
 
-    let uuid_str = uuid_res.unwrap();
-    let bossbar = boss_res.boss_bars.get(&uuid_str);
+    let uuid_obj = uuid_res.unwrap();
+    let bossbar = boss_res.boss_bars.get(&uuid_obj);
 
     if let Some(bossbar) = bossbar {
         match option {
@@ -161,43 +220,48 @@ fn set_bossbar_command(
                     BossbarCommandColor::Yellow => BossbarColor::Yellow,
                 };
 
-                boss_res.update_style(uuid_str, color, divider.clone());
+                boss_res.update_style(uuid_obj, color, divider.clone());
             }
             BossbarSetOptions::Name(title) => {
-                boss_res.update_title(uuid_str, TextComponent::from(title.as_str()));
+                boss_res.update_title(uuid_obj, TextComponent::from(title.as_str()));
             }
             BossbarSetOptions::Players(players) => {
                 let option_value = players.first().map(|s| s.as_str()).unwrap_or("");
+                let id = uuid_obj.as_u128();
 
                 match option_value {
                     "@e" | "@a" => {
-                        query
-                            .iter_mut()
-                            .map(|(_, _, sender, _)| sender)
-                            .for_each(|mut sender| {
-                                sender.add(uuid_str);
-                            })
+                        for (_, _, mut sender, _) in query.iter_mut() {
+                            sender.add(uuid_obj);
+                            boss_res.queue_networking(uuid_obj, true);
+                        }
                     }
-                    "@r" => {
-                        let mut rng = rand::rng();
-                        let sender_ret = query.iter_mut().choose(&mut rng);
 
-                        sender_ret.unwrap().2.add(uuid_str);
+                    "@r" => {
+                        use rand::seq::IteratorRandom;
+
+                        let mut rng = rand::rng();
+
+                        if let Some((_, _, mut sender, _)) = query.iter_mut().choose(&mut rng) {
+                            sender.add(uuid_obj);
+                            boss_res.queue_networking(uuid_obj, true);
+                        }
                     }
+
                     _ => {
-                        for (_, identity, mut sender, marker) in query {
+                        for (_, identity, mut sender, marker) in query.iter_mut() {
                             if marker.is_some()
                                 && identity
                                     .name
                                     .as_ref()
-                                    .map(|n| n.eq_ignore_ascii_case(option_value))
-                                    .unwrap_or(false)
+                                    .is_some_and(|n| n.eq_ignore_ascii_case(option_value))
                             {
-                                if sender.0.contains(&uuid_str.as_u128()) {
-                                    boss_res.queue_networking(uuid_str, false);
+                                if sender.0.contains_key(&id) {
+                                    sender.remove(uuid_obj);
+                                    boss_res.queue_networking(uuid_obj, false);
                                 } else {
-                                    sender.add(uuid_str);
-                                    boss_res.queue_networking(uuid_str, true);
+                                    sender.add(uuid_obj);
+                                    boss_res.queue_networking(uuid_obj, true);
                                 }
                             }
                         }
@@ -214,21 +278,21 @@ fn set_bossbar_command(
                 };
 
                 let color = &bossbar.color;
-                boss_res.update_style(uuid_str, color.clone(), divider);
+                boss_res.update_style(uuid_obj, color.clone(), divider);
             }
             BossbarSetOptions::Value(value) => {
-                let max = boss_res.boss_bars.get(&uuid_str).unwrap().max;
-                boss_res.update_health(uuid_str, value, max);
+                let max = boss_res.boss_bars.get(&uuid_obj).unwrap().max;
+                boss_res.update_health(uuid_obj, value, max);
             }
             BossbarSetOptions::Max(value) => {
-                let health = boss_res.boss_bars.get(&uuid_str).unwrap().health;
-                boss_res.update_health(uuid_str, health, value);
+                let health = boss_res.boss_bars.get(&uuid_obj).unwrap().health;
+                boss_res.update_health(uuid_obj, health, value);
             }
         }
     } else {
         sender.send_message(
             TextComponentBuilder::new("Bossbar doesn't exist for uuid: ")
-                .extra(TextComponent::from(format!("{}", uuid_str)))
+                .extra(TextComponent::from(format!("{}", uuid_obj)))
                 .build(),
             false,
         );

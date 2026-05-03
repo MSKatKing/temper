@@ -44,23 +44,34 @@ pub fn tick_warden(
     boss_bar_resource: ResMut<BossBarResource>,
 ) {
     for (warden_pos, _, _, owned_bossbar) in warden.iter() {
+        let id = owned_bossbar.id();
+        let uuid = Uuid::from_u128(id);
+
         for (player_pos, mut bossbar_sender) in players.iter_mut() {
             let dx = warden_pos.x - player_pos.x;
             let dy = warden_pos.y - player_pos.y;
             let dz = warden_pos.z - player_pos.z;
+
             let distance = (dx * dx + dy * dy + dz * dz).sqrt();
 
-            let uuid = Uuid::from_u128(owned_bossbar.id());
+            let current = bossbar_sender.0.get(&id).copied();
 
+            // --- ENTER RANGE ---
             if distance <= 10.0 {
-                if bossbar_sender.0.contains(&owned_bossbar.id()) {
-                    continue;
+                if current.is_none() {
+                    bossbar_sender.add(uuid);
+                    boss_bar_resource.queue_networking(uuid, true);
                 }
-                bossbar_sender.add(uuid);
-                boss_bar_resource.queue_networking(uuid, true)
-            } else if distance > 12.0 && bossbar_sender.0.contains(&owned_bossbar.id()) {
+            }
+            // --- EXIT RANGE ---
+            else if distance > 12.0
+                && let Some(_) = current
+            {
+                bossbar_sender.remove(uuid);
                 boss_bar_resource.queue_networking(uuid, false);
             }
+
+            // --- NO CHANGE ZONE (10–12) ---
         }
     }
 }
