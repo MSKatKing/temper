@@ -41,8 +41,8 @@ pub fn handle(
 
             UpdateBBKind::UpdateStyle { color, dividers } => {
                 if let Some(data) = boss_bar_resource.boss_bars.get_mut(&uuid) {
-                    data.color = color.clone();
-                    data.dividers = dividers.clone();
+                    data.color = *color;
+                    data.dividers = *dividers;
                 }
             }
 
