@@ -1,5 +1,5 @@
 use crate::*;
-use valence_text::{IntoText, Text};
+use valence_text::Text;
 
 fn bytes_to_readable_string(bytes: &[u8]) -> String {
     bytes
