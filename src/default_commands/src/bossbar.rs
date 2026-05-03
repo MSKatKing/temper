@@ -110,7 +110,7 @@ fn remove_bossbar_command(
     let uuid_str = uuid_res.unwrap();
     let bossbar = args.boss_bars.get(&uuid_str);
 
-    if let Some(_) = bossbar {
+    if bossbar.is_some() {
         args.remove_bar(uuid_str);
 
         sender.send_message(TextComponentBuilder::new("removed bossbar").build(), false);
@@ -180,12 +180,9 @@ fn set_bossbar_command(
                     }
                     "@r" => {
                         let mut rng = rand::rng();
-                        let sender_ret = query
-                            .iter_mut()
-                            .filter_map(|(_, _, sender, _)| Some(sender))
-                            .choose(&mut rng);
+                        let sender_ret = query.iter_mut().choose(&mut rng);
 
-                        sender_ret.unwrap().add(uuid_str);
+                        sender_ret.unwrap().2.add(uuid_str);
                     }
                     _ => {
                         for (_, identity, mut sender, marker) in query {
@@ -213,7 +210,7 @@ fn set_bossbar_command(
                     "notched_10" => BossbarDividers::TenNotches,
                     "notched_12" => BossbarDividers::TwelveNotches,
                     "notched_20" => BossbarDividers::TwentyNotches,
-                    "progress" | _ => BossbarDividers::None,
+                    _ => BossbarDividers::None,
                 };
 
                 let color = &bossbar.color;

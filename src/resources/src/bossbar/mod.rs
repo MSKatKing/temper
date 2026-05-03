@@ -15,6 +15,12 @@ pub struct BossBarResource {
     pub boss_bars: HashMap<Uuid, BossBarData>,
 }
 
+impl Default for BossBarResource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BossBarResource {
     pub fn new() -> Self {
         Self {

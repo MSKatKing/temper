@@ -58,10 +58,8 @@ pub fn tick_warden(
                 }
                 bossbar_sender.add(uuid);
                 boss_bar_resource.queue_networking(uuid, true)
-            } else if distance > 12.0 {
-                if bossbar_sender.0.contains(&owned_bossbar.id()) {
-                    boss_bar_resource.queue_networking(uuid, false);
-                }
+            } else if distance > 12.0 && bossbar_sender.0.contains(&owned_bossbar.id()) {
+                boss_bar_resource.queue_networking(uuid, false);
             }
         }
     }
