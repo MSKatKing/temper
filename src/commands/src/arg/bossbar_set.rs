@@ -2,44 +2,16 @@ use crate::{
     CommandContext, Suggestion,
     arg::{CommandArgument, ParserResult, utils::parser_error},
 };
-use std::str::FromStr;
 
 use super::PrimitiveArgument;
 
 pub enum BossbarSetOptions {
-    Color(BossbarCommandColor),
+    Color(String),
     Name(String),
     Players(Vec<String>),
     Style((String, String)),
     Value(f32),
     Max(f32),
-}
-
-pub enum BossbarCommandColor {
-    Blue,
-    Green,
-    Pink,
-    Purple,
-    Red,
-    White,
-    Yellow,
-}
-
-impl FromStr for BossbarCommandColor {
-    type Err = ();
-
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        match input.to_ascii_lowercase().as_str() {
-            "blue" => Ok(Self::Blue),
-            "green" => Ok(Self::Green),
-            "pink" => Ok(Self::Pink),
-            "purple" => Ok(Self::Purple),
-            "red" => Ok(Self::Red),
-            "white" => Ok(Self::White),
-            "yellow" => Ok(Self::Yellow),
-            _ => Err(()),
-        }
-    }
 }
 
 impl CommandArgument for BossbarSetOptions {
@@ -48,11 +20,7 @@ impl CommandArgument for BossbarSetOptions {
 
         let value = match &*str.to_lowercase() {
             "color" => {
-                let color = ctx
-                    .input
-                    .read_string()
-                    .parse()
-                    .unwrap_or(BossbarCommandColor::White);
+                let color = ctx.input.read_string();
                 BossbarSetOptions::Color(color)
             }
             "name" => BossbarSetOptions::Name(ctx.input.read_string()),

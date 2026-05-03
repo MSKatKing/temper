@@ -210,15 +210,10 @@ fn set_bossbar_command(
         match option {
             BossbarSetOptions::Color(color) => {
                 let divider = &bossbar.dividers;
-                let color = match color {
-                    BossbarCommandColor::Blue => BossbarColor::Blue,
-                    BossbarCommandColor::Green => BossbarColor::Green,
-                    BossbarCommandColor::Pink => BossbarColor::Pink,
-                    BossbarCommandColor::Purple => BossbarColor::Purple,
-                    BossbarCommandColor::Red => BossbarColor::Red,
-                    BossbarCommandColor::White => BossbarColor::White,
-                    BossbarCommandColor::Yellow => BossbarColor::Yellow,
-                };
+
+                let color = color
+                    .parse::<BossbarColor>()
+                    .unwrap_or(BossbarColor::White);
 
                 boss_res.update_style(uuid_obj, color, divider.clone());
             }

@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use temper_macros::Discriminant;
 use temper_text::TextComponent;
 
@@ -48,6 +49,23 @@ pub enum BossbarColor {
     Yellow,
     Purple,
     White,
+}
+
+impl FromStr for BossbarColor {
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        match input.to_ascii_lowercase().as_str() {
+            "blue" => Ok(Self::Blue),
+            "green" => Ok(Self::Green),
+            "pink" => Ok(Self::Pink),
+            "purple" => Ok(Self::Purple),
+            "red" => Ok(Self::Red),
+            "white" => Ok(Self::White),
+            "yellow" => Ok(Self::Yellow),
+            _ => Err(()),
+        }
+    }
 }
 
 impl std::fmt::Display for BossbarColor {
