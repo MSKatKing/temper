@@ -2,6 +2,7 @@ use crate::{
     CommandContext, Suggestion,
     arg::{CommandArgument, ParserResult, utils::parser_error},
 };
+use std::str::FromStr;
 
 use super::PrimitiveArgument;
 
@@ -24,21 +25,34 @@ pub enum BossbarCommandColor {
     Yellow,
 }
 
+impl FromStr for BossbarCommandColor {
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        match input.to_ascii_lowercase().as_str() {
+            "blue" => Ok(Self::Blue),
+            "green" => Ok(Self::Green),
+            "pink" => Ok(Self::Pink),
+            "purple" => Ok(Self::Purple),
+            "red" => Ok(Self::Red),
+            "white" => Ok(Self::White),
+            "yellow" => Ok(Self::Yellow),
+            _ => Err(()),
+        }
+    }
+}
+
 impl CommandArgument for BossbarSetOptions {
     fn parse(ctx: &mut CommandContext) -> ParserResult<Self> {
         let str = ctx.input.read_string();
 
         let value = match &*str.to_lowercase() {
             "color" => {
-                let color = match &*ctx.input.read_string().to_lowercase() {
-                    "blue" => BossbarCommandColor::Blue,
-                    "green" => BossbarCommandColor::Green,
-                    "pink" => BossbarCommandColor::Pink,
-                    "purple" => BossbarCommandColor::Purple,
-                    "red" => BossbarCommandColor::Red,
-                    "yellow" => BossbarCommandColor::Yellow,
-                    _ => BossbarCommandColor::White,
-                };
+                let color = ctx
+                    .input
+                    .read_string()
+                    .parse()
+                    .unwrap_or(BossbarCommandColor::White);
                 BossbarSetOptions::Color(color)
             }
             "name" => BossbarSetOptions::Name(ctx.input.read_string()),

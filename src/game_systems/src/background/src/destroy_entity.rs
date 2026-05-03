@@ -13,7 +13,6 @@ use temper_resources::bossbar::BossBarResource;
 use temper_state::GlobalStateResource;
 use temper_text::{Color, NamedColor, TextComponentBuilder};
 use tracing::trace;
-use uuid::Uuid;
 
 pub fn destroy_entity_system(
     mut commands: Commands,
@@ -48,7 +47,7 @@ pub fn destroy_entity_system(
                 destroyed_entities.push(identity.entity_id.into());
                 commands.entity(event.0).despawn();
                 if let Some(owner) = bossbar_own {
-                    bossbar_res.remove_bar(Uuid::from_u128(owner.id()));
+                    bossbar_res.remove_bar(owner.id());
                 }
 
                 let Ok(chunk) = state.0.world.get_chunk(position.chunk(), Overworld) else {

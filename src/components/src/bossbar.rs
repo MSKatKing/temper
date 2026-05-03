@@ -1,16 +1,15 @@
 use bevy_ecs::component::Component;
-use bitcode_derive::{Decode, Encode};
-use type_hash::TypeHash;
+use uuid::Uuid;
 
-#[derive(Component, Debug, Clone, Copy, Decode, Encode, TypeHash)]
-pub struct BossbarOwner(u128);
+#[derive(Component, Debug, Clone, Copy)]
+pub struct BossbarOwner(Uuid);
 
 impl BossbarOwner {
-    pub fn new(id: u128) -> Self {
+    pub fn new(id: Uuid) -> Self {
         BossbarOwner(id)
     }
 
-    pub fn id(&self) -> u128 {
+    pub fn id(&self) -> Uuid {
         self.0
     }
 }

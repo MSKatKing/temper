@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use bevy_ecs::component::Component;
 use bitcode_derive::{Decode, Encode};
+use std::collections::HashMap;
 use type_hash::TypeHash;
 use uuid::Uuid;
 
@@ -14,37 +14,35 @@ pub enum BossbarSenderState {
     Informed,
 }
 
-#[derive(Component, Debug, Clone, Decode, Encode, TypeHash, Default)]
-pub struct BossbarSender(pub HashMap<u128, BossbarSenderState>);
+#[derive(Component, Debug, Clone, Default)]
+pub struct BossbarSender(pub HashMap<Uuid, BossbarSenderState>);
 
 impl BossbarSender {
     pub fn add(&mut self, uuid: Uuid) {
-        self.0.insert(uuid.as_u128(), BossbarSenderState::Additive);
+        self.0.insert(uuid, BossbarSenderState::Additive);
     }
 
     pub fn update(&mut self, uuid: Uuid) {
-        self.0.insert(uuid.as_u128(), BossbarSenderState::Update);
+        self.0.insert(uuid, BossbarSenderState::Update);
     }
 
     pub fn remove(&mut self, uuid: Uuid) {
-        self.0.insert(uuid.as_u128(), BossbarSenderState::Subtractive);
+        self.0.insert(uuid, BossbarSenderState::Subtractive);
     }
 
     pub fn informed(&mut self, uuid: Uuid) {
-        let id = uuid.as_u128();
-
-        match self.0.get(&id) {
+        match self.0.get(&uuid) {
             Some(BossbarSenderState::Subtractive) => {
-                self.0.remove(&id);
+                self.0.remove(&uuid);
             }
             Some(_) => {
-                self.0.insert(id, BossbarSenderState::Informed);
+                self.0.insert(uuid, BossbarSenderState::Informed);
             }
             None => {}
         }
     }
 
     pub fn get_state(&self, uuid: Uuid) -> Option<BossbarSenderState> {
-        self.0.get(&uuid.as_u128()).cloned()
+        self.0.get(&uuid).cloned()
     }
 }

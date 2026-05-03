@@ -77,7 +77,9 @@ pub fn handle(
                         continue;
                     };
 
-                    if let Some(BossbarSenderState::Additive | BossbarSenderState::Subtractive) = state {
+                    if let Some(BossbarSenderState::Additive | BossbarSenderState::Subtractive) =
+                        state
+                    {
                         if !additive {
                             remove_bb_player(writer, *uuid, &mut bossbar_sender);
                         } else {
@@ -125,6 +127,7 @@ pub fn handle(
         }
     }
 }
+
 fn add_bb_player(writer: &StreamWriter, uuid: Uuid, sender: &mut BossbarSender, bar: &BossBarData) {
     let id = uuid.as_u128();
 
@@ -145,10 +148,8 @@ fn add_bb_player(writer: &StreamWriter, uuid: Uuid, sender: &mut BossbarSender, 
 }
 
 fn remove_bb_player(writer: &StreamWriter, uuid: Uuid, sender: &mut BossbarSender) {
-    let id = uuid.as_u128();
-
-    if sender.0.contains_key(&id) {
-        let packet = BossbarPacket::remove_bossbar(id);
+    if sender.0.contains_key(&uuid) {
+        let packet = BossbarPacket::remove_bossbar(uuid.as_u128());
 
         if writer.send_packet_ref(&packet).is_ok() {
             sender.informed(uuid);

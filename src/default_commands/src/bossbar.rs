@@ -227,7 +227,6 @@ fn set_bossbar_command(
             }
             BossbarSetOptions::Players(players) => {
                 let option_value = players.first().map(|s| s.as_str()).unwrap_or("");
-                let id = uuid_obj.as_u128();
 
                 match option_value {
                     "@e" | "@a" => {
@@ -256,7 +255,7 @@ fn set_bossbar_command(
                                     .as_ref()
                                     .is_some_and(|n| n.eq_ignore_ascii_case(option_value))
                             {
-                                if sender.0.contains_key(&id) {
+                                if sender.0.contains_key(&uuid_obj) {
                                     sender.remove(uuid_obj);
                                     boss_res.queue_networking(uuid_obj, false);
                                 } else {

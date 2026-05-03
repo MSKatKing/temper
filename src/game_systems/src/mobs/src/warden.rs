@@ -8,7 +8,6 @@ use temper_components::player::velocity::Velocity;
 use temper_entities::markers::entity_types::Warden;
 use temper_resources::bossbar::{BossBarData, BossBarResource, BossbarColor};
 use temper_text::TextComponent;
-use uuid::Uuid;
 
 type WardenQuery<'a> = (
     &'a Position,
@@ -32,7 +31,7 @@ pub fn init_warden(
 
         let uuid = boss_bar_resource.add_bar(data);
 
-        let owner = BossbarOwner::new(uuid.as_u128());
+        let owner = BossbarOwner::new(uuid);
 
         commands.entity(entity).insert(owner);
     }
@@ -44,8 +43,7 @@ pub fn tick_warden(
     boss_bar_resource: ResMut<BossBarResource>,
 ) {
     for (warden_pos, _, _, owned_bossbar) in warden.iter() {
-        let id = owned_bossbar.id();
-        let uuid = Uuid::from_u128(id);
+        let uuid = owned_bossbar.id();
 
         for (player_pos, mut bossbar_sender) in players.iter_mut() {
             let dx = warden_pos.x - player_pos.x;
@@ -54,7 +52,7 @@ pub fn tick_warden(
 
             let distance = (dx * dx + dy * dy + dz * dz).sqrt();
 
-            let current = bossbar_sender.0.get(&id).copied();
+            let current = bossbar_sender.0.get(&uuid).copied();
 
             // --- ENTER RANGE ---
             if distance <= 10.0 {
