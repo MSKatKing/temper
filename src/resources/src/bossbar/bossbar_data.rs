@@ -55,31 +55,34 @@ impl FromStr for BossbarColor {
     type Err = ();
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        match input.to_ascii_lowercase().as_str() {
-            "blue" => Ok(Self::Blue),
-            "green" => Ok(Self::Green),
-            "pink" => Ok(Self::Pink),
-            "purple" => Ok(Self::Purple),
-            "red" => Ok(Self::Red),
-            "white" => Ok(Self::White),
-            "yellow" => Ok(Self::Yellow),
-            _ => Err(()),
-        }
+        Ok(match input.to_ascii_lowercase().as_str() {
+            "blue" => Self::Blue,
+            "green" => Self::Green,
+            "pink" => Self::Pink,
+            "purple" => Self::Purple,
+            "red" => Self::Red,
+            "white" => Self::White,
+            "yellow" => Self::Yellow,
+            _ => Err(())?,
+        })
     }
 }
 
 impl std::fmt::Display for BossbarColor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            BossbarColor::Pink => "pink",
-            BossbarColor::Blue => "blue",
-            BossbarColor::Red => "red",
-            BossbarColor::Green => "green",
-            BossbarColor::Yellow => "yellow",
-            BossbarColor::Purple => "purple",
-            BossbarColor::White => "white",
-        };
-        write!(f, "{}", s)
+        write!(
+            f,
+            "{}",
+            match self {
+                BossbarColor::Pink => "pink",
+                BossbarColor::Blue => "blue",
+                BossbarColor::Red => "red",
+                BossbarColor::Green => "green",
+                BossbarColor::Yellow => "yellow",
+                BossbarColor::Purple => "purple",
+                BossbarColor::White => "white",
+            }
+        )
     }
 }
 
@@ -96,27 +99,30 @@ impl FromStr for BossbarDividers {
     type Err = ();
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        match input.to_ascii_lowercase().as_str() {
-            "progress" => Ok(Self::None),
-            "notched_6" => Ok(Self::SixNotches),
-            "notched_10" => Ok(Self::TenNotches),
-            "notched_12" => Ok(Self::TwelveNotches),
-            "notched_20" => Ok(Self::TwentyNotches),
-            _ => Err(()),
-        }
+        Ok(match input.to_ascii_lowercase().as_str() {
+            "progress" => Self::None,
+            "notched_6" => Self::SixNotches,
+            "notched_10" => Self::TenNotches,
+            "notched_12" => Self::TwelveNotches,
+            "notched_20" => Self::TwentyNotches,
+            _ => Err(())?,
+        })
     }
 }
 
 impl std::fmt::Display for BossbarDividers {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            BossbarDividers::None => "none",
-            BossbarDividers::SixNotches => "6_notches",
-            BossbarDividers::TenNotches => "10_notches",
-            BossbarDividers::TwelveNotches => "12_notches",
-            BossbarDividers::TwentyNotches => "20_notches",
-        };
-        write!(f, "{}", s)
+        write!(
+            f,
+            "{}",
+            match self {
+                BossbarDividers::None => "none",
+                BossbarDividers::SixNotches => "6_notches",
+                BossbarDividers::TenNotches => "10_notches",
+                BossbarDividers::TwelveNotches => "12_notches",
+                BossbarDividers::TwentyNotches => "20_notches",
+            }
+        )
     }
 }
 

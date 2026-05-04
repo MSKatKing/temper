@@ -61,7 +61,6 @@ pub fn handle(
     // --- Player sync phase ---
     for (writer, mut bossbar_sender) in player_query.iter_mut() {
         for (uuid, update_kind) in &updated {
-            let id = uuid.as_u128();
             let state = bossbar_sender.get_state(*uuid);
 
             match update_kind {
@@ -102,19 +101,19 @@ pub fn handle(
                 UpdateBBKind::UpdateHealth {
                     new_health,
                     new_max,
-                } => BossbarPacket::update_health(id, *new_health, *new_max),
+                } => BossbarPacket::update_health(uuid.as_u128(), *new_health, *new_max),
 
                 UpdateBBKind::UpdateTitle { title } => {
-                    BossbarPacket::update_title(id, title.clone())
+                    BossbarPacket::update_title(uuid.as_u128(), title.clone())
                 }
 
                 UpdateBBKind::UpdateStyle { color, dividers } => BossbarPacket::update_style(
-                    id,
+                    uuid.as_u128(),
                     color.discriminant().into(),
                     dividers.discriminant().into(),
                 ),
 
-                UpdateBBKind::UpdateFlags { flags } => BossbarPacket::update_flags(id, flags.get()),
+                UpdateBBKind::UpdateFlags { flags } => BossbarPacket::update_flags(uuid.as_u128(), flags.get()),
 
                 _ => continue,
             };

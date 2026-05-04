@@ -9,6 +9,9 @@ use temper_entities::markers::entity_types::Warden;
 use temper_resources::bossbar::{BossBarData, BossBarResource, BossbarColor};
 use temper_text::TextComponent;
 
+const BB_ENTER_RANGE: f64 = 10.0;
+const BB_EXIT_RANGE: f64 = 12.0;
+
 type WardenQuery<'a> = (
     &'a Position,
     &'a mut Velocity,
@@ -21,11 +24,14 @@ pub fn init_warden(
     warden: Query<Entity, (With<Warden>, Without<BossbarOwner>)>,
     boss_bar_resource: ResMut<BossBarResource>,
 ) {
+    let warden_max_health = 500.0;
+    let warden_health = 500.0;
+
     for entity in warden.iter() {
         let data = BossBarData::new(
             TextComponent::from("Warden"),
-            500.0,
-            500.0,
+            warden_health,
+            warden_max_health,
             BossbarColor::Blue,
         );
 
@@ -46,30 +52,21 @@ pub fn tick_warden(
         let uuid = owned_bossbar.id();
 
         for (player_pos, mut bossbar_sender) in players.iter_mut() {
-            let dx = warden_pos.x - player_pos.x;
-            let dy = warden_pos.y - player_pos.y;
-            let dz = warden_pos.z - player_pos.z;
-
-            let distance = (dx * dx + dy * dy + dz * dz).sqrt();
+            let distance = warden_pos.distance(**player_pos);
 
             let current = bossbar_sender.0.get(&uuid).copied();
 
-            // --- ENTER RANGE ---
-            if distance <= 10.0 {
+            if distance <= BB_ENTER_RANGE {
                 if current.is_none() {
                     bossbar_sender.add(uuid);
                     boss_bar_resource.queue_networking(uuid, true);
                 }
-            }
-            // --- EXIT RANGE ---
-            else if distance > 12.0
+            } else if distance > BB_EXIT_RANGE
                 && let Some(_) = current
             {
                 bossbar_sender.remove(uuid);
                 boss_bar_resource.queue_networking(uuid, false);
             }
-
-            // --- NO CHANGE ZONE (10–12) ---
         }
     }
 }

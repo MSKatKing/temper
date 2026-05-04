@@ -101,15 +101,15 @@ fn get_bossbar_command(
     #[sender] sender: Sender,
     args: ResMut<BossBarResource>,
 ) {
-    let uuid_res = Uuid::parse_str(uuid.as_ref());
+    let uuid = match Uuid::parse_str(uuid.as_ref()) {
+        Err(_) => {
+            sender.send_message(TextComponentBuilder::new("Not an UUID!").build(), false);
+            return;
+        }
+        Ok(x) => x
+    };
 
-    if uuid_res.is_err() {
-        sender.send_message(TextComponentBuilder::new("Not an UUID!").build(), false);
-        return;
-    }
-
-    let uuid_str = uuid_res.unwrap();
-    let bossbar = args.boss_bars.get(&uuid_str);
+    let bossbar = args.boss_bars.get(&uuid);
 
     if let Some(bossbar) = bossbar {
         sender.send_message(
@@ -121,7 +121,7 @@ fn get_bossbar_command(
     } else {
         sender.send_message(
             TextComponentBuilder::new("Bossbar doesn't exist for uuid: ")
-                .extra(TextComponent::from(format!("{}", uuid_str)))
+                .extra(TextComponent::from(format!("{}", uuid)))
                 .build(),
             false,
         );
@@ -159,24 +159,23 @@ fn remove_bossbar_command(
     #[sender] sender: Sender,
     args: ResMut<BossBarResource>,
 ) {
-    let uuid_res = Uuid::parse_str(uuid.as_ref());
-
-    if uuid_res.is_err() {
-        sender.send_message(TextComponentBuilder::new("Not an UUID!").build(), false);
-        return;
-    }
-
-    let uuid_str = uuid_res.unwrap();
-    let bossbar = args.boss_bars.get(&uuid_str);
+    let uuid = match Uuid::parse_str(uuid.as_ref()) {
+        Err(_) => {
+            sender.send_message(TextComponentBuilder::new("Not an UUID!").build(), false);
+            return;
+        }
+        Ok(x) => x
+    };
+    let bossbar = args.boss_bars.get(&uuid);
 
     if bossbar.is_some() {
-        args.remove_bar(uuid_str);
+        args.remove_bar(uuid);
 
         sender.send_message(TextComponentBuilder::new("removed bossbar").build(), false);
     } else {
         sender.send_message(
             TextComponentBuilder::new("Bossbar doesn't exist for uuid: ")
-                .extra(TextComponent::from(format!("{}", uuid_str)))
+                .extra(TextComponent::from(format!("{}", uuid)))
                 .build(),
             false,
         );
@@ -196,111 +195,113 @@ fn set_bossbar_command(
     let boss_res = args.0;
     let mut query = args.1;
 
-    let uuid_res = Uuid::parse_str(uuid.as_ref());
+    let uuid = match Uuid::parse_str(uuid.as_ref()) {
+        Err(_) => {
+            sender.send_message(TextComponentBuilder::new("Not an UUID!").build(), false);
+            return;
+        }
+        Ok(x) => x
+    };
 
-    if uuid_res.is_err() {
-        sender.send_message(TextComponentBuilder::new("Not an UUID!").build(), false);
-        return;
-    }
+    let bossbar = match boss_res.boss_bars.get(&uuid) {
+        None => {
+            sender.send_message(
+                TextComponentBuilder::new("Bossbar doesn't exist for uuid: ")
+                    .extra(TextComponent::from(format!("{}", uuid)))
+                    .build(),
+                false,
+            );
+            return;
+        }
+        Some(x) => x
+    };
 
-    let uuid_obj = uuid_res.unwrap();
-    let bossbar = boss_res.boss_bars.get(&uuid_obj);
+    match option {
+        BossbarSetOptions::Color(color_str) => {
+            let divider = &bossbar.dividers;
+            let color = color_str
+                .parse::<BossbarColor>()
+                .unwrap_or(BossbarColor::White);
 
-    if let Some(bossbar) = bossbar {
-        match option {
-            BossbarSetOptions::Color(color_str) => {
-                let divider = &bossbar.dividers;
-                let color = color_str
-                    .parse::<BossbarColor>()
-                    .unwrap_or(BossbarColor::White);
-
-                for (_, _, mut sender, _) in query.iter_mut() {
-                    sender.update(uuid_obj);
-                    boss_res.update_style(uuid_obj, color, *divider);
-                }
+            for (_, _, mut sender, _) in query.iter_mut() {
+                sender.update(uuid);
+                boss_res.update_style(uuid, color, *divider);
             }
-            BossbarSetOptions::Name(title) => {
-                for (_, _, mut sender, _) in query.iter_mut() {
-                    sender.update(uuid_obj);
-                    boss_res.update_title(uuid_obj, TextComponent::from(title.as_str()));
-                }
+        }
+        BossbarSetOptions::Name(title) => {
+            for (_, _, mut sender, _) in query.iter_mut() {
+                sender.update(uuid);
+                boss_res.update_title(uuid, TextComponent::from(title.as_str()));
             }
-            BossbarSetOptions::Players(players) => {
-                let option_value = players.first().map(|s| s.as_str()).unwrap_or("");
+        }
+        BossbarSetOptions::Players(players) => {
+            let option_value = players.first().map(|s| s.as_str()).unwrap_or("");
 
-                match option_value {
-                    "@e" | "@a" => {
-                        for (_, _, mut sender, _) in query.iter_mut() {
-                            sender.add(uuid_obj);
-                            boss_res.queue_networking(uuid_obj, true);
-                        }
+            match option_value {
+                "@e" | "@a" => {
+                    for (_, _, mut sender, _) in query.iter_mut() {
+                        sender.add(uuid);
+                        boss_res.queue_networking(uuid, true);
                     }
+                }
 
-                    "@r" => {
-                        use rand::seq::IteratorRandom;
+                "@r" => {
+                    use rand::seq::IteratorRandom;
 
-                        let mut rng = rand::rng();
+                    let mut rng = rand::rng();
 
-                        if let Some((_, _, mut sender, _)) = query.iter_mut().choose(&mut rng) {
-                            sender.add(uuid_obj);
-                            boss_res.queue_networking(uuid_obj, true);
-                        }
+                    if let Some((_, _, mut sender, _)) = query.iter_mut().choose(&mut rng) {
+                        sender.add(uuid);
+                        boss_res.queue_networking(uuid, true);
                     }
+                }
 
-                    _ => {
-                        for (_, identity, mut sender, marker) in query.iter_mut() {
-                            if marker.is_some()
-                                && identity
-                                    .name
-                                    .as_ref()
-                                    .is_some_and(|n| n.eq_ignore_ascii_case(option_value))
-                            {
-                                if sender.0.contains_key(&uuid_obj) {
-                                    sender.remove(uuid_obj);
-                                    boss_res.queue_networking(uuid_obj, false);
-                                } else {
-                                    sender.add(uuid_obj);
-                                    boss_res.queue_networking(uuid_obj, true);
-                                }
+                _ => {
+                    for (_, identity, mut sender, marker) in query.iter_mut() {
+                        if marker.is_some()
+                            && identity
+                            .name
+                            .as_ref()
+                            .is_some_and(|n| n.eq_ignore_ascii_case(option_value))
+                        {
+                            if sender.0.contains_key(&uuid) {
+                                sender.remove(uuid);
+                                boss_res.queue_networking(uuid, false);
+                            } else {
+                                sender.add(uuid);
+                                boss_res.queue_networking(uuid, true);
                             }
                         }
                     }
                 }
             }
-            BossbarSetOptions::Style((_, divider_str)) => {
-                let divider = divider_str
-                    .parse::<BossbarDividers>()
-                    .unwrap_or(BossbarDividers::None);
-                let color = &bossbar.color;
+        }
+        BossbarSetOptions::Style((_, divider_str)) => {
+            let divider = divider_str
+                .parse::<BossbarDividers>()
+                .unwrap_or(BossbarDividers::None);
+            let color = &bossbar.color;
 
-                for (_, _, mut sender, _) in query.iter_mut() {
-                    sender.update(uuid_obj);
-                    boss_res.update_style(uuid_obj, *color, divider);
-                }
-            }
-            BossbarSetOptions::Value(value) => {
-                let max = boss_res.boss_bars.get(&uuid_obj).unwrap().max;
-
-                for (_, _, mut sender, _) in query.iter_mut() {
-                    sender.update(uuid_obj);
-                    boss_res.update_health(uuid_obj, value, max);
-                }
-            }
-            BossbarSetOptions::Max(value) => {
-                let health = boss_res.boss_bars.get(&uuid_obj).unwrap().health;
-
-                for (_, _, mut sender, _) in query.iter_mut() {
-                    sender.update(uuid_obj);
-                    boss_res.update_health(uuid_obj, health, value);
-                }
+            for (_, _, mut sender, _) in query.iter_mut() {
+                sender.update(uuid);
+                boss_res.update_style(uuid, *color, divider);
             }
         }
-    } else {
-        sender.send_message(
-            TextComponentBuilder::new("Bossbar doesn't exist for uuid: ")
-                .extra(TextComponent::from(format!("{}", uuid_obj)))
-                .build(),
-            false,
-        );
+        BossbarSetOptions::Value(value) => {
+            let max = boss_res.boss_bars.get(&uuid).unwrap().max;
+
+            for (_, _, mut sender, _) in query.iter_mut() {
+                sender.update(uuid);
+                boss_res.update_health(uuid, value, max);
+            }
+        }
+        BossbarSetOptions::Max(value) => {
+            let health = boss_res.boss_bars.get(&uuid).unwrap().health;
+
+            for (_, _, mut sender, _) in query.iter_mut() {
+                sender.update(uuid);
+                boss_res.update_health(uuid, health, value);
+            }
+        }
     }
 }
