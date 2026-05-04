@@ -177,11 +177,7 @@ impl NetEncode for BossbarPacket {
         }
         match opts {
             NetEncodeOpts::None => {
-                <VarInt as temper_codec::encode::NetEncode>::encode(
-                    &8u8.into(),
-                    writer,
-                    &NetEncodeOpts::None,
-                )?;
+                VarInt::from(8u8).encode(writer, &NetEncodeOpts::None)?;
 
                 writer_func(self, writer);
             }
@@ -189,20 +185,13 @@ impl NetEncode for BossbarPacket {
                 let actual_writer = writer;
                 let mut writer = Vec::new();
                 let writer = &mut writer;
-                <VarInt as temper_codec::encode::NetEncode>::encode(
-                    &0x09.into(),
-                    writer,
-                    &NetEncodeOpts::None,
-                )?;
+                VarInt::from(9u8).encode(writer, &NetEncodeOpts::None)?;
 
                 writer_func(self, writer);
 
                 let len: VarInt = writer.len().into();
-                <VarInt as temper_codec::encode::NetEncode>::encode(
-                    &len,
-                    actual_writer,
-                    &NetEncodeOpts::None,
-                )?;
+
+                len.encode(actual_writer, &NetEncodeOpts::None)?;
                 actual_writer.write_all(writer)?;
             }
             _ => unreachable!(),
