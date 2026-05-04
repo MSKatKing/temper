@@ -106,7 +106,7 @@ fn get_bossbar_command(
             sender.send_message(TextComponentBuilder::new("Not an UUID!").build(), false);
             return;
         }
-        Ok(x) => x
+        Ok(x) => x,
     };
 
     let bossbar = args.boss_bars.get(&uuid);
@@ -164,7 +164,7 @@ fn remove_bossbar_command(
             sender.send_message(TextComponentBuilder::new("Not an UUID!").build(), false);
             return;
         }
-        Ok(x) => x
+        Ok(x) => x,
     };
     let bossbar = args.boss_bars.get(&uuid);
 
@@ -200,7 +200,7 @@ fn set_bossbar_command(
             sender.send_message(TextComponentBuilder::new("Not an UUID!").build(), false);
             return;
         }
-        Ok(x) => x
+        Ok(x) => x,
     };
 
     let bossbar = match boss_res.boss_bars.get(&uuid) {
@@ -213,7 +213,7 @@ fn set_bossbar_command(
             );
             return;
         }
-        Some(x) => x
+        Some(x) => x,
     };
 
     match option {
@@ -260,9 +260,9 @@ fn set_bossbar_command(
                     for (_, identity, mut sender, marker) in query.iter_mut() {
                         if marker.is_some()
                             && identity
-                            .name
-                            .as_ref()
-                            .is_some_and(|n| n.eq_ignore_ascii_case(option_value))
+                                .name
+                                .as_ref()
+                                .is_some_and(|n| n.eq_ignore_ascii_case(option_value))
                         {
                             if sender.0.contains_key(&uuid) {
                                 sender.remove(uuid);

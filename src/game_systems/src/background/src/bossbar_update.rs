@@ -113,7 +113,9 @@ pub fn handle(
                     dividers.discriminant().into(),
                 ),
 
-                UpdateBBKind::UpdateFlags { flags } => BossbarPacket::update_flags(uuid.as_u128(), flags.get()),
+                UpdateBBKind::UpdateFlags { flags } => {
+                    BossbarPacket::update_flags(uuid.as_u128(), flags.get())
+                }
 
                 _ => continue,
             };
