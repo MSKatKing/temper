@@ -1,5 +1,5 @@
 use crate::errors::BlockPlaceError;
-use crate::{BlockPlaceContext, PlacableBlock, PlacedBlocks};
+use crate::{BlockFace, BlockPlaceContext, PlacableBlock, PlacedBlocks};
 use bevy_math::DVec3;
 use temper_state::GlobalState;
 
@@ -73,13 +73,12 @@ impl PlacableBlock for PlaceableSlab {
         fn get_half(
             face: &crate::BlockFace,
             click_position: &DVec3,
-            block_position: &temper_core::pos::BlockPos,
         ) -> &'static str {
             match face {
                 crate::BlockFace::Top => "bottom",
                 crate::BlockFace::Bottom => "top",
                 _ => {
-                    if click_position.y - f64::from(block_position.pos.y) > 0.5 {
+                    if click_position.y > 0.5 {
                         "top"
                     } else {
                         "bottom"
@@ -97,7 +96,17 @@ impl PlacableBlock for PlaceableSlab {
 
         let clicked_block_data = get_block_data_at(&clicked_pos, &state);
 
-        let should_combine = is_same_slab_block(&clicked_block_data, &block_name);
+        let slab_type = clicked_block_data.properties
+            .as_ref()
+            .and_then(|p| p.get("type"))
+            .map(|value| value.as_str());
+
+        let above = context.click_position.y > 0.5;
+
+        let should_combine = is_same_slab_block(&clicked_block_data, &block_name) && match slab_type {
+            Some("bottom") => context.face_clicked == BlockFace::Top || above && context.face_clicked.is_horizontal(),
+            _ => context.face_clicked == BlockFace::Bottom || !above && context.face_clicked.is_horizontal(),
+        };
 
         let (place_position, existing_block_data) = if should_combine {
             (clicked_pos, clicked_block_data)
@@ -120,7 +129,6 @@ impl PlacableBlock for PlaceableSlab {
             let half = get_half(
                 &context.face_clicked,
                 &context.click_position,
-                &context.block_position,
             );
 
             temper_core::block_data::BlockData {

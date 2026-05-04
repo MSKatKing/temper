@@ -36,6 +36,22 @@ pub enum BlockFace {
     East,
 }
 
+impl BlockFace {
+    pub fn is_vertical(&self) -> bool {
+        match self {
+            Self::Top | Self::Bottom => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_horizontal(&self) -> bool {
+        match self {
+            Self::North | Self::South | Self::West | Self::East => true,
+            _ => false,
+        }
+    }
+}
+
 pub struct BlockPlaceContext {
     pub block_clicked: BlockStateId,
     pub block_position: BlockPos,
