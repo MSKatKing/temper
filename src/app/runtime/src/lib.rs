@@ -4,12 +4,12 @@ use crate::errors::BinaryError;
 use crate::setup::setup_block_and_item_mapping;
 use std::sync::Arc;
 use std::time::Instant;
+use temper_config::server_config::get_global_config;
 use temper_config::whitelist::create_whitelist;
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
 use temper_state::GlobalState;
 use tracing::info;
-use temper_config::server_config::get_global_config;
 
 pub mod blocklist;
 mod errors;
