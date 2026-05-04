@@ -45,7 +45,7 @@ use include_dir::{include_dir, Dir};
 use temper_config::server_config::get_global_config;
 use temper_state::GlobalState;
 use tokio::sync::broadcast;
-use tracing::{debug, info};
+use tracing::{debug, info, trace};
 
 mod handshake;
 mod telemetry;
@@ -88,7 +88,7 @@ async fn start_webserver(state: GlobalState) {
 
     // Gather handshake data once at startup
     let handshake = handshake::Handshake::gather();
-    debug!("Handshake data gathered: {:?}", handshake);
+    trace!("Handshake data gathered: {:?}", handshake);
 
     // Create a rx/tx (with max 100 messages buffered) for telemetry events
     let (tx, _rx) = broadcast::channel::<DashboardEvent>(100);
