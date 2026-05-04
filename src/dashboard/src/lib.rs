@@ -102,13 +102,17 @@ async fn start_webserver(state: GlobalState) {
     let ws_state = ws::WsState { tx, handshake };
 
     // axum app/router
-    let app = Router::new()
-        .route("/", get(index_handler))
+    let mut app = Router::new()
         .route("/ws", get(ws::ws_handler))
-        .route("/{*path}", get(static_handler))
         .with_state(ws_state);
 
     let config = get_global_config();
+
+    if config.dashboard.serve_page {
+        app = app
+            .route("/", get(index_handler))
+            .route("/{*path}", get(static_handler));
+    }
     let addr = format!("{}:{}", config.host, config.dashboard.port);
 
     match tokio::net::TcpListener::bind(&addr).await {
