@@ -1,3 +1,4 @@
+pub mod bossbar;
 mod credits;
 pub mod deop;
 pub mod echo;

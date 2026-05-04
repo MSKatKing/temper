@@ -1,5 +1,6 @@
 use crate::bounds::CollisionBounds;
 use crate::entity_identity::Identity;
+use crate::player::bossbar_sender::BossbarSender;
 use crate::player::chunk_receiver::ChunkReceiver;
 use crate::player::entity_tracker::EntityTracker;
 use crate::player::grounded::OnGround;
@@ -60,4 +61,7 @@ pub struct PlayerBundle {
 
     // Player Marker
     pub player_marker: PlayerMarker,
+
+    // Bossbar Sender
+    pub bossbar_sender: BossbarSender,
 }

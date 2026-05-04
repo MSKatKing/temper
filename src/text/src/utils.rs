@@ -148,10 +148,10 @@ pub enum ClickEvent {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, NBTSerialize)]
 #[serde(
     tag = "action",
-    content = "contents",
+    content = "value",
     rename_all(serialize = "snake_case")
 )]
-#[nbt(tag = "action", content = "contents", rename_all = "snake_case")]
+#[nbt(tag = "action", content = "value", rename_all = "snake_case")]
 pub enum HoverEvent {
     ShowText(Box<TextComponent>),
     ShowItem {

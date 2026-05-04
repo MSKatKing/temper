@@ -5,6 +5,7 @@ use temper_text::TextComponent;
 
 use crate::{Suggestion, ctx::CommandContext};
 
+pub mod bossbar_set;
 pub mod duration;
 pub mod entities;
 pub mod gamemode;

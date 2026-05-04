@@ -123,6 +123,8 @@ fn register_tick_systems(schedule: &mut Schedule) {
     mobs::register_tick_systems(schedule);
 
     schedule.add_systems(world::particles::handle);
+
+    schedule.add_systems(background::bossbar_update::handle);
 }
 
 fn register_world_sync_schedule_systems(schedule: &mut Schedule) {
