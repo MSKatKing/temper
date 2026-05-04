@@ -237,11 +237,13 @@ type_hash = "0.3.0"
 
 # Magic
 dhat = "0.3.3"
-ctor = "0.11.1"
+ctor = "1.0.0"
 
 # Compression/Decompression
 yazi = "0.2.1"
 flate2 = "1.1.9"
+zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
+
 
 # Database
 heed = "0.22.1"

@@ -81,6 +81,8 @@ pub struct DatabaseConfig {
 /// - `secret`: The secret key for accessing the dashboard.
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct DashboardConfig {
+    pub serve_dashboard: bool,
+    pub serve_page: bool,
     pub port: u16,
     pub secret: String,
 }

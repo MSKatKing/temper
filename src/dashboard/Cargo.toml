@@ -26,7 +26,7 @@ temper-performance = { workspace = true }
 reqwest = { workspace = true }
 
 anyhow = { workspace = true }
-zip = { version = "7.2.0", default-features = false, features = ["deflate"] }
+zip = { workspace = true }
 
 [lints]
 workspace = true

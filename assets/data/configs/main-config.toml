@@ -66,6 +66,10 @@ chunks_per_tick = 0
 chunks_per_tick_min = 16
 
 [dashboard]
+# Serves the entire dashboard stack
+serve_dashboard = true
+# When disabled, only hosts the websocket connection. Enabling this without `serve_dashboard` will have no effect
+serve_page = true
 # The port the dashboard will run on.
 port = 9000
 # Randomly generated secret for accessing the dashboard.
