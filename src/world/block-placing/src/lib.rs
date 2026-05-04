@@ -38,17 +38,11 @@ pub enum BlockFace {
 
 impl BlockFace {
     pub fn is_vertical(&self) -> bool {
-        match self {
-            Self::Top | Self::Bottom => true,
-            _ => false,
-        }
+        matches!(self, Self::Top | Self::Bottom)
     }
 
     pub fn is_horizontal(&self) -> bool {
-        match self {
-            Self::North | Self::South | Self::West | Self::East => true,
-            _ => false,
-        }
+        matches!(self, Self::North | Self::South | Self::West | Self::East)
     }
 }
 
