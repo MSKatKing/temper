@@ -70,10 +70,7 @@ impl PlacableBlock for PlaceableSlab {
             }
         }
 
-        fn get_half(
-            face: &crate::BlockFace,
-            click_position: &DVec3,
-        ) -> &'static str {
+        fn get_half(face: &crate::BlockFace, click_position: &DVec3) -> &'static str {
             match face {
                 crate::BlockFace::Top => "bottom",
                 crate::BlockFace::Bottom => "top",
@@ -96,16 +93,21 @@ impl PlacableBlock for PlaceableSlab {
 
         let clicked_block_data = get_block_data_at(&clicked_pos, &state);
 
-        let slab_type = clicked_block_data.properties
+        let slab_type = clicked_block_data
+            .properties
             .as_ref()
             .and_then(|p| p.get("type"))
             .map(|value| value.as_str());
 
+        let face_is_horizontal = context.face_clicked.is_horizontal();
         let above = context.click_position.y > 0.5;
 
-        let should_combine = is_same_slab_block(&clicked_block_data, &block_name) && match slab_type {
-            Some("bottom") => context.face_clicked == BlockFace::Top || above && context.face_clicked.is_horizontal(),
-            _ => context.face_clicked == BlockFace::Bottom || !above && context.face_clicked.is_horizontal(),
+        let should_combine = if !is_same_slab_block(&clicked_block_data, &block_name) {
+            false
+        } else if slab_type == Some("bottom") {
+            context.face_clicked == BlockFace::Top || above && face_is_horizontal
+        } else {
+            context.face_clicked == BlockFace::Bottom || !above && face_is_horizontal
         };
 
         let (place_position, existing_block_data) = if should_combine {
@@ -126,10 +128,7 @@ impl PlacableBlock for PlaceableSlab {
                 ])),
             }
         } else if existing_block_data.name == "minecraft:air" {
-            let half = get_half(
-                &context.face_clicked,
-                &context.click_position,
-            );
+            let half = get_half(&context.face_clicked, &context.click_position);
 
             temper_core::block_data::BlockData {
                 name: block_name.to_string(),
