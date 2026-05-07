@@ -109,7 +109,7 @@ pub fn handle(
                         trace!("Block placement out of bounds: {}", block_pos);
                         continue 'ev_loop;
                     }
-                    let offset_pos = block_pos + event.face.translation_vec().into();
+                    let offset_pos = block_pos + event.face.get_normal().into();
 
                     let _block_clicked = {
                         let chunk = state
@@ -134,9 +134,9 @@ pub fn handle(
                                     z_offset_end: 1.0,
                                 },
                                 (
-                                    offset_pos.pos.x as f64,
-                                    offset_pos.pos.y as f64,
-                                    offset_pos.pos.z as f64,
+                                    f64::from(offset_pos.pos.x),
+                                    f64::from(offset_pos.pos.y),
+                                    f64::from(offset_pos.pos.z),
                                 ),
                             )
                         })
@@ -166,9 +166,9 @@ pub fn handle(
                     block_state.get_placement_state(temper_blocks::PlacementContext {
                         face: event.face,
                         cursor: DVec3::new(
-                            event.cursor_x as _,
-                            event.cursor_y as _,
-                            event.cursor_z as _,
+                            f64::from(event.cursor_x),
+                            f64::from(event.cursor_y),
+                            f64::from(event.cursor_z),
                         ),
                         block_clicked: block_pos,
                         block_pos: offset_pos,

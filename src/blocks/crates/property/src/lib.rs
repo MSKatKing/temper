@@ -85,7 +85,7 @@ impl BlockStateProperty for i32 {}
 impl BlockStateProperty for bool {}
 
 /// Helper macro to implement enum property types. The syntax is simple:
-/// 
+///
 /// ```rust
 /// enum_property!(
 ///     MyBlockStateProperty, // Enum name

@@ -29,7 +29,7 @@ impl BlockFace {
     }
 
     /// Returns the translation vector that will get the block that touches this face.
-    pub fn translation_vec(&self) -> IVec3 {
+    pub fn get_normal(&self) -> IVec3 {
         match self {
             BlockFace::Top => IVec3::new(0, 1, 0),
             BlockFace::Bottom => IVec3::new(0, -1, 0),
@@ -41,19 +41,27 @@ impl BlockFace {
     }
 }
 
-impl NetDecode for BlockFace {
-    fn decode<R: Read>(reader: &mut R, opts: &NetDecodeOpts) -> Result<Self, NetDecodeError> {
-        let VarInt(data) = VarInt::decode(reader, opts)?;
+impl TryFrom<u32> for BlockFace {
+    type Error = ();
 
-        match data {
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        match value {
             0 => Ok(BlockFace::Bottom),
             1 => Ok(BlockFace::Top),
             2 => Ok(BlockFace::North),
             3 => Ok(BlockFace::South),
             4 => Ok(BlockFace::West),
             5 => Ok(BlockFace::East),
-            _ => Err(NetDecodeError::InvalidEnumVariant),
+            _ => Err(()),
         }
+    }
+}
+
+impl NetDecode for BlockFace {
+    fn decode<R: Read>(reader: &mut R, opts: &NetDecodeOpts) -> Result<Self, NetDecodeError> {
+        let VarInt(data) = VarInt::decode(reader, opts)?;
+
+        BlockFace::try_from(data as u32).map_err(|_| NetDecodeError::InvalidEnumVariant)
     }
 
     async fn decode_async<R: AsyncRead + Unpin>(
@@ -62,14 +70,6 @@ impl NetDecode for BlockFace {
     ) -> Result<Self, NetDecodeError> {
         let VarInt(data) = VarInt::decode_async(reader, opts).await?;
 
-        match data {
-            0 => Ok(BlockFace::Bottom),
-            1 => Ok(BlockFace::Top),
-            2 => Ok(BlockFace::North),
-            3 => Ok(BlockFace::South),
-            4 => Ok(BlockFace::West),
-            5 => Ok(BlockFace::East),
-            _ => Err(NetDecodeError::InvalidEnumVariant),
-        }
+        BlockFace::try_from(data as u32).map_err(|_| NetDecodeError::InvalidEnumVariant)
     }
 }
