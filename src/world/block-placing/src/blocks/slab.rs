@@ -79,7 +79,7 @@ impl PlacableBlock for PlaceableSlab {
                 crate::BlockFace::Top => "bottom",
                 crate::BlockFace::Bottom => "top",
                 _ => {
-                    if click_position.y - block_position.pos.y as f64 > 0.5 {
+                    if click_position.y - f64::from(block_position.pos.y) > 0.5 {
                         "top"
                     } else {
                         "bottom"

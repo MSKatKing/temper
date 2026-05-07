@@ -1,19 +1,18 @@
 use bevy_ecs::message::MessageWriter;
 use bevy_ecs::prelude::{DetectChanges, Entity, Has, Query, Res, With};
 use bevy_ecs::world::Mut;
+use bevy_math::IVec3;
 use bevy_math::bounding::{Aabb3d, BoundingVolume};
-use bevy_math::{IVec3, Vec3A};
 use temper_components::player::grounded::OnGround;
 use temper_components::player::position::Position;
 use temper_components::player::velocity::Velocity;
-use temper_core::block_state_id::BlockStateId;
+use temper_core::block_properties;
 use temper_core::dimension::Dimension;
 use temper_core::pos::{ChunkBlockPos, ChunkPos};
 use temper_entities::PhysicalRegistry;
 use temper_entities::components::Baby;
 use temper_entities::components::EntityMetadata;
 use temper_entities::markers::HasCollisions;
-use temper_macros::match_block;
 use temper_messages::entity_update::SendEntityUpdate;
 use temper_state::{GlobalState, GlobalStateResource};
 
@@ -37,6 +36,55 @@ pub fn handle(
             continue;
         };
         if pos.is_changed() || vel.is_changed() {
+            // Reset grounded only when the entity is actually moving.
+            // When grounded and at rest, gravity is skipped → vel/pos unchanged → this block
+            // is skipped → grounded keeps its true value, preventing spurious falling.
+            // When the entity jumps or falls, vel/pos change → grounded resets to false here,
+            // then gets set back to true only when the MTV Y-resolution detects a landing.
+            grounded.0 = false;
+
+            // Velocity has already been applied before collisions run, so recover the previous
+            // feet position and catch floors crossed during that velocity step.
+            if vel.vec.y < 0.0 {
+                let old_pos = pos.coords - vel.as_dvec3();
+                let feet_y = f64::from(physical.bounding_box.min.y) + pos.coords.y;
+                let old_feet_y = f64::from(physical.bounding_box.min.y) + old_pos.y;
+
+                let min_x = (f64::from(physical.bounding_box.min.x) + pos.coords.x)
+                    .min(f64::from(physical.bounding_box.min.x) + old_pos.x)
+                    .floor() as i32;
+                let max_x = (f64::from(physical.bounding_box.max.x) + pos.coords.x)
+                    .max(f64::from(physical.bounding_box.max.x) + old_pos.x)
+                    .floor() as i32;
+                let min_z = (f64::from(physical.bounding_box.min.z) + pos.coords.z)
+                    .min(f64::from(physical.bounding_box.min.z) + old_pos.z)
+                    .floor() as i32;
+                let max_z = (f64::from(physical.bounding_box.max.z) + pos.coords.z)
+                    .max(f64::from(physical.bounding_box.max.z) + old_pos.z)
+                    .floor() as i32;
+
+                let min_y = feet_y.floor() as i32;
+                let max_y = old_feet_y.ceil() as i32 - 1;
+
+                'floor_crossing: for y in (min_y..=max_y).rev() {
+                    let surface_y = f64::from(y + 1);
+                    if old_feet_y < surface_y || feet_y > surface_y {
+                        continue;
+                    }
+
+                    for x in min_x..=max_x {
+                        for z in min_z..=max_z {
+                            if is_solid_block(&state.0, IVec3::new(x, y, z)) {
+                                pos.coords.y = surface_y - f64::from(physical.bounding_box.min.y);
+                                vel.vec.y = 0.0;
+                                grounded.0 = true;
+                                break 'floor_crossing;
+                            }
+                        }
+                    }
+                }
+            }
+
             // Figure out where the entity is going to be next tick
             let next_pos = pos.coords.as_vec3a() + **vel;
             let mut collided = false;
@@ -69,17 +117,15 @@ pub fn handle(
                         if is_solid_block(&state.0, block_pos) {
                             collided = true;
                             hit_blocks.push(block_pos);
-                            if is_solid_block(&state.0, IVec3::new(x, y - 1, z)) && vel.y <= 0.0 {
-                                grounded.0 = true;
-                            }
                         }
                     }
                 }
             }
-            // If a collision is detected, stop the entity's movement
+            // Resolve collisions using Minimum Translation Vector (MTV):
+            // compute the penetration depth on each axis and push out along the
+            // smallest one, zeroing only that velocity component. This preserves
+            // jump velocity when hitting a wall horizontally.
             if collided {
-                vel.vec = Vec3A::ZERO;
-                // Find the closest hit block to the entity's position
                 hit_blocks.sort_by(|a, b| {
                     let dist_a = (a.as_dvec3() - pos.coords).length_squared();
                     let dist_b = (b.as_dvec3() - pos.coords).length_squared();
@@ -87,36 +133,69 @@ pub fn handle(
                 });
                 let first_hit = hit_blocks.first().expect("At least one hit block expected");
 
-                let block_aabb = Aabb3d {
-                    min: first_hit.as_vec3a(),
-                    max: (first_hit + IVec3::ONE).as_vec3a(),
-                };
+                let entity_min = physical.bounding_box.min + pos.coords.as_vec3a();
+                let entity_max = physical.bounding_box.max + pos.coords.as_vec3a();
+                let block_min = first_hit.as_vec3a();
+                let block_max = (first_hit + IVec3::ONE).as_vec3a();
 
-                let translated_bounding_box = Aabb3d {
-                    min: physical.bounding_box.min + pos.coords.as_vec3a(),
-                    max: physical.bounding_box.max + pos.coords.as_vec3a(),
-                };
+                // Penetration depth on each axis from both sides
+                let ox_pos = entity_max.x - block_min.x; // entity entering from -X
+                let ox_neg = block_max.x - entity_min.x; // entity entering from +X
+                let oy_pos = entity_max.y - block_min.y; // entity entering from below
+                let oy_neg = block_max.y - entity_min.y; // entity entering from above
+                let oz_pos = entity_max.z - block_min.z; // entity entering from -Z
+                let oz_neg = block_max.z - entity_min.z; // entity entering from +Z
 
-                // Get the closest point on the entity's bounding box to the block's AABB
-                let entity_collide_point = translated_bounding_box
-                    .closest_point(block_aabb.center().as_dvec3().as_vec3a());
+                // Only resolve if there is real penetration on all three axes
+                if ox_pos > 0.0
+                    && ox_neg > 0.0
+                    && oy_pos > 0.0
+                    && oy_neg > 0.0
+                    && oz_pos > 0.0
+                    && oz_neg > 0.0
+                {
+                    let mx = ox_pos.min(ox_neg);
+                    let my = oy_pos.min(oy_neg);
+                    let mz = oz_pos.min(oz_neg);
 
-                if entity_collide_point == block_aabb.center().as_dvec3().as_vec3a() {
-                    continue;
+                    if mx <= my && mx <= mz {
+                        let push = if ox_pos < ox_neg { -ox_pos } else { ox_neg };
+                        pos.coords.x += f64::from(push);
+                        vel.vec.x = 0.0;
+                    } else if my <= mx && my <= mz {
+                        let push = if oy_pos < oy_neg { -oy_pos } else { oy_neg };
+                        pos.coords.y += f64::from(push);
+                        vel.vec.y = 0.0;
+                        if oy_neg <= oy_pos {
+                            // Entity came from above: it's landing on the block
+                            grounded.0 = true;
+                        }
+                    } else {
+                        let push = if oz_pos < oz_neg { -oz_pos } else { oz_neg };
+                        pos.coords.z += f64::from(push);
+                        vel.vec.z = 0.0;
+                    }
                 }
+            }
 
-                // Then we get the closest point on the block's AABB to the entity's collide point
-                let block_collide_point = block_aabb.closest_point(entity_collide_point);
-
-                if block_collide_point == entity_collide_point {
-                    continue;
+            // Floor contact check: catches the "exactly at surface" case that the MTV
+            // misses when vel.y = 0. This happens when the entity moves horizontally
+            // while standing: the merged hitbox uses floor(65.0) = 65, so block y=64
+            // is excluded, no collision fires, and grounded stays false. We check the
+            // block just below the entity's feet explicitly.
+            if !grounded.0 && vel.vec.y <= 0.0 {
+                let feet_y = f64::from(physical.bounding_box.min.y) + pos.coords.y;
+                let floor_block_y = (feet_y - 1e-3).floor() as i32;
+                let cx = pos.coords.x.floor() as i32;
+                let cz = pos.coords.z.floor() as i32;
+                if is_solid_block(&state.0, IVec3::new(cx, floor_block_y, cz)) {
+                    let surface_y = f64::from(floor_block_y + 1);
+                    if (feet_y - surface_y).abs() < 0.05 {
+                        pos.coords.y = surface_y - f64::from(physical.bounding_box.min.y);
+                        vel.vec.y = 0.0;
+                        grounded.0 = true;
+                    }
                 }
-
-                // The difference between these two points tells us how far apart the 2 colliding objects are
-                let collision_difference = entity_collide_point - block_collide_point;
-
-                // We use this to nudge the entity out of the block along the smallest axis
-                pos.coords -= collision_difference.as_dvec3();
             }
 
             writer.write(SendEntityUpdate(eid));
@@ -132,8 +211,5 @@ pub fn is_solid_block(state: &GlobalState, pos: IVec3) -> bool {
         .expect("Failed to load or generate chunk")
         .get_block(ChunkBlockPos::from(pos));
 
-    !match_block!("air", block_state)
-        && !match_block!("void_air", block_state)
-        && !match_block!("water", block_state)
-        && !match_block!("air", block_state)
+    block_properties::is_solid(block_state)
 }

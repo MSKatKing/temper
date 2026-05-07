@@ -16,7 +16,11 @@ pub struct DoorBlockBundle {
 impl DoorBlockBundle {
     pub fn new(pos: BlockPos) -> Self {
         Self {
-            position: Position::new(pos.pos.x as f64, pos.pos.y as f64, pos.pos.z as f64),
+            position: Position::new(
+                f64::from(pos.pos.x),
+                f64::from(pos.pos.y),
+                f64::from(pos.pos.z),
+            ),
             interactable: InteractableBlock,
             toggleable: Toggleable { is_active: false },
             cooldown: InteractionCooldown::default(),
@@ -26,7 +30,11 @@ impl DoorBlockBundle {
 
     pub fn new_open(pos: BlockPos) -> Self {
         Self {
-            position: Position::new(pos.pos.x as f64, pos.pos.y as f64, pos.pos.z as f64),
+            position: Position::new(
+                f64::from(pos.pos.x),
+                f64::from(pos.pos.y),
+                f64::from(pos.pos.z),
+            ),
             interactable: InteractableBlock,
             toggleable: Toggleable { is_active: true },
             cooldown: InteractionCooldown::default(),

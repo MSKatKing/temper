@@ -19,7 +19,12 @@ bimap = { workspace = true }
 temper-nbt = { workspace = true }
 temper-state = { workspace = true }
 temper-resources = { workspace = true }
+temper-entities = { workspace = true }
+temper-permissions = { workspace = true }
 
 ctor = { workspace = true }
 tracing = { workspace = true }
 bevy_ecs = { workspace = true }
+
+[lints]
+workspace = true

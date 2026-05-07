@@ -15,6 +15,7 @@
 use bevy_ecs::prelude::{Entity, MessageReader, Query};
 use temper_codec::net_types::angle::NetAngle;
 use temper_components::entity_identity::Identity;
+use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_macros::NetEncode;
@@ -53,7 +54,7 @@ const MAX_DELTA: i16 = (7.5 * 4096f32) as i16;
 pub fn handle_player_move(
     mut movement_msgs: MessageReader<Movement>,
     query: Query<(&Position, &Rotation, &Identity)>,
-    broadcast_query: Query<(Entity, &StreamWriter)>,
+    broadcast_query: Query<(Entity, &StreamWriter, &EntityTracker)>,
 ) {
     for movement in movement_msgs.read() {
         let sender_entity = movement.entity;
@@ -119,14 +120,14 @@ pub fn handle_player_move(
         let head_rot_packet = if has_rotation {
             Some(SetHeadRotationPacket::new(
                 identity.entity_id,
-                NetAngle::from_degrees(rot.yaw as f64),
+                NetAngle::from_degrees(f64::from(rot.yaw)),
             ))
         } else {
             None
         };
 
         // Broadcast to all other connected players
-        for (recipient_entity, writer) in broadcast_query.iter() {
+        for (recipient_entity, writer, tracker) in broadcast_query.iter() {
             // Skip sending to the sender
             if recipient_entity == sender_entity {
                 continue;
@@ -134,6 +135,10 @@ pub fn handle_player_move(
 
             // Skip disconnected players
             if !writer.is_running() {
+                continue;
+            }
+
+            if !tracker.tracking.contains(&sender_entity) {
                 continue;
             }
 

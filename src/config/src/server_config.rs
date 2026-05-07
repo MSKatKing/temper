@@ -53,6 +53,7 @@ pub struct ServerConfig {
     pub whitelist: bool,
     pub chunk_render_distance: u32,
     pub default_gamemode: String,
+    pub block_scanner_ips: bool,
     pub dashboard: DashboardConfig,
     pub performance: PerformanceConfig,
 }

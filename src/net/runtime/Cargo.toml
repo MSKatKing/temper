@@ -26,3 +26,7 @@ temper-commands = { workspace = true }
 reqwest = { workspace = true }
 crossbeam-channel = { workspace = true }
 temper-text = { workspace = true }
+temper-permissions = { workspace = true }
+
+[lints]
+workspace = true

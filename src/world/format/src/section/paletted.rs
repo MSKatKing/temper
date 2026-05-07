@@ -50,13 +50,13 @@ impl PalettedSection {
         let idx = Self::unpack_value(&self.block_data, idx, self.bit_width);
 
         self.palette
-            .translate_idx(idx as PaletteIndex)
+            .translate_idx(PaletteIndex::from(idx))
             .expect("idx should be within the palette")
     }
 
     pub fn set_block(&mut self, idx: usize, state: BlockStateId) -> PalettedSectionResult {
         let prev_idx = Self::unpack_value(&self.block_data, idx, self.bit_width);
-        self.palette.remove_block(prev_idx as PaletteIndex);
+        self.palette.remove_block(PaletteIndex::from(prev_idx));
 
         match self.palette.add_block(state) {
             BlockPaletteResult::Normal(id) => {
@@ -103,7 +103,7 @@ impl PalettedSection {
         debug_assert!(bit_width.is_power_of_two());
         debug_assert!(bit_width <= 8);
         debug_assert!(
-            (value as u16) < (1u16 << bit_width),
+            u16::from(value) < (1u16 << bit_width),
             "value < (1 << bit_width) failed: bit_width {}, value {}",
             bit_width,
             value
@@ -117,7 +117,7 @@ impl PalettedSection {
         let bit_idx = idx % entries_per_long * bit_width;
 
         buffer[long_index] &= !(entry_mask << bit_idx) as u64;
-        buffer[long_index] |= (value as u64) << bit_idx;
+        buffer[long_index] |= u64::from(value) << bit_idx;
     }
 
     #[inline]

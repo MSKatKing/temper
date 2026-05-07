@@ -41,11 +41,33 @@ macro_rules! define_entity_bundle {
             CombatProperties, EntityMetadata, LastSyncedPosition, SpawnProperties,
         };
 
-        #[derive(Bundle)]
+        fn de_meta<'de, D>(_: D) -> Result<EntityMetadata, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            Ok(EntityMetadata::from_vanilla(
+                &VanillaEntityType::$vanilla_type,
+            ))
+        }
+
+        fn de_spawn<'de, D>(_: D) -> Result<SpawnProperties, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            Ok(SpawnProperties::from_vanilla(
+                &VanillaEntityType::$vanilla_type,
+            ))
+        }
+
+        #[derive(Bundle, serde::Serialize, serde::Deserialize)]
         pub struct $bundle_name {
             pub identity: Identity,
+            #[serde(skip_serializing)]
+            #[serde(deserialize_with = "de_meta")]
             pub metadata: EntityMetadata,
             pub combat: CombatProperties,
+            #[serde(skip_serializing)]
+            #[serde(deserialize_with = "de_spawn")]
             pub spawn: SpawnProperties,
             pub position: Position,
             pub rotation: Rotation,

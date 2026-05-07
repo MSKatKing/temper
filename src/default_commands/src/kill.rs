@@ -1,16 +1,12 @@
-#![expect(clippy::type_complexity)]
-
-use bevy_ecs::prelude::{Commands, Entity, Query};
-use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
+use bevy_ecs::prelude::{Entity, MessageWriter, Query};
 use temper_commands::arg::entities::EntityArgument;
 use temper_commands::Sender;
+use temper_commands::Sender::Player;
 use temper_components::entity_identity::Identity;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_macros::command;
-use temper_net_runtime::connection::StreamWriter;
-use temper_protocol::outgoing::remove_entities::RemoveEntitiesPacket;
-use temper_protocol::outgoing::system_message::SystemMessagePacket;
-use temper_text::{Color, NamedColor, TextComponentBuilder};
+use temper_messages::destroy_entity::DestroyEntity;
+use temper_permissions::player::PlayerPermission;
 
 #[command("kill")]
 fn kill_command(
@@ -18,61 +14,43 @@ fn kill_command(
     #[arg] entity_argument: EntityArgument,
     args: (
         Query<(Entity, &Identity, Option<&PlayerMarker>)>,
-        Commands,
-        Query<&StreamWriter>,
+        MessageWriter<DestroyEntity>,
+        Query<&PlayerPermission>,
     ),
 ) {
-    let (query, mut cmd, conn_query) = args;
+    let (query, mut writer, permissions) = args;
+
+    let is_permitted = match sender {
+        Player(entity) => {
+            if let Ok(player_perm) = permissions.get(entity) {
+                player_perm.can(temper_permissions::Permissions::Kill)
+            } else {
+                false
+            }
+        }
+        _ => true, // Non-player senders are always permitted
+    };
+
+    if !is_permitted {
+        sender.send_message(
+            "You don't have permission to use this command.".into(),
+            false,
+        );
+        return;
+    }
 
     let selected_entities = entity_argument.resolve(query.iter());
 
-    let mut removed_entities = Vec::new();
-
-    let mut removed_count = 0;
-    let killed_message = SystemMessagePacket {
-        message: temper_nbt::NBT::new(
-            TextComponentBuilder::new("You have been killed. How sad :(")
-                .bold()
-                .color(Color::Named(NamedColor::Red))
-                .build(),
-        ),
-        overlay: false,
-    };
-    for entity in selected_entities {
-        if let Ok((ent, identity, player_marker)) = query.get(entity) {
-            if player_marker.is_none() {
-                removed_entities.push(identity.entity_id.into());
-                cmd.entity(ent).despawn();
-                removed_count += 1;
-            } else {
-                // Don't remove players, just send them a killed message
-                if let Ok(conn) = conn_query.get(ent) {
-                    if let Err(err) = conn.send_packet_ref(&killed_message) {
-                        sender.send_message(
-                            format!("Failed to send killed message: {}", err).into(),
-                            false,
-                        );
-                    }
-                }
-            }
-        }
-    }
-
-    let packet = RemoveEntitiesPacket {
-        entity_ids: LengthPrefixedVec::new(removed_entities),
-    };
-
-    for conn in conn_query.iter() {
-        if let Err(err) = conn.send_packet_ref(&packet) {
-            sender.send_message(
-                format!("Failed to send RemoveEntitiesPacket: {}", err).into(),
-                false,
-            );
-        }
-    }
+    selected_entities.iter().for_each(|e| {
+        writer.write(DestroyEntity(*e));
+    });
 
     sender.send_message(
-        format!("Killed {} entities (excluding players).", removed_count).into(),
+        format!(
+            "Killed {} entities (excluding players).",
+            selected_entities.len()
+        )
+        .into(),
         false,
     );
 }

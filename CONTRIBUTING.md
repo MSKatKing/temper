@@ -6,17 +6,18 @@ Keep in mind that clippy, rustfmt and cargo-audit are enforced on CI, so make su
 
 ## Pull Request Process
 
-1. Make sure all tests and lints pass. PRs that don't pass CI will be rejected if your code is the cause of the failing
+1. Create a PR from your branch to the `dev` branch
+2. Make sure all tests and lints pass. PRs that don't pass CI will be rejected if your code is the cause of the failing
    tests/lints.
-2. Make sure all necessary files are also included and not using absolute paths.
-3. Include a sufficient explanation of your PR. What is it adding/fixing, why does this feature need to be added/fixed,
+3. Make sure all necessary files are also included and not using absolute paths.
+4. Include a sufficient explanation of your PR. What is it adding/fixing, why does this feature need to be added/fixed,
    who have you discussed this with, etc. If these questions were answered in a conversation on this Discord, mention
    who you talked with and what consensus was reached. Unexplained PRs will rarely be accepted.
-4. Check again that tests pass.
-5. Check that Clippy passes with no issues. `cargo clippy --all-targets -- -Dwarnings` is used on CI.
-6. Check that Rustfmt passes with no issues. `cargo fmt --all -- --check` is used on CI.
-7. Check that Cargo-audit passes with no issues. `cargo audit` is used on CI.
-8. Submit PR.
+5. Check again that tests pass.
+6. Check that Clippy passes with no issues. `cargo clippy --all-targets -- -Dwarnings` is used on CI.
+7. Check that Rustfmt passes with no issues. `cargo fmt --all -- --check` is used on CI.
+8. Check that Cargo-audit passes with no issues. `cargo audit` is used on CI.
+9. Submit PR.
 
 > [!NOTE]
 > There is a template you will be prompted to fill out when you create a PR. This is not a hard requirement, but is a
@@ -82,10 +83,10 @@ lints. However, automatic formatting will help to catch most of these issues as 
 
 ## Code of Conduct
 
+### [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+
 Please note we have a code of conduct, please follow it in all your interactions with the project.
 
 ## License
 
 By contributing, you agree that your contributions will be licensed under the project's license.
-
-### [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)

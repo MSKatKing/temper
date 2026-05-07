@@ -1,7 +1,8 @@
 name: Rust CI
 on:
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "dev" ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
   push:
     branches: [ "master" ]
   workflow_dispatch:

@@ -65,7 +65,7 @@ impl BlockPos {
 impl From<NetworkPosition> for BlockPos {
     fn from(value: NetworkPosition) -> Self {
         Self {
-            pos: IVec3::new(value.x, value.y as i32, value.z),
+            pos: IVec3::new(value.x, i32::from(value.y), value.z),
         }
     }
 }
@@ -343,7 +343,7 @@ impl SectionBlockPos {
     /// Packed representation (big endian): 0x0yzx
     /// So the max value is 0xfff or 4095
     pub fn pack(&self) -> u16 {
-        (self.pos.y as u16) << 8 | (self.pos.z as u16) << 4 | self.pos.x as u16
+        u16::from(self.pos.y) << 8 | u16::from(self.pos.z) << 4 | u16::from(self.pos.x)
     }
 
     /// Unpacks from the packed representation: 0x0yzx

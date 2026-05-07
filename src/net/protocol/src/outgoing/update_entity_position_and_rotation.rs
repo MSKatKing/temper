@@ -28,8 +28,8 @@ impl UpdateEntityPositionAndRotationPacket {
             delta_x: delta_positions.0,
             delta_y: delta_positions.1,
             delta_z: delta_positions.2,
-            yaw: NetAngle::from_degrees(new_rot.yaw as f64),
-            pitch: NetAngle::from_degrees(new_rot.pitch as f64),
+            yaw: NetAngle::from_degrees(f64::from(new_rot.yaw)),
+            pitch: NetAngle::from_degrees(f64::from(new_rot.pitch)),
             on_ground,
         }
     }

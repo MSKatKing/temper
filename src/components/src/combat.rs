@@ -1,5 +1,6 @@
 use crate::metadata::EntityMetadata;
 use bevy_ecs::prelude::Component;
+use serde::{Deserialize, Serialize};
 use temper_data::generated::entities::EntityType as VanillaEntityType;
 
 /// Combat properties for an entity.
@@ -20,7 +21,7 @@ use temper_data::generated::entities::EntityType as VanillaEntityType;
 /// combat.set_invulnerable(10); // 10 ticks of invulnerability
 /// assert!(!combat.can_be_damaged());
 /// ```
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Serialize, Deserialize)]
 pub struct CombatProperties {
     /// True if an entity is attackable
     ///

@@ -23,3 +23,6 @@ rand = { workspace = true }
 
 [dev-dependencies] # Needed for the ServerState mock... :concern:
 temper-world = { workspace = true }
+
+[lints]
+workspace = true

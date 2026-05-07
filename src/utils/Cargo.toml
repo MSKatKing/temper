@@ -10,3 +10,6 @@ temper-logging = { workspace = true }
 temper-profiling = { workspace = true }
 temper-config = { workspace = true }
 bevy_math = { workspace = true }
+
+[lints]
+workspace = true

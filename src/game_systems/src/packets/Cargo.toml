@@ -25,3 +25,6 @@ block-placing = { path = "../../../world/block-placing" }
 bevy_math = { workspace = true }
 temper-world = { workspace = true }
 interactions = { workspace = true }
+
+[lints]
+workspace = true

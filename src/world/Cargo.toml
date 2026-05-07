@@ -34,3 +34,6 @@ rand = { workspace = true }
 name = "world_bench"
 harness = false
 path = "src/benches/world.rs"
+
+[lints]
+workspace = true

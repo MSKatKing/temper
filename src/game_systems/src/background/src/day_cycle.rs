@@ -15,7 +15,7 @@ pub fn tick_daylight_cycle(
 
     let packet = UpdateTimePacket {
         world_age: 0,
-        time_of_day: world_time.current_time() as _,
+        time_of_day: world_time.current_time().into(),
         time_of_day_increasing: true,
     };
 

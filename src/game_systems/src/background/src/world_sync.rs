@@ -1,4 +1,3 @@
-#![expect(clippy::type_complexity)]
 use bevy_ecs::prelude::{Query, Res, ResMut};
 use temper_components::active_effects::ActiveEffects;
 use temper_components::entity_identity::Identity;
@@ -12,6 +11,7 @@ use temper_components::player::offline_player_data::OfflinePlayerData;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_inventories::inventory::Inventory;
+use temper_permissions::player::PlayerPermission;
 use temper_resources::world_sync_tracker::WorldSyncTracker;
 use temper_state::GlobalStateResource;
 
@@ -28,13 +28,14 @@ pub fn sync_world(
         &Experience,
         &EnderChest,
         &ActiveEffects,
+        &PlayerPermission,
     )>,
     state: Res<GlobalStateResource>,
     mut last_synced: ResMut<WorldSyncTracker>,
 ) {
-    if state.0.shut_down.load(std::sync::atomic::Ordering::Relaxed) {
-        return;
-    }
+    // if state.0.shut_down.load(std::sync::atomic::Ordering::Relaxed) {
+    //     return;
+    // }
 
     // Always schedule a sync; frequency is handled by the schedule period.
     state.0.world.sync().expect("Failed to sync world");
@@ -51,6 +52,7 @@ pub fn sync_world(
         experience,
         ender_chest,
         active_effects,
+        permissions,
     ) in player_query.iter()
     {
         let data = OfflinePlayerData {
@@ -64,6 +66,7 @@ pub fn sync_world(
             experience: *experience,
             ender_chest: ender_chest.clone(),
             active_effects: active_effects.clone(),
+            permissions: permissions.clone(),
         };
         state
             .0

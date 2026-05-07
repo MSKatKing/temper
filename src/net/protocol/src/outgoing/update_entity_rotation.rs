@@ -16,8 +16,8 @@ impl UpdateEntityRotationPacket {
     pub fn new(entity_id: &Identity, new_rot: &Rotation, on_ground: bool) -> Self {
         Self {
             entity_id: VarInt::new(entity_id.entity_id),
-            yaw: NetAngle::from_degrees(new_rot.yaw as f64),
-            pitch: NetAngle::from_degrees(new_rot.pitch as f64),
+            yaw: NetAngle::from_degrees(f64::from(new_rot.yaw)),
+            pitch: NetAngle::from_degrees(f64::from(new_rot.pitch)),
             on_ground,
         }
     }

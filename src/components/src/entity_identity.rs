@@ -1,4 +1,5 @@
 use bevy_ecs::prelude::Component;
+use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicI32, Ordering};
 
 /// Global entity ID counter for non-player entities.
@@ -18,7 +19,7 @@ static ENTITY_ID_COUNTER: AtomicI32 = AtomicI32::new(1_000_000);
 /// let pig_identity = Identity::new(Some("Pig".to_string()));
 /// assert!(pig_identity.entity_id >= 1_000_000);
 /// ```
-#[derive(Debug, Component, Clone)]
+#[derive(Debug, Component, Clone, Serialize, Deserialize)]
 pub struct Identity {
     /// Network entity ID used in packets.
     /// Must be unique across all entities in the server.

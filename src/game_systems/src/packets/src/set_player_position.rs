@@ -1,21 +1,21 @@
-use bevy_ecs::prelude::{MessageWriter, Query, Res};
+use bevy_ecs::prelude::{Entity, MessageWriter, Query, Res};
 
 use temper_components::player::grounded::OnGround;
 use temper_components::player::position::Position;
 use temper_components::player::teleport_tracker::TeleportTracker;
-use temper_messages::chunk_calc::ChunkCalc;
+use temper_messages::cross_chunk_boundary_event::ChunkBoundaryCrossed;
 use temper_messages::packet_messages::Movement;
 use temper_protocol::SetPlayerPositionPacketReceiver;
 use tracing::trace;
 
 pub fn handle(
     receiver: Res<SetPlayerPositionPacketReceiver>,
-    mut query: Query<(&mut Position, &mut OnGround, &TeleportTracker)>,
+    mut query: Query<(Entity, &mut Position, &mut OnGround, &TeleportTracker)>,
     mut movement_messages: MessageWriter<Movement>,
-    mut chunk_calc_messages: MessageWriter<ChunkCalc>,
+    mut cross_chunk_border_msg: MessageWriter<ChunkBoundaryCrossed>,
 ) {
     for (event, eid) in receiver.0.try_iter() {
-        if let Ok((mut pos, mut ground, tracker)) = query.get_mut(eid) {
+        if let Ok((entity, mut old_pos, mut ground, tracker)) = query.get_mut(eid) {
             if tracker.waiting_for_confirm {
                 // Ignore position updates while waiting for teleport confirmation
                 continue;
@@ -23,20 +23,24 @@ pub fn handle(
             let new_pos = Position::new(event.x, event.feet_y, event.z);
 
             // Check if chunk changed
-            let old_chunk = (pos.x as i32 >> 4, pos.z as i32 >> 4);
-            let new_chunk = (new_pos.x as i32 >> 4, new_pos.z as i32 >> 4);
+            let old_chunk = old_pos.chunk();
+            let new_chunk = new_pos.chunk();
             if old_chunk != new_chunk {
-                chunk_calc_messages.write(ChunkCalc(eid));
+                cross_chunk_border_msg.write(ChunkBoundaryCrossed {
+                    entity,
+                    old_chunk,
+                    new_chunk,
+                });
             }
 
             // Build movement message with delta BEFORE updating component
             let movement = Movement::new(eid)
-                .position_delta_from(&pos, &new_pos)
+                .position_delta_from(&old_pos, &new_pos)
                 .on_ground(event.on_ground);
 
             // Update components
-            if pos.coords != new_pos.coords {
-                *pos = new_pos;
+            if old_pos.coords != new_pos.coords {
+                *old_pos = new_pos;
             }
             *ground = OnGround(event.on_ground);
 

@@ -15,7 +15,7 @@ pub fn handle_inventory_updates(state: Res<GlobalStateResource>, mut query: Quer
                 let packet = temper_protocol::outgoing::set_container_slot::SetContainerSlot {
                     window_id: VarInt::new(0),
                     state_id: VarInt::new(0),
-                    slot_index: update.slot_index as i16,
+                    slot_index: i16::from(update.slot_index),
                     slot: update.slot,
                 };
                 if let Err(err) = writer.send_packet_ref(&packet) {

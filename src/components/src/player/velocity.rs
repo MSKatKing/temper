@@ -1,12 +1,13 @@
 use bevy_ecs::prelude::Component;
 use bevy_math::{DVec3, Vec3A};
+use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
 /// Velocity component representing the rate of change of position.
 ///
 /// Measured in blocks per tick (at 60 TPS).
 /// Positive Y is upward.
-#[derive(Debug, Component, Clone, Copy)]
+#[derive(Debug, Component, Clone, Copy, Serialize, Deserialize)]
 pub struct Velocity {
     pub vec: Vec3A,
 }

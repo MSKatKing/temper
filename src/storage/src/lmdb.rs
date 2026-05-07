@@ -174,7 +174,7 @@ mod tests {
         let mut hasher = wyhash::WyHash::with_seed(0);
         hasher.write_u64(a);
         hasher.write_u64(b);
-        hasher.finish() as u128
+        u128::from(hasher.finish())
     }
 
     #[test]

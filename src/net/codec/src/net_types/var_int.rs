@@ -30,7 +30,7 @@ mod adapters {
 
     impl From<u8> for VarInt {
         fn from(value: u8) -> Self {
-            Self::new(value as i32)
+            Self::new(i32::from(value))
         }
     }
 
@@ -100,11 +100,11 @@ impl VarInt {
     pub fn read<R: Read>(cursor: &mut R) -> Result<Self, NetTypesError> {
         let mut val = 0;
         for i in 0..5 {
-            let byte = {
+            let byte = i32::from({
                 let mut buf = [0u8; 1];
                 cursor.read_exact(&mut buf)?;
                 buf[0]
-            } as i32;
+            });
 
             val |= (byte & SEGMENT_BITS) << (7 * i);
             if byte & CONTINUE_BIT == 0 {
@@ -118,11 +118,11 @@ impl VarInt {
     pub async fn read_async<R: AsyncRead + Unpin>(cursor: &mut R) -> Result<Self, NetTypesError> {
         let mut val = 0;
         for i in 0..5 {
-            let byte = {
+            let byte = i32::from({
                 let mut buf = [0u8; 1];
                 cursor.read_exact(&mut buf).await?;
                 buf[0]
-            } as i32;
+            });
 
             val |= (byte & SEGMENT_BITS) << (7 * i);
             if byte & CONTINUE_BIT == 0 {

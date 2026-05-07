@@ -37,7 +37,7 @@ impl DirectSection {
 
     #[inline]
     pub fn get_block(&self, idx: usize) -> BlockStateId {
-        BlockStateId::new(self.0[idx] as _)
+        BlockStateId::new(self.0[idx].into())
     }
 
     pub fn block_count(&self) -> u16 {

@@ -1,6 +1,7 @@
 use bevy_ecs::prelude::Component;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Component, Copy, Clone)]
+#[derive(Debug, Default, Component, Copy, Clone, Serialize, Deserialize)]
 pub struct OnGround(pub bool);
 
 impl From<bool> for OnGround {

@@ -1,9 +1,12 @@
 mod credits;
+pub mod deop;
 pub mod echo;
 pub mod fly;
 pub mod gamemode;
 mod kill;
 pub mod nested;
+pub mod op;
+pub mod permissions;
 mod say;
 pub mod spawn;
 mod stop;

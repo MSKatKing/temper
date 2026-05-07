@@ -22,7 +22,7 @@ pub fn handle(
         };
 
         let server_render_distance = get_global_config().chunk_render_distance as i32;
-        let client_view_distance = client_info.view_distance as i32;
+        let client_view_distance = i32::from(client_info.view_distance);
         let radius = server_render_distance.min(client_view_distance);
         let player_chunk = ChunkPos::from(position.coords);
 

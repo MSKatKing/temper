@@ -12,7 +12,7 @@ use tracing::trace;
 pub fn handle(mut events: MessageReader<PlayerLeft>, player_query: Query<(Entity, &Identity)>) {
     // 1. Loop through each "player left" event
     for event in events.read() {
-        let player_who_left = &event.0;
+        let player_who_left = &event.identity;
 
         // 2. Build the "Player <player> left the game" message
         let mut message = TextComponent::from(format!(

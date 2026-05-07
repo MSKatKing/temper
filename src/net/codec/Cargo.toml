@@ -11,3 +11,5 @@ temper-general-purpose = { workspace = true }
 deepsize = { workspace = true }
 type_hash = { workspace = true }
 
+[lints]
+workspace = true

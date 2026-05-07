@@ -20,8 +20,7 @@ impl World {
         dimension: Dimension,
         chunk: Chunk,
     ) -> Result<(), WorldError> {
-        let mut chunk = chunk;
-        chunk.sections.iter_mut().for_each(|c| c.dirty = false);
+        chunk.clear_dirty();
         save_chunk_internal(&self.storage_backend, pos, dimension, &chunk)?;
         // self.cache.insert((pos, dimension.to_string()), chunk);
         Ok(())
@@ -104,13 +103,23 @@ impl World {
         for pair in self.cache.iter() {
             let k = pair.key();
             let v = pair.value();
-            if v.sections.iter().any(|c| c.dirty) {
+            if v.is_dirty() {
                 trace!("Chunk at {:?} is dirty, saving.", k.0);
             } else {
                 continue;
             }
             trace!("Syncing chunk: {:?}", k.0);
+            if !v.entities.is_empty() {
+                trace!(
+                    "Chunk at {:?} has {} entities, saving.",
+                    k.0,
+                    v.entities.len()
+                );
+            } else {
+                trace!("Chunk at {:?} has no entities, saving.", k.0);
+            }
             save_chunk_internal(&self.storage_backend, k.0, k.1, v)?;
+            v.clear_dirty();
         }
 
         sync_internal(&self.storage_backend)

@@ -70,12 +70,12 @@ pub fn write_nbit_i32(
     if size > 32 {
         return Err(DataPackingError::SizeExceedsMaxSize(size, 32));
     }
-    if offset + size as u32 > 64 {
+    if offset + u32::from(size) > 64 {
         return Err(DataPackingError::NotEnoughBits(size, offset));
     }
     let mask = (1 << size) - 1;
     *data &= !(mask << offset);
-    *data |= ((value as i64) & mask) << offset;
+    *data |= (i64::from(value) & mask) << offset;
     Ok(())
 }
 

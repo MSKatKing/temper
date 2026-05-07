@@ -531,6 +531,7 @@ pub(super) async fn login(
             compression: compressed,
             client_information_component: Some(client_info.into()),
             player_properties: Some(player_properties),
+            permissions: Some(offline_data.permissions),
         },
     ))
 }

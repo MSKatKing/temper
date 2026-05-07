@@ -36,7 +36,7 @@ impl Movement {
         // Clamping to i16 range ensures we get max values which trigger teleport logic.
         let calc_delta = |old: f64, new: f64| -> i16 {
             let delta = (new * 4096.0) - (old * 4096.0);
-            delta.clamp(i16::MIN as f64, i16::MAX as f64) as i16
+            delta.clamp(f64::from(i16::MIN), f64::from(i16::MAX)) as i16
         };
         self.delta_position = Some((
             calc_delta(old_pos.x, new_pos.x),

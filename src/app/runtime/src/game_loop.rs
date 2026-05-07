@@ -6,31 +6,27 @@
 //! - Runs timed schedules (tick, world sync, keepalive, etc.)
 //! - Handles graceful shutdown
 
+use crate::blocklist::blocklist;
 use crate::errors::BinaryError;
 use crate::tui;
 use bevy_ecs::prelude::World;
-use bevy_ecs::schedule::{ExecutorKind, Schedule};
+use bevy_ecs::schedule::Schedule;
 use crossbeam_channel::Sender;
 use std::sync::Arc;
+use std::sync::atomic::Ordering::Relaxed;
 use std::time::{Duration, Instant};
-use temper_commands::infrastructure::register_command_systems;
 use temper_config::server_config::get_global_config;
-use temper_game_systems::{
-    LanPinger, chunk_unloader, keep_alive_system, register_background_systems,
-    register_mob_systems, register_packet_handlers, register_physics_systems,
-    register_player_systems, register_shutdown_systems, register_world_systems, update_player_ping,
-    world_sync,
-};
+use temper_game_systems::{LanPinger, register_schedules};
 use temper_messages::register_messages;
 use temper_net_runtime::connection::{NewConnection, handle_connection};
 use temper_net_runtime::server::create_server_listener;
 use temper_performance::tick::TickData;
 use temper_protocol::{PacketSender, create_packet_senders};
 use temper_resources::register_resources;
-use temper_scheduler::MissedTickBehavior;
-use temper_scheduler::{Scheduler, TimedSchedule, drain_registered_schedules};
+use temper_scheduler::Scheduler;
 use temper_state::{GlobalState, GlobalStateResource};
 use temper_utils::formatting::format_duration;
+use tokio::io::AsyncWriteExt;
 use tracing::{Instrument, debug, error, info, info_span, trace, warn};
 
 /// Main entry point for the server game loop.
@@ -93,11 +89,9 @@ pub fn start_game_loop(global_state: GlobalState, no_tui: bool) -> Result<(), Bi
         server_command_rx,
     );
 
-    // Build the timed scheduler with all periodic schedules (tick, sync, keepalive)
-    let mut timed = build_timed_scheduler();
-
-    // Register systems that run on shutdown (save world, disconnect players, etc.)
-    register_shutdown_systems(&mut shutdown_schedule);
+    // Build the timed scheduler with all periodic schedules and shutdown systems.
+    let mut timed = Scheduler::new();
+    register_schedules(&mut timed, &mut shutdown_schedule);
 
     // =========================================================================
     // PHASE 4: Start Network Thread
@@ -128,10 +122,7 @@ pub fn start_game_loop(global_state: GlobalState, no_tui: bool) -> Result<(), Bi
     let tick_zero = Instant::now();
 
     // Main loop - runs until shutdown flag is set (e.g., via Ctrl+C or /stop command)
-    while !global_state
-        .shut_down
-        .load(std::sync::atomic::Ordering::Relaxed)
-    {
+    while !global_state.shut_down.load(Relaxed) {
         let tick_start = Instant::now();
         let mut ran_any = false;
         let mut ran_count = 0;
@@ -238,93 +229,6 @@ pub fn start_game_loop(global_state: GlobalState, no_tui: bool) -> Result<(), Bi
     Ok(())
 }
 
-/// Builds the timed scheduler with all periodic game schedules.
-///
-/// Each schedule runs at a specific interval and handles different aspects of the game:
-/// - **tick**: Main game tick (player updates, packets, commands) - runs at configured TPS
-/// - **world_sync**: Persists world data to disk - every 15 seconds
-/// - **keepalive**: Sends keepalive packets to prevent timeouts - every 1 second
-fn build_timed_scheduler() -> Scheduler {
-    let mut timed = Scheduler::new();
-
-    // -------------------------------------------------------------------------
-    // TICK SCHEDULE - Main game loop tick
-    // -------------------------------------------------------------------------
-    // This is the core game tick that runs at the configured TPS (ticks per second).
-    // It processes packets, updates players, handles commands, and runs game systems.
-    // Uses Burst behavior to catch up if ticks are missed (up to 5 at a time).
-    let build_tick = |s: &mut Schedule| {
-        s.set_executor_kind(ExecutorKind::SingleThreaded);
-        register_packet_handlers(s); // Handle incoming packets from players
-        register_player_systems(s); // Update player state (position, inventory, etc.)
-        register_command_systems(s); // Process queued commands
-
-        register_background_systems(s); // Systems that run in the background (day cycle, chunk sending, etc.)
-        register_physics_systems(s); // Physics systems (movement, collision, etc.)
-        register_mob_systems(s); // Mob AI and behavior
-        register_world_systems(s); // World updates (block changes, redstone, etc.)
-    };
-    let tick_period = Duration::from_secs(1) / get_global_config().tps;
-    timed.register(
-        TimedSchedule::new("tick", tick_period, build_tick)
-            .with_behavior(MissedTickBehavior::Burst) // Run missed ticks to catch up
-            .with_max_catch_up(5), // But only catch up 5 ticks max at once
-    );
-
-    // -------------------------------------------------------------------------
-    // WORLD SYNC SCHEDULE - Periodic world persistence
-    // -------------------------------------------------------------------------
-    // Saves the world state to disk periodically to prevent data loss.
-    // Uses Skip behavior - if we miss a sync, just wait for the next one.
-    let build_world_sync = |s: &mut Schedule| {
-        s.add_systems(world_sync::sync_world);
-    };
-    timed.register(
-        TimedSchedule::new("world_sync", Duration::from_secs(15), build_world_sync)
-            .with_behavior(MissedTickBehavior::Skip),
-    );
-
-    // -------------------------------------------------------------------------
-    // CHUNK GC SCHEDULE - Periodic chunk garbage collection
-    // -------------------------------------------------------------------------
-    //
-    // Cleans up unused chunks from memory to free resources.
-    // Uses Skip behavior - if we miss a GC, just wait for the next one.
-    let build_chunk_gc = |s: &mut Schedule| {
-        s.add_systems(chunk_unloader::handle);
-    };
-    timed.register(
-        TimedSchedule::new("chunk_gc", Duration::from_secs(5), build_chunk_gc)
-            .with_behavior(MissedTickBehavior::Skip),
-    );
-
-    // -------------------------------------------------------------------------
-    // KEEPALIVE SCHEDULE - Prevents client timeout disconnects
-    // -------------------------------------------------------------------------
-    // Sends keepalive packets to all connected players to maintain the connection.
-    // Has a 250ms phase offset to spread load away from tick boundaries.
-    // Also handles updating player ping values.
-    let build_keepalive = |s: &mut Schedule| {
-        s.add_systems(keep_alive_system::keep_alive_system);
-        s.add_systems(update_player_ping::handle);
-    };
-    timed.register(
-        TimedSchedule::new("keepalive", Duration::from_secs(1), build_keepalive)
-            .with_behavior(MissedTickBehavior::Skip)
-            .with_phase(Duration::from_millis(250)), // Offset from tick schedule
-    );
-
-    // -------------------------------------------------------------------------
-    // PLUGIN SCHEDULES - Dynamically registered by plugins
-    // -------------------------------------------------------------------------
-    // Drain any schedules that plugins registered during initialization.
-    for pending in drain_registered_schedules() {
-        timed.register(pending.into_timed());
-    }
-
-    timed
-}
-
 /// Spawns the LAN broadcast pinger task.
 ///
 /// This broadcasts the server's presence on the local network using UDP multicast
@@ -334,13 +238,13 @@ fn build_timed_scheduler() -> Scheduler {
 /// The 1.5 second interval is a balance between:
 /// - Fast enough for clients to discover the server quickly
 /// - Slow enough to not spam the network with unnecessary traffic
-async fn spawn_lan_pinger() {
+async fn spawn_lan_pinger(state: GlobalState) {
     let Ok(mut pinger) = LanPinger::new().await else {
         error!("Failed creating LAN pinger");
         return;
     };
 
-    loop {
+    while !state.shut_down.load(Relaxed) {
         pinger.send().await;
         tokio::time::sleep(Duration::from_millis(1500)).await;
     }
@@ -372,7 +276,7 @@ fn tcp_conn_acceptor(
     mut shutdown_notify: tokio::sync::oneshot::Receiver<()>,
     shutdown_response: Sender<()>,
 ) -> Result<(), BinaryError> {
-    let named_thread = std::thread::Builder::new().name("TokioNetworkThread".to_string());
+    let named_thread = std::thread::Builder::new().name("TokioAsyncThread".to_string());
     named_thread.spawn(move || {
         // Catch panics to ensure graceful shutdown even if something goes wrong
         // We catch it so we can shut down the entire server instead of leaving it open with a crashed network loop
@@ -384,7 +288,11 @@ fn tcp_conn_acceptor(
                 .build()?;
 
             // Spawn LAN broadcast pinger (for local network server discovery)
-            async_runtime.spawn(spawn_lan_pinger());
+            async_runtime.spawn(spawn_lan_pinger(state.clone()));
+
+            if get_global_config().block_scanner_ips {
+                async_runtime.spawn(blocklist(state.clone()));
+            }
 
             // Main connection accept loop
             async_runtime.block_on({
@@ -399,15 +307,21 @@ fn tcp_conn_acceptor(
                     };
 
                     // Accept connections until shutdown is signaled
-                    while !state.shut_down.load(std::sync::atomic::Ordering::Relaxed) {
+                    while !state.shut_down.load(Relaxed) {
                         // Use tokio::select! to handle both new connections AND shutdown signal
                         tokio::select! {
                             // Branch 1: New TCP connection incoming
                             accept_result = listener.accept() => {
                                 match accept_result {
-                                    Ok((stream, _)) => {
+                                    Ok((mut stream, _)) => {
                                         let addy = stream.peer_addr()?;
                                         debug!("Got TCP connection from {}", addy);
+                                        if state.blocked_ips.contains(&addy.ip().to_string()) {
+                                            debug!("Rejected connection from blocked IP: {}", addy);
+                                            stream.write_all("Lol nah".as_bytes()).await.ok();
+                                            stream.shutdown().await.ok();
+                                            continue;
+                                        }
 
                                         // Spawn a task to handle this connection asynchronously
                                         tokio::spawn({
@@ -452,7 +366,7 @@ fn tcp_conn_acceptor(
             // Set shutdown flag so the main loop knows something went wrong
             state
                 .shut_down
-                .store(true, std::sync::atomic::Ordering::Relaxed);
+                .store(true, Relaxed);
             return Err::<(), BinaryError>(BinaryError::Custom(
                 "TCP connection acceptor thread panicked".to_string(),
             ));

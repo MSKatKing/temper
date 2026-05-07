@@ -12,6 +12,7 @@ use temper_components::player::client_information::ClientInformationComponent;
 use temper_components::player::player_properties::PlayerProperties;
 use temper_encryption::read::EncryptedReader;
 use temper_macros::lookup_packet;
+use temper_permissions::player::PlayerPermission;
 use temper_protocol::errors::NetError;
 use temper_protocol::errors::PacketError;
 use temper_protocol::incoming::handshake::Handshake;
@@ -31,6 +32,7 @@ pub(crate) struct LoginResult {
     pub player_properties: Option<PlayerProperties>,
     pub compression: bool,
     pub client_information_component: Option<ClientInformationComponent>,
+    pub permissions: Option<PlayerPermission>,
 }
 
 /// Protocol version supported by this server implementation (Minecraft 1.21.8).

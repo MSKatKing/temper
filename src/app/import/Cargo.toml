@@ -10,3 +10,6 @@ temper-threadpool = { workspace = true }
 temper-config = { workspace = true }
 bin-cli = { path = "../cli" }
 temper-general-purpose = { workspace = true }
+
+[lints]
+workspace = true

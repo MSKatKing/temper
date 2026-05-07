@@ -52,6 +52,7 @@ unsafe fn u8_slice_to_u32_be_simd(input: &[u8]) -> Vec<u32> {
     );
     let mut input = input.chunks_exact(32);
     for (i, chunk) in input.by_ref().enumerate() {
+        #[expect(clippy::cast_ptr_alignment)]
         let out = output.as_mut_ptr().cast::<__m256i>().add(i);
         let data = _mm256_loadu_si256(chunk.as_ptr().cast());
         let shuffled = _mm256_shuffle_epi8(data, shuffle_mask);
@@ -120,6 +121,7 @@ unsafe fn u8_slice_to_u64_be_simd(input: &[u8]) -> Vec<u64> {
     );
 
     for (i, chunk) in input.by_ref().enumerate() {
+        #[expect(clippy::cast_ptr_alignment)]
         let out = output.as_mut_ptr().cast::<__m256i>().add(i);
         let data = _mm256_loadu_si256(chunk.as_ptr().cast());
         let shuffled = _mm256_shuffle_epi8(data, shuffle_mask);
@@ -168,6 +170,7 @@ unsafe fn u32_slice_to_u8_be_simd(input: &[u32]) -> Vec<u8> {
 
     let mut input = input.chunks_exact(8);
     for (i, chunk) in input.by_ref().enumerate() {
+        #[expect(clippy::cast_ptr_alignment)]
         let out = output.as_mut_ptr().cast::<__m256i>().add(i);
         let data = _mm256_loadu_si256(chunk.as_ptr().cast());
         let shuffled = _mm256_shuffle_epi8(data, shuffle_mask);
@@ -213,6 +216,7 @@ unsafe fn u64_slice_to_u8_be_simd(input: &[u64]) -> Vec<u8> {
     let mut input = input.chunks_exact(4);
 
     for (i, chunk) in input.by_ref().enumerate() {
+        #[expect(clippy::cast_ptr_alignment)]
         let out = output.as_mut_ptr().cast::<__m256i>().add(i);
         let data = _mm256_loadu_si256(chunk.as_ptr().cast());
         let shuffled = _mm256_shuffle_epi8(data, shuffle_mask);

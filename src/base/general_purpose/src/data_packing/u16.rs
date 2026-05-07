@@ -21,7 +21,7 @@ pub fn read_nbit_u16(data: &u64, size: u8, offset: u32) -> Result<u16, DataPacki
     if size > 16 {
         return Err(DataPackingError::SizeExceedsMaxSize(size, 16));
     }
-    if offset + size as u32 > 64 {
+    if offset + u32::from(size) > 64 {
         return Err(DataPackingError::NotEnoughBits(size, offset));
     }
     Ok(((data >> offset) & ((1 << size) - 1)) as u16)
@@ -54,12 +54,12 @@ pub fn write_nbit_u16(
     if size > 16 {
         return Err(DataPackingError::SizeExceedsMaxSize(size, 16));
     }
-    if offset + size as u32 > 64 {
+    if offset + u32::from(size) > 64 {
         return Err(DataPackingError::NotEnoughBits(size, offset));
     }
     let mask = (1 << size) - 1;
     *data &= !((mask) << offset);
-    *data |= ((value as u64) & mask) << offset;
+    *data |= (u64::from(value) & mask) << offset;
     Ok(())
 }
 

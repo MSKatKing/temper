@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  pull_request:
+    branches: [ "master" ]
+    types: [ closed ]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check_release:
+    name: Check Release Version
+    if: github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Generate lockfile
+        run: cargo generate-lockfile
+
+      - name: Check release version
+        id: version
+        run: |
+          version="$(bash scripts/check-release-version.sh)"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "tag=v${version}" >> "${GITHUB_OUTPUT}"
+
+  build:
+    name: Build Release Artifacts
+    needs: check_release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+            artifact: temper-aarch64-apple-darwin
+            binary: temper
+            archive: temper-aarch64-apple-darwin.tar.gz
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: temper-x86_64-unknown-linux-gnu
+            binary: temper
+            archive: temper-x86_64-unknown-linux-gnu.tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: temper-x86_64-pc-windows-msvc
+            binary: temper.exe
+            archive: temper-x86_64-pc-windows-msvc.zip
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            artifact: temper-aarch64-unknown-linux-gnu
+            binary: temper
+            archive: temper-aarch64-unknown-linux-gnu.tar.gz
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }} --bin temper
+
+      - name: Package Unix executable
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist/temper"
+          tar -C dist -czf "${{ matrix.archive }}" temper
+
+      - name: Package Windows executable
+        if: runner.os == 'Windows'
+        run: |
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist/temper.exe"
+          7z a "${{ matrix.archive }}" "./dist/temper.exe"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.archive }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish Release
+    needs: [ check_release, build ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.check_release.outputs.tag }}
+          RELEASE_TARGET: ${{ github.event.pull_request.merge_commit_sha }}
+          RELEASE_TITLE: Temper ${{ needs.check_release.outputs.version }}
+        run: |
+          python3 -c 'import json, os; event = json.load(open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8")); print(event["pull_request"].get("body") or "")' > release-notes.md
+          release_target="${RELEASE_TARGET:-${GITHUB_SHA}}"
+          gh release create "${RELEASE_TAG}" dist/* \
+            --target "${release_target}" \
+            --title "${RELEASE_TITLE}" \
+            --notes-file release-notes.md

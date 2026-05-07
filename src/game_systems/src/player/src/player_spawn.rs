@@ -1,36 +1,24 @@
-//! Handles spawning players for each other when they join the server.
+//! Handles global player list updates when players join the server.
 //!
 //! When a player joins:
-//! 1. Send existing players' info + spawn packets to the new player
-//! 2. Broadcast the new player's info + spawn packets to existing players
+//! 1. Send existing players' tab-list info to the new player
+//! 2. Broadcast the new player's tab-list info to existing players
+//!
+//! Actual in-world entity spawning is handled by `EntityTracker`.
 
 use bevy_ecs::prelude::{Entity, MessageReader, Query, Res};
 use temper_components::entity_identity::Identity;
 use temper_components::player::player_properties::PlayerProperties;
-use temper_components::player::position::Position;
-use temper_components::player::rotation::Rotation;
-use temper_macros::get_registry_entry;
 use temper_messages::player_join::PlayerJoined;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::player_info_update::PlayerInfoUpdatePacket;
-use temper_protocol::outgoing::spawn_entity::SpawnEntityPacket;
 use temper_state::GlobalStateResource;
 use tracing::{error, trace};
 
-const PLAYER_TYPE_ID: i32 =
-    get_registry_entry!("minecraft:entity_type.entries.minecraft:player") as i32;
-
-/// Listens for `PlayerJoined` events and handles spawning players for each other.
+/// Listens for `PlayerJoined` events and syncs tab-list state for all players.
 pub fn handle(
     mut events: MessageReader<PlayerJoined>,
-    player_query: Query<(
-        Entity,
-        &Identity,
-        &Position,
-        &Rotation,
-        &StreamWriter,
-        &PlayerProperties,
-    )>,
+    player_query: Query<(Entity, &Identity, &StreamWriter, &PlayerProperties)>,
     state: Res<GlobalStateResource>,
 ) {
     for event in events.read() {
@@ -38,11 +26,9 @@ pub fn handle(
         let new_player_identity = &event.identity;
 
         // Get the new player's connection and components
-        let Ok((_, _, new_pos, new_rot, new_conn, player_properties)) =
-            player_query.get(new_player_entity)
-        else {
+        let Ok((_, _, new_conn, player_properties)) = player_query.get(new_player_entity) else {
             error!(
-                "Failed to get new player components for spawn broadcast: {:?}",
+                "Failed to get new player components for tab sync: {:?}",
                 new_player_entity
             );
             continue;
@@ -51,18 +37,11 @@ pub fn handle(
         // Create packets for the new player once (to broadcast to existing players)
         let new_player_info_packet =
             PlayerInfoUpdatePacket::new_player_join_packet(new_player_identity, player_properties);
-        let new_player_spawn_packet = SpawnEntityPacket::new(
-            new_player_identity.entity_id,
-            new_player_identity.uuid.as_u128(),
-            PLAYER_TYPE_ID,
-            new_pos,
-            new_rot,
-        );
 
-        let mut spawned_for_new_player = 0;
-        let mut spawned_for_existing = 0;
+        let mut listed_for_new_player = 0;
+        let mut listed_for_existing = 0;
 
-        for (entity, identity, pos, rot, conn, player_properties) in player_query.iter() {
+        for (entity, identity, conn, player_properties) in player_query.iter() {
             // Skip self
             if entity == new_player_entity {
                 continue;
@@ -81,46 +60,21 @@ pub fn handle(
                 error!("Failed to send existing player info to new player: {:?}", e);
                 continue;
             }
+            listed_for_new_player += 1;
 
-            // 2. Send existing player's spawn packet to the new player
-            let existing_player_spawn = SpawnEntityPacket::new(
-                identity.entity_id,
-                identity.uuid.as_u128(),
-                PLAYER_TYPE_ID,
-                pos,
-                rot,
-            );
-            if let Err(e) = new_conn.send_packet_ref(&existing_player_spawn) {
-                error!(
-                    "Failed to send existing player spawn to new player: {:?}",
-                    e
-                );
-                continue;
-            }
-            spawned_for_new_player += 1;
-
-            // 3. Send new player's info to existing player
+            // 2. Send new player's info to existing player
             if let Err(e) = conn.send_packet_ref(&new_player_info_packet) {
                 error!("Failed to send new player info to existing player: {:?}", e);
                 continue;
             }
-
-            // 4. Send new player's spawn packet to existing player
-            if let Err(e) = conn.send_packet_ref(&new_player_spawn_packet) {
-                error!(
-                    "Failed to send new player spawn to existing player: {:?}",
-                    e
-                );
-                continue;
-            }
-            spawned_for_existing += 1;
+            listed_for_existing += 1;
         }
 
         trace!(
-            "Player {} joined: sent {} existing players, spawned for {} existing players",
+            "Player {} joined: synced tab info for {} existing players and broadcast to {} players",
             new_player_identity.name.as_ref().expect("No Player Name"),
-            spawned_for_new_player,
-            spawned_for_existing
+            listed_for_new_player,
+            listed_for_existing
         );
     }
 }

@@ -21,10 +21,10 @@ pub fn read_nbit_u32(data: &i64, size: u8, offset: u32) -> Result<u32, DataPacki
     if size > 32 {
         return Err(DataPackingError::SizeExceedsMaxSize(size, 32));
     }
-    if offset + size as u32 > 64 {
+    if offset + u32::from(size) > 64 {
         return Err(DataPackingError::NotEnoughBits(size, offset));
     }
-    Ok(((*data as u64 >> offset as u64) & ((1u64 << size) - 1u64)) as u32)
+    Ok(((*data as u64 >> u64::from(offset)) & ((1u64 << size) - 1u64)) as u32)
 }
 
 /// Writes a specified number of bits to a given offset in a 64-bit unsigned integer.
@@ -57,12 +57,12 @@ pub fn write_nbit_u32(
     if size > 32 {
         return Err(DataPackingError::SizeExceedsMaxSize(size, 32));
     }
-    if offset >= 64 || offset + size as u32 > 64 {
+    if offset >= 64 || offset + u32::from(size) > 64 {
         return Err(DataPackingError::NotEnoughBits(size, offset));
     }
     let mask = ((1u64 << size) - 1) as i64; // Use u64 to avoid overflow
     *data &= !(mask << offset); // Clear the target bits
-    *data |= ((value as i64) & mask) << offset; // Write the new value
+    *data |= (i64::from(value) & mask) << offset; // Write the new value
     Ok(())
 }
 

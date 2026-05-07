@@ -12,3 +12,6 @@ wyhash = { workspace = true }
 temper-world-format = { workspace = true }
 bitcode = { workspace = true }
 yazi = { workspace = true }
+
+[lints]
+workspace = true

@@ -18,10 +18,10 @@ pub struct PlayerAbilities {
 
 impl PlayerAbilities {
     pub fn from_abilities(abilities: &PlayerAbilitiesComponent) -> Self {
-        let flags = (abilities.invulnerable as u8)
-            | (abilities.flying as u8 * 0x02)
-            | (abilities.may_fly as u8 * 0x04)
-            | (abilities.creative_mode as u8 * 0x08);
+        let flags = u8::from(abilities.invulnerable)
+            | (u8::from(abilities.flying) * 0x02)
+            | (u8::from(abilities.may_fly) * 0x04)
+            | (u8::from(abilities.creative_mode) * 0x08);
 
         Self {
             flags,

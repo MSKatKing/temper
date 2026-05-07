@@ -8,6 +8,7 @@ use crate::player::hunger::Hunger;
 use crate::player::rotation::Rotation;
 use bitcode_derive::{Decode, Encode};
 use temper_inventories::inventory::Inventory;
+use temper_permissions::player::PlayerPermission;
 use type_hash::TypeHash;
 
 #[derive(Clone, Debug, Encode, Decode, Default, TypeHash)]
@@ -22,4 +23,5 @@ pub struct OfflinePlayerData {
     pub experience: Experience,
     pub ender_chest: EnderChest,
     pub active_effects: ActiveEffects,
+    pub permissions: PlayerPermission,
 }

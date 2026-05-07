@@ -1,7 +1,7 @@
-#![expect(clippy::type_complexity)]
-use bevy_ecs::prelude::{MessageReader, Query};
+use bevy_ecs::prelude::{Entity, MessageReader, Query};
 use temper_codec::net_types::angle::NetAngle;
 use temper_components::entity_identity::Identity;
+use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::grounded::OnGround;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
@@ -15,15 +15,15 @@ use tracing::warn;
 
 pub fn handle(
     mut query: Query<(
+        Entity,
         &Position,
         &Velocity,
         &Rotation,
         &mut LastSyncedPosition,
-        Option<&Identity>,
-        Option<&Identity>,
+        &Identity,
         &OnGround,
     )>,
-    mut conn_query: Query<&StreamWriter>,
+    mut player_query: Query<(Entity, &StreamWriter, &EntityTracker)>,
     mut reader: MessageReader<SendEntityUpdate>,
 ) {
     let mut entities_to_update = vec![];
@@ -31,35 +31,26 @@ pub fn handle(
         entities_to_update.push(msg.0);
     }
     for entity in entities_to_update {
-        if let Ok((pos, vel, rot, mut last_synced, entity_id_opt, player_id_opt, grounded)) =
+        if let Ok((entity, pos, vel, rot, mut last_synced, identity, grounded)) =
             query.get_mut(entity)
         {
-            let id = if let Some(entity_id) = entity_id_opt {
-                entity_id.entity_id
-            } else if let Some(player_id) = player_id_opt {
-                player_id.entity_id
-            } else {
-                warn!(
-                    "Tried to send entity update for entity without identity: {:?}",
-                    entity
-                );
-                continue;
-            };
             if last_synced.0.distance(pos.coords) >= 8.0 {
                 let packet = TeleportEntityPacket {
-                    entity_id: id.into(),
+                    entity_id: identity.entity_id.into(),
                     x: pos.x,
                     y: pos.y,
                     z: pos.z,
-                    vel_x: vel.x as f64,
-                    vel_y: vel.y as f64,
-                    vel_z: vel.z as f64,
+                    vel_x: f64::from(vel.x),
+                    vel_y: f64::from(vel.y),
+                    vel_z: f64::from(vel.z),
                     yaw: rot.yaw,
                     pitch: rot.pitch,
                     on_ground: grounded.0,
                 };
-                for conn in conn_query.iter_mut() {
-                    // TODO: Only send if the client is tracking this entity
+                for (recipient_entity, conn, tracker) in player_query.iter_mut() {
+                    if recipient_entity == entity || !tracker.tracking.contains(&entity) {
+                        continue;
+                    }
                     if let Err(e) = conn.send_packet_ref(&packet) {
                         warn!(
                             "Failed to send teleport packet for entity {:?}: {:?}",
@@ -77,7 +68,7 @@ pub fn handle(
                     )
                 };
                 let packet = UpdateEntityPositionAndRotationPacket {
-                    entity_id: id.into(),
+                    entity_id: identity.entity_id.into(),
                     delta_x,
                     delta_y,
                     delta_z,
@@ -85,8 +76,10 @@ pub fn handle(
                     pitch: NetAngle::from_degrees(rot.pitch.into()),
                     on_ground: grounded.0,
                 };
-                for conn in conn_query.iter_mut() {
-                    // TODO: Only send if the client is tracking this entity
+                for (recipient_entity, conn, tracker) in player_query.iter_mut() {
+                    if recipient_entity == entity || !tracker.tracking.contains(&entity) {
+                        continue;
+                    }
                     if let Err(e) = conn.send_packet_ref(&packet) {
                         warn!(
                             "Failed to send entity update packet for entity {:?}: {:?}",

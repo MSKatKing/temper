@@ -10,6 +10,7 @@ use temper_core::pos::ChunkPos;
 use temper_state::GlobalState;
 use tracing::info;
 
+pub mod blocklist;
 mod errors;
 mod game_loop;
 mod tui;

@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::Component;
 use bevy_math::bounding::Aabb3d;
+use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 use temper_data::generated::entities::EntityType as VanillaEntityType;
 
@@ -7,7 +8,7 @@ use temper_data::generated::entities::EntityType as VanillaEntityType;
 ///
 /// Represents the volume occupied by an entity in the world.
 /// Used for collision detection and physics.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct BoundingBox {
     aabb: Aabb3d,
 }
@@ -53,17 +54,17 @@ impl BoundingBox {
 
     /// Returns the total width of the bounding box.
     pub fn width(&self) -> f64 {
-        (self.aabb.max.x - self.aabb.min.x) as f64
+        f64::from(self.aabb.max.x - self.aabb.min.x)
     }
 
     /// Returns the height of the bounding box.
     pub fn height(&self) -> f64 {
-        (self.aabb.max.y - self.aabb.min.y) as f64
+        f64::from(self.aabb.max.y - self.aabb.min.y)
     }
 
     /// Returns the depth of the bounding box.
     pub fn depth(&self) -> f64 {
-        (self.aabb.max.z - self.aabb.min.z) as f64
+        f64::from(self.aabb.max.z - self.aabb.min.z)
     }
 
     /// Returns the volume of the bounding box in cubic blocks.
@@ -162,7 +163,7 @@ impl PhysicalProperties {
                 ),
             },
         };
-        self.eye_height = (self.eye_height as f64 * scale) as f32;
+        self.eye_height = (f64::from(self.eye_height) * scale) as f32;
     }
 }
 

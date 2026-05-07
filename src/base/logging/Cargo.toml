@@ -21,3 +21,6 @@ regex = { workspace = true }
 [features]
 # Enable the tracy profiler client
 tracy = ["tracing-tracy", "tracy-client"]
+
+[lints]
+workspace = true

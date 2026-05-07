@@ -5,5 +5,22 @@ edition = "2024"
 
 [dependencies]
 bevy_ecs = { workspace = true }
+bevy_math = { workspace = true }
+pathfinding = { path = "../pathfinding" }
 temper-components = { workspace = true }
 temper-entities = { workspace = true }
+temper-messages = { workspace = true }
+temper-state = { workspace = true }
+temper-core = { workspace = true }
+temper-particles = { workspace = true }
+temper-utils = { workspace = true }
+bitcode = { workspace = true }
+tracing = { workspace = true }
+temper-protocol = { workspace = true }
+temper-net-runtime = { workspace = true }
+temper-macros = { workspace = true }
+temper-config = { workspace = true }
+paste = { workspace = true }
+
+[lints]
+workspace = true

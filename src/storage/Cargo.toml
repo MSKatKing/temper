@@ -21,3 +21,6 @@ rand = { workspace = true }
 name = "storage_bench"
 harness = false
 path = "src/benches/storage.rs"
+
+[lints]
+workspace = true

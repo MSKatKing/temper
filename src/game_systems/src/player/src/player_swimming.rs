@@ -3,6 +3,7 @@ use bevy_math::DVec3;
 use std::collections::HashSet;
 use temper_codec::net_types::var_int::VarInt;
 use temper_components::entity_identity::Identity;
+use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::position::Position;
 use temper_components::player::swimming::SwimmingState;
 use temper_core::block_state_id::BlockStateId;
@@ -43,8 +44,8 @@ fn is_player_in_water(state: &temper_state::GlobalState, pos: &Position) -> bool
 /// System that detects when players enter/exit water and updates their swimming state
 /// Also broadcasts the swimming pose to all connected clients
 pub fn detect_player_swimming(
-    mut swimmers: Query<(&Identity, Ref<Position>, &mut SwimmingState)>,
-    all_connections: Query<(Entity, &StreamWriter)>,
+    mut swimmers: Query<(Entity, &Identity, Ref<Position>, &mut SwimmingState)>,
+    all_connections: Query<(Entity, &StreamWriter, &EntityTracker)>,
     state: Res<GlobalStateResource>,
     mut world_change: MessageReader<WorldChange>,
 ) {
@@ -54,7 +55,7 @@ pub fn detect_player_swimming(
             changed_chunks.insert(pos);
         }
     }
-    for (identity, pos, mut swimming_state) in swimmers.iter_mut() {
+    for (entity, identity, pos, mut swimming_state) in swimmers.iter_mut() {
         if !changed_chunks.contains(&pos.chunk()) && !pos.is_changed() {
             continue;
         }
@@ -72,7 +73,7 @@ pub fn detect_player_swimming(
                 ],
             );
 
-            broadcast_metadata(&packet, &all_connections, &state);
+            broadcast_metadata(entity, &packet, &all_connections, &state);
         } else if !in_water && swimming_state.is_swimming {
             swimming_state.is_swimming = false;
 
@@ -85,19 +86,23 @@ pub fn detect_player_swimming(
                 ],
             );
 
-            broadcast_metadata(&packet, &all_connections, &state);
+            broadcast_metadata(entity, &packet, &all_connections, &state);
         }
     }
 }
 
 /// Helper function to broadcast entity metadata to all connected players
 fn broadcast_metadata(
+    sender: Entity,
     packet: &EntityMetadataPacket,
-    connections: &Query<(Entity, &StreamWriter)>,
+    connections: &Query<(Entity, &StreamWriter, &EntityTracker)>,
     state: &GlobalStateResource,
 ) {
-    for (entity, conn) in connections {
+    for (entity, conn, tracker) in connections {
         if !state.0.players.is_connected(entity) {
+            continue;
+        }
+        if entity == sender || !tracker.tracking.contains(&sender) {
             continue;
         }
         if let Err(err) = conn.send_packet_ref(packet) {

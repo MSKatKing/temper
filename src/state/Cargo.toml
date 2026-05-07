@@ -12,3 +12,6 @@ crossbeam-queue = { workspace = true }
 tempfile = { workspace = true }
 temper-config = { workspace = true }
 temper-performance = { workspace = true }
+
+[lints]
+workspace = true

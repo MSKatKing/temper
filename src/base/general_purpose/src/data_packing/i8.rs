@@ -21,7 +21,7 @@ pub fn read_nbit_i8(data: &i64, size: u8, offset: u32) -> Result<i8, DataPacking
     if size > 8 {
         return Err(DataPackingError::SizeExceedsMaxSize(size, 8));
     }
-    if offset + size as u32 > 64 {
+    if offset + u32::from(size) > 64 {
         return Err(DataPackingError::NotEnoughBits(size, offset));
     }
     let mask = (1 << size) - 1;
@@ -62,12 +62,12 @@ pub fn write_nbit_i8(
     if size > 8 {
         return Err(DataPackingError::SizeExceedsMaxSize(size, 8));
     }
-    if offset + size as u32 > 64 {
+    if offset + u32::from(size) > 64 {
         return Err(DataPackingError::NotEnoughBits(size, offset));
     }
     let mask = (1 << size) - 1;
     *data &= !((mask) << offset);
-    *data |= ((value as i64) & mask) << offset;
+    *data |= (i64::from(value) & mask) << offset;
     Ok(())
 }
 

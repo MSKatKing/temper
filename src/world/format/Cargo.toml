@@ -22,6 +22,9 @@ serde = { workspace = true }
 bytemuck = { workspace = true }
 tokio = { workspace = true }
 type_hash = { workspace = true }
+uuid = { workspace = true }
+temper-entities = { workspace = true }
+dashmap = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
@@ -32,5 +35,5 @@ rand = { workspace = true }
 name = "bench"
 harness = false
 
-
-
+[lints]
+workspace = true

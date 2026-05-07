@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::Component;
 use bevy_math::DVec3;
+use serde::{Deserialize, Serialize};
 use std::ops::DerefMut;
 use std::{
     fmt::{Debug, Display, Formatter},
@@ -8,14 +9,14 @@ use std::{
 use temper_codec::net_types::network_position::NetworkPosition;
 use temper_core::pos::ChunkPos;
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Serialize, Deserialize)]
 pub struct Position {
     pub coords: DVec3,
 }
 
 impl From<NetworkPosition> for Position {
     fn from(pos: NetworkPosition) -> Self {
-        Self::new(pos.x as f64, pos.y as f64, pos.z as f64)
+        Self::new(f64::from(pos.x), f64::from(pos.y), f64::from(pos.z))
     }
 }
 
@@ -60,9 +61,9 @@ impl Position {
     pub fn offset_forward(&self, rotation: &super::rotation::Rotation, distance: f64) -> Self {
         let yaw_radians = rotation.yaw.to_radians();
         Self::new(
-            self.x - (yaw_radians.sin() as f64 * distance),
+            self.x - (f64::from(yaw_radians.sin()) * distance),
             self.y,
-            self.z + (yaw_radians.cos() as f64 * distance),
+            self.z + (f64::from(yaw_radians.cos()) * distance),
         )
     }
 

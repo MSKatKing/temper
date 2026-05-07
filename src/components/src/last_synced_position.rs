@@ -1,9 +1,10 @@
 use crate::player::position::Position;
 use bevy_ecs::prelude::Component;
 use bevy_math::DVec3;
+use serde::{Deserialize, Serialize};
 
 /// Component that tracks the last position synchronized to clients
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct LastSyncedPosition(pub DVec3);
 
 impl LastSyncedPosition {

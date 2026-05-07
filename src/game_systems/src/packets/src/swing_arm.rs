@@ -1,6 +1,7 @@
 use bevy_ecs::prelude::{Entity, Query, Res};
 use temper_codec::net_types::var_int::VarInt;
 use temper_components::entity_identity::Identity;
+use temper_components::player::entity_tracker::EntityTracker;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::SwingArmPacketReceiver;
 use temper_protocol::outgoing::entity_animation::EntityAnimationPacket;
@@ -10,7 +11,7 @@ use tracing::error;
 pub fn handle(
     receiver: Res<SwingArmPacketReceiver>,
     query: Query<&Identity>,
-    conn_query: Query<(Entity, &StreamWriter)>,
+    conn_query: Query<(Entity, &StreamWriter, &EntityTracker)>,
     state: Res<GlobalStateResource>,
 ) {
     for (event, eid) in receiver.0.try_iter() {
@@ -20,12 +21,15 @@ pub fn handle(
             continue;
         };
         let packet = EntityAnimationPacket::new(VarInt::new(game_id.entity_id), animation);
-        for (entity, conn) in conn_query.iter() {
+        for (entity, conn, tracker) in conn_query.iter() {
             if entity == eid {
                 continue; // Skip sending to the player who triggered the event
             }
             if !state.0.players.is_connected(entity) {
                 continue; // Skip if the player is not connected
+            }
+            if !tracker.tracking.contains(&eid) {
+                continue;
             }
             if let Err(e) = conn.send_packet_ref(&packet) {
                 error!("Failed to send packet: {}", e);

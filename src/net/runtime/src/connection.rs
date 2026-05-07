@@ -13,6 +13,7 @@ use temper_components::player::client_information::ClientInformationComponent;
 use temper_components::player::player_properties::PlayerProperties;
 use temper_encryption::read::EncryptedReader;
 use temper_encryption::write::EncryptedWriter;
+use temper_permissions::player::PlayerPermission;
 use temper_protocol::ConnState::Play;
 use temper_protocol::errors::CompressionError::GenericCompressionError;
 use temper_protocol::errors::NetError::HandshakeTimeout;
@@ -236,6 +237,7 @@ pub struct NewConnection {
     pub player_identity: Identity,
     pub client_information_component: ClientInformationComponent,
     pub player_properties: PlayerProperties,
+    pub permissions: PlayerPermission,
     pub entity_return: oneshot::Sender<Entity>,
     pub disconnect_handle: oneshot::Sender<()>,
 }
@@ -352,6 +354,7 @@ pub async fn handle_connection(
             client_information_component: login_result
                 .client_information_component
                 .unwrap_or_default(),
+            permissions: login_result.permissions.unwrap_or_default(),
         })
         .map_err(|_| NetError::Misc("Failed to register new connection".to_string()))?;
 

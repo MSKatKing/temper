@@ -16,7 +16,6 @@ use temper_protocol::outgoing::block_update::BlockUpdate;
 use temper_state::GlobalStateResource;
 use tracing::{error, warn};
 
-#[expect(clippy::type_complexity)]
 pub fn handle(
     receiver: Res<PlayerActionReceiver>,
     state: Res<GlobalStateResource>,

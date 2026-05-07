@@ -86,5 +86,5 @@ fn create_key(dimension: Dimension, pos: ChunkPos) -> u128 {
     let mut hasher = wyhash::WyHash::with_seed(0);
     dimension.hash(&mut hasher);
     let dim_hash = hasher.finish();
-    (dim_hash as u128) << 96 | pos.pack() as u128
+    u128::from(dim_hash) << 96 | u128::from(pos.pack())
 }

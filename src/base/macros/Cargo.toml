@@ -25,3 +25,6 @@ simd-json = { workspace = true }
 
 [dev-dependencies]
 temper-world = { workspace = true }
+
+[lints]
+workspace = true

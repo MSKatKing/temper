@@ -49,14 +49,14 @@ impl_for_primitives!(
 
 impl NetEncode for bool {
     fn encode<W: Write>(&self, writer: &mut W, _: &NetEncodeOpts) -> Result<(), NetEncodeError> {
-        (*self as u8).encode(writer, &NetEncodeOpts::None)
+        u8::from(*self).encode(writer, &NetEncodeOpts::None)
     }
     async fn encode_async<W: AsyncWrite + Unpin>(
         &self,
         writer: &mut W,
         _: &NetEncodeOpts,
     ) -> Result<(), NetEncodeError> {
-        (*self as u8)
+        u8::from(*self)
             .encode_async(writer, &NetEncodeOpts::None)
             .await
     }
@@ -79,7 +79,7 @@ impl NetEncode for String {
 
 impl NetEncode for &str {
     fn encode<W: Write>(&self, writer: &mut W, _: &NetEncodeOpts) -> Result<(), NetEncodeError> {
-        let len: VarInt = VarInt::new(self.len() as i32);
+        let len = VarInt::new(self.len() as i32);
         len.encode(writer, &NetEncodeOpts::None)?;
         writer.write_all(self.as_bytes())?;
         Ok(())
@@ -89,7 +89,7 @@ impl NetEncode for &str {
         writer: &mut W,
         _: &NetEncodeOpts,
     ) -> Result<(), NetEncodeError> {
-        let len: VarInt = VarInt::new(self.len() as i32);
+        let len = VarInt::new(self.len() as i32);
         len.encode_async(writer, &NetEncodeOpts::None).await?;
         writer.write_all(self.as_bytes()).await?;
         Ok(())
@@ -102,7 +102,7 @@ where
 {
     fn encode<W: Write>(&self, writer: &mut W, opts: &NetEncodeOpts) -> Result<(), NetEncodeError> {
         if matches!(opts, NetEncodeOpts::SizePrefixed) {
-            let len: VarInt = VarInt::new(self.len() as i32);
+            let len = VarInt::new(self.len() as i32);
             len.encode(writer, opts)?;
         }
 
@@ -117,7 +117,7 @@ where
         opts: &NetEncodeOpts,
     ) -> Result<(), NetEncodeError> {
         if matches!(opts, NetEncodeOpts::SizePrefixed) {
-            let len: VarInt = VarInt::new(self.len() as i32);
+            let len = VarInt::new(self.len() as i32);
             len.encode_async(writer, opts).await?;
         }
 
@@ -131,7 +131,7 @@ where
 impl NetEncode for &[u8] {
     fn encode<W: Write>(&self, writer: &mut W, opts: &NetEncodeOpts) -> Result<(), NetEncodeError> {
         if matches!(opts, NetEncodeOpts::SizePrefixed) {
-            let len: VarInt = VarInt::new(self.len() as i32);
+            let len = VarInt::new(self.len() as i32);
             len.encode(writer, opts)?;
         }
 
@@ -145,7 +145,7 @@ impl NetEncode for &[u8] {
         opts: &NetEncodeOpts,
     ) -> Result<(), NetEncodeError> {
         if matches!(opts, NetEncodeOpts::SizePrefixed) {
-            let len: VarInt = VarInt::new(self.len() as i32);
+            let len = VarInt::new(self.len() as i32);
             len.encode_async(writer, opts).await?;
         }
 
@@ -158,7 +158,7 @@ impl NetEncode for &[u8] {
 impl NetEncode for [u8] {
     fn encode<W: Write>(&self, writer: &mut W, opts: &NetEncodeOpts) -> Result<(), NetEncodeError> {
         if matches!(opts, NetEncodeOpts::SizePrefixed) {
-            let len: VarInt = VarInt::new(self.len() as i32);
+            let len = VarInt::new(self.len() as i32);
             len.encode(writer, opts)?;
         }
 
@@ -172,7 +172,7 @@ impl NetEncode for [u8] {
         opts: &NetEncodeOpts,
     ) -> Result<(), NetEncodeError> {
         if matches!(opts, NetEncodeOpts::SizePrefixed) {
-            let len: VarInt = VarInt::new(self.len() as i32);
+            let len = VarInt::new(self.len() as i32);
             len.encode_async(writer, opts).await?;
         }
 
@@ -221,7 +221,7 @@ where
     V: NetEncode,
 {
     fn encode<W: Write>(&self, writer: &mut W, opts: &NetEncodeOpts) -> Result<(), NetEncodeError> {
-        let len: VarInt = VarInt::new(self.len() as i32);
+        let len = VarInt::new(self.len() as i32);
         len.encode(writer, opts)?;
 
         for (key, value) in self {
@@ -235,7 +235,7 @@ where
         writer: &mut W,
         opts: &NetEncodeOpts,
     ) -> Result<(), NetEncodeError> {
-        let len: VarInt = VarInt::new(self.len() as i32);
+        let len = VarInt::new(self.len() as i32);
         len.encode_async(writer, opts).await?;
 
         for (key, value) in self {

@@ -1,6 +1,7 @@
 use crate::handshake::Handshake;
 use serde::Serialize;
 use std::path::PathBuf;
+use std::sync::atomic::Ordering::Relaxed;
 use std::time::Duration;
 use sysinfo::{Pid, ProcessesToUpdate, System};
 use temper_config::server_config::get_global_config;
@@ -58,7 +59,7 @@ pub async fn start_telemetry_loop(tx: Sender<DashboardEvent>, state: GlobalState
     const TICK_INTERVAL_SECS: u64 = 1;
     let mut ticker = interval(Duration::from_secs(TICK_INTERVAL_SECS));
 
-    loop {
+    while !state.shut_down.load(Relaxed) {
         ticker.tick().await;
 
         // Refresh system info for our PID

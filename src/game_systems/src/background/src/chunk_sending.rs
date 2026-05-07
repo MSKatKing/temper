@@ -1,10 +1,13 @@
-use bevy_ecs::prelude::{Entity, Query, Res};
+use bevy_ecs::prelude::{Entity, MessageWriter, Query, Res};
 use bevy_math::{IVec2, IVec3};
+use crossbeam_queue::SegQueue;
 use std::cmp::max;
+use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use temper_codec::encode::NetEncodeOpts;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::client_information::ClientInformationComponent;
+use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::position::Position;
 use temper_config::server_config::get_global_config;
 use temper_core::dimension::Dimension;
@@ -26,10 +29,12 @@ pub fn handle(
         &mut ChunkReceiver,
         &Position,
         &ClientInformationComponent,
+        &EntityTracker,
     )>,
     state: Res<GlobalStateResource>,
+    mut mob_load_writer: MessageWriter<temper_messages::load_chunk_entities::LoadChunkEntities>,
 ) {
-    for (eid, conn, mut chunk_receiver, pos, client_info) in query.iter_mut() {
+    for (eid, conn, mut chunk_receiver, pos, client_info, entity_tracker) in query.iter_mut() {
         if !state.0.players.is_connected(eid) {
             continue; // Skip if the player is not connected
         }
@@ -93,6 +98,8 @@ pub fn handle(
         })
         .expect("Failed to send SetCenterChunk");
 
+        let entity_queue = Arc::new(SegQueue::new());
+
         for coordinates in needed_chunks
             .into_iter()
             .filter(|coord| {
@@ -103,7 +110,7 @@ pub fn handle(
                 );
                 let distance = chunk_pos.distance_squared(player_chunk_pos);
                 let view_distance = max(
-                    client_info.view_distance as u32,
+                    u32::from(client_info.view_distance),
                     get_global_config().chunk_render_distance,
                 );
                 distance <= (view_distance * view_distance) as i32
@@ -114,14 +121,28 @@ pub fn handle(
                 .loaded
                 .insert((coordinates.x(), coordinates.z()));
             let state = state.clone();
+            if !state
+                .0
+                .world
+                .get_cache()
+                .contains_key(&(coordinates, Dimension::Overworld))
+            {
+                mob_load_writer.write(temper_messages::load_chunk_entities::LoadChunkEntities(
+                    coordinates,
+                ));
+            }
             let is_compressed = conn.compress.load(Ordering::Relaxed);
             batch.execute({
+                let entity_queue = entity_queue.clone();
                 move || {
                     let chunk = state
                         .0
                         .world
                         .get_or_generate_chunk(coordinates, Dimension::Overworld)
                         .expect("Failed to load or generate chunk");
+                    for kv in chunk.entities.iter() {
+                        entity_queue.push((*kv.key(), kv.value().0.to_entity_type().id));
+                    }
                     let packet = ChunkAndLightData::from_chunk(coordinates, &chunk)
                         .expect("Failed to create ChunkAndLightData");
                     compress_packet(
@@ -155,6 +176,11 @@ pub fn handle(
             };
             conn.send_packet(packet)
                 .expect("Failed to send UnloadChunk packet");
+        }
+
+        // God, I hope the compiler can optimize this shit out
+        while let Some(entity_id) = entity_queue.pop() {
+            entity_tracker.to_track.push(entity_id);
         }
     }
 }

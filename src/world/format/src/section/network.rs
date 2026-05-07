@@ -113,7 +113,7 @@ impl<'section> From<&'section BiomeData> for PalettedContainer<'section> {
             BiomeData::Uniform(data) => PalettedContainer {
                 bits_per_entry: 0,
                 palette: NetworkPalette::SingleValued {
-                    value: VarInt(data.0 as _),
+                    value: VarInt(data.0.into()),
                 },
                 data_array: NetworkArray::new_owned(vec![]),
             },

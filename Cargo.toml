@@ -36,6 +36,7 @@ members = [
     "src/game_systems/src/background",
     "src/game_systems/src/interactions",
     "src/game_systems/src/mobs",
+    "src/game_systems/src/pathfinding",
     "src/game_systems/src/packets",
     "src/game_systems/src/physics",
     "src/game_systems/src/player",
@@ -48,6 +49,7 @@ members = [
     "src/net/runtime",
     "src/particles",
     "src/performance",
+    "src/permissions",
     "src/physics",
     "src/registry",
     "src/resources",
@@ -91,6 +93,7 @@ mut_mut = "deny"
 wildcard_dependencies = "deny"
 redundant_type_annotations = "deny"
 infinite_loop = "deny"
+type_complexity = "allow"
 
 #================= Profile =================#
 [profile.profiling]
@@ -156,9 +159,10 @@ temper-particles = { path = "src/particles" }
 temper-resources = { path = "src/resources" }
 temper-game-systems = { path = "src/game_systems" }
 interactions = { path = "src/game_systems/src/interactions" }
+temper-permissions = { path = "src/permissions" }
 
 # Asynchronous
-tokio = { version = "1.50.0", features = [
+tokio = { version = "1.52.1", features = [
     "macros",
     "net",
     "rt",
@@ -172,27 +176,27 @@ tokio = { version = "1.50.0", features = [
 # Logging
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
-tracing-appender = "0.2.4"
+tracing-appender = "0.2.5"
 tracing-tracy = { version = "0.11.4", features = ["timer-fallback", "ondemand", "fibers", "context-switch-tracing", "delayed-init"] }
 log = "0.4.29"
 tracy-client = "0.18.4"
 
 # Concurrency/Parallelism
 parking_lot = "0.12.5"
-rayon = "1.11.0"
+rayon = "1.12.0"
 crossbeam-channel = "0.5.15"
 rusty_pool = "0.7.0"
 crossbeam-queue = "0.3.12"
 
 # Network
-reqwest = { version = "0.13.2", features = ["json", "native-tls", "blocking", "http2"], default-features = false }
+reqwest = { version = "0.13.3", features = ["json", "native-tls", "blocking", "http2"], default-features = false }
 
 # Error handling
 thiserror = "2.0.18"
 anyhow = "1.0.102"
 
 # Cryptography
-rand = "0.10.0"
+rand = "0.10.1"
 fnv = "1.0.7"
 wyhash = "0.6.0"
 ahash = "0.8.12"
@@ -203,14 +207,14 @@ sha1 = "0.11.0"
 num-bigint = "0.4.6"
 
 # Encoding/Serialization
-serde = { version = "1.0.228", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive", "std", "rc"] }
 serde_json = "1.0.149"
 serde_derive = "1.0.228"
 base64 = "0.22.1"
 
 bitcode = "0.6.9"
 bitcode_derive = "0.6.9"
-toml = "1.1.0+spec-1.1.0"
+toml = "1.1.2+spec-1.1.0"
 craftflow-nbt = "2.1.0"
 figment = { version = "0.10.19", features = ["toml", "env"] }
 simd-json = "0.17.0"
@@ -221,10 +225,11 @@ serde_yaml_ng = "0.10.0"
 byteorder = "1.5.0"
 
 # Data types
-dashmap = "7.0.0-rc2"
-uuid = { version = "1.23.0", features = ["v4", "v3", "serde"] }
-indexmap = { version = "2.13.0", features = ["serde"] }
+dashmap = { version = "7.0.0-rc2", features = ["serde"] }
+uuid = { version = "1.23.1", features = ["v4", "v3", "serde"] }
+indexmap = { version = "2.14.0", features = ["serde"] }
 bimap = "0.6.3"
+arrayvec = "0.7.6"
 
 # Macros
 lazy_static = "1.5.0"
@@ -238,14 +243,14 @@ type_hash = "0.3.0"
 
 # Magic
 dhat = "0.3.3"
-ctor = "0.8.0"
+ctor = "0.11.1"
 
 # Compression/Decompression
 yazi = "0.2.1"
 flate2 = "1.1.9"
 
 # Database
-heed = "0.22.1-nested-rtxns-7"
+heed = "0.22.1"
 
 # Misc
 deepsize = "0.2.0"
@@ -257,17 +262,18 @@ ctrlc = "3.5.2"
 num_cpus = "1.17.0"
 typename = "0.1.2"
 bevy_ecs = { version = "0.18.1", features = ["multi_threaded", "trace", "debug"], default-features = false }
-bevy_math = "0.18.1"
+bevy_math = { version = "0.18.1", features = ["serialize"] }
+rustc-hash = "2.1.2"
 once_cell = "1.21.4"
 mime_guess = "2.0.5"
 
 ## TUI/CLI
 crossterm = "0.29.0"
 ratatui-core = "0.1.0"
-tui-input = "0.15.0"
+tui-input = "0.15.3"
 ratatui = "0.30.0"
-tui-logger = { version = "0.18.1", features = ["tracing-support", "crossterm"] }
-clap = { version = "4.6.0", features = ["derive", "env"] }
+tui-logger = { version = "0.18.2", features = ["tracing-support", "crossterm"] }
+clap = { version = "4.6.1", features = ["derive", "env"] }
 indicatif = "0.18.4"
 colored = "3.1.1"
 unicode-width = "0.2.2"
@@ -286,7 +292,7 @@ phf = { version = "0.13.1", features = ["macros"] }
 phf_codegen = { version = "0.13.1" }
 
 # Web server
-axum = { version = "0.8.8", features = ["tokio", "ws"] }
+axum = { version = "0.8.9", features = ["tokio", "ws"] }
 
 # Stats
 sysinfo = { version = "0.38.4", default-features = false, features = ["system"] }

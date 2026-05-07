@@ -61,10 +61,10 @@ pub fn handle(
             // 2. Find this player's connection
             if let Ok((_, writer)) = writer_query.get(trigger_eid) {
                 // 3. Construct the outgoing packet from our component
-                let outgoing_flags = (abilities.invulnerable as u8)
-                    | (abilities.flying as u8 * 0x02)
-                    | (abilities.may_fly as u8 * 0x04)
-                    | (abilities.creative_mode as u8 * 0x08);
+                let outgoing_flags = u8::from(abilities.invulnerable)
+                    | (u8::from(abilities.flying) * 0x02)
+                    | (u8::from(abilities.may_fly) * 0x04)
+                    | (u8::from(abilities.creative_mode) * 0x08);
 
                 let correction_packet = OutgoingPlayerAbilities {
                     flags: outgoing_flags,

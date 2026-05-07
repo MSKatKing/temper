@@ -6,8 +6,8 @@
 use bevy_ecs::prelude::{Entity, Query, Res};
 use temper_codec::net_types::var_int::VarInt;
 use temper_components::entity_identity::Identity;
+use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::sneak::SneakState;
-use temper_net_runtime::broadcast::broadcast_packet_except;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::PlayerInputReceiver;
 use temper_protocol::outgoing::entity_metadata::{EntityMetadata, EntityMetadataPacket};
@@ -20,7 +20,7 @@ const FLAG_SNEAK: u8 = 0x20;
 /// PlayerInput contains movement flags including sneak (0x20).
 pub fn handle(
     receiver: Res<PlayerInputReceiver>,
-    conn_query: Query<(Entity, &StreamWriter)>,
+    conn_query: Query<(Entity, &StreamWriter, &EntityTracker)>,
     identity_query: Query<&Identity>,
     mut sneak_query: Query<&mut SneakState>,
 ) {
@@ -73,6 +73,13 @@ pub fn handle(
             )
         };
 
-        broadcast_packet_except(eid, &packet, conn_query.iter());
+        for (recipient, writer, tracker) in conn_query.iter() {
+            if recipient == eid || !writer.is_running() || !tracker.tracking.contains(&eid) {
+                continue;
+            }
+            if let Err(err) = writer.send_packet_ref(&packet) {
+                warn!("Failed to send player input metadata packet: {:?}", err);
+            }
+        }
     }
 }

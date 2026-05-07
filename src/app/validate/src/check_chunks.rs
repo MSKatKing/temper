@@ -41,23 +41,16 @@ pub fn check_chunks(state: &ServerState) -> Result<(), String> {
             exit(1);
         }
     } else {
-        error!(
+        warn!(
             "Metadata database not found. This likely means that the world is empty and has no chunks, so there is nothing to validate."
         );
-        error!(
-            "Check that the world path is correct and that the world has been generated with at least one chunk."
-        );
-        exit(1);
     }
 
     let Ok(Some(db)) = env.open_database::<U128<BigEndian>, Bytes>(&txn, Some("chunks")) else {
-        error!(
-            "Could not open 'chunks' table. This likely means that the world is empty and has no chunks, so there is nothing to validate."
+        warn!(
+            "Chunks database not found. This likely means that the world is empty and has no chunks, so there is nothing to validate."
         );
-        error!(
-            "Check that the world path is correct and that the world has been generated with at least one chunk."
-        );
-        exit(1);
+        return Ok(());
     };
     let Ok(db_len) = db.len(&txn) else {
         error!(

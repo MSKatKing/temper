@@ -14,6 +14,7 @@ use temper_components::{
 use temper_inventories::inventory::Inventory;
 use temper_messages::player_leave::PlayerLeft;
 use temper_net_runtime::connection::StreamWriter;
+use temper_permissions::player::PlayerPermission;
 use temper_state::GlobalStateResource;
 use temper_text::TextComponent;
 use tracing::{debug, info, trace, warn};
@@ -33,6 +34,7 @@ type PlayerCacheQuery<'a> = (
     &'a Experience,
     &'a EnderChest,
     &'a ActiveEffects,
+    &'a PlayerPermission,
 );
 
 // This query is a "fallback" for half-connected players
@@ -67,6 +69,7 @@ pub fn connection_killer(
             exp,
             echest,
             effects,
+            permissions,
         )) = full_player_query.get(disconnecting_entity)
         {
             let username = player_identity.name.as_ref().expect("No Player Name");
@@ -111,6 +114,7 @@ pub fn connection_killer(
                 experience: *exp,
                 ender_chest: echest.clone(),
                 active_effects: effects.clone(),
+                permissions: permissions.clone(),
             };
             if let Err(err) = state
                 .0
@@ -123,7 +127,10 @@ pub fn connection_killer(
             }
 
             // --- 3. Fire PlayerLeaveEvent ---
-            leave_events.write(PlayerLeft(player_identity.clone()));
+            leave_events.write(PlayerLeft {
+                identity: player_identity.clone(),
+                entity: disconnecting_entity,
+            });
         } else {
             // --- FAILURE: This is a "half-player" or zombie ---
             warn!(
@@ -137,7 +144,10 @@ pub fn connection_killer(
                     "-> (Half-player had identity: {})",
                     player_identity.name.as_ref().expect("No Player Name")
                 );
-                leave_events.write(PlayerLeft(player_identity.clone()));
+                leave_events.write(PlayerLeft {
+                    identity: player_identity.clone(),
+                    entity: disconnecting_entity,
+                });
             } else {
                 warn!("-> (Half-player didn't even have an identity component!)");
             }

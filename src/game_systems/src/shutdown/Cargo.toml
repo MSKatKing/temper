@@ -11,3 +11,9 @@ temper-protocol = { workspace = true }
 temper-state = { workspace = true }
 temper-text = { workspace = true }
 tracing = { workspace = true }
+temper-messages = { workspace = true }
+background = { path = "../background" }
+mobs = { path = "../mobs" }
+
+[lints]
+workspace = true

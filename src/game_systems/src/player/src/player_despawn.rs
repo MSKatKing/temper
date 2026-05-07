@@ -6,6 +6,7 @@
 
 use bevy_ecs::prelude::{Entity, MessageReader, Query, Res};
 use temper_components::entity_identity::Identity;
+use temper_components::player::entity_tracker::EntityTracker;
 use temper_messages::player_leave::PlayerLeft;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::player_info_remove::PlayerInfoRemovePacket;
@@ -16,11 +17,11 @@ use tracing::{error, trace};
 /// Listens for `PlayerLeft` events and broadcasts despawn packets to remaining players.
 pub fn handle(
     mut events: MessageReader<PlayerLeft>,
-    player_query: Query<(Entity, &Identity, &StreamWriter)>,
+    mut player_query: Query<(Entity, &Identity, &StreamWriter, &mut EntityTracker)>,
     state: Res<GlobalStateResource>,
 ) {
     for event in events.read() {
-        let left_player = &event.0;
+        let left_player = &event.identity;
 
         // Create packets once
         let remove_info_packet = PlayerInfoRemovePacket::single(left_player.uuid.as_u128());
@@ -30,7 +31,7 @@ pub fn handle(
         let mut notified_count = 0;
 
         // Broadcast to all remaining players
-        for (entity, identity, conn) in player_query.iter() {
+        for (entity, identity, conn, mut tracker) in player_query.iter_mut() {
             // Skip the player who left (their entity may already be despawning)
             if identity.uuid == left_player.uuid {
                 continue;
@@ -41,8 +42,9 @@ pub fn handle(
                 continue;
             }
 
-            // Remove entity from world
-            if let Err(e) = conn.send_packet_ref(&remove_entity_packet) {
+            if tracker.tracking.remove(&event.entity)
+                && let Err(e) = conn.send_packet_ref(&remove_entity_packet)
+            {
                 error!("Failed to send remove entities packet: {:?}", e);
                 continue;
             }

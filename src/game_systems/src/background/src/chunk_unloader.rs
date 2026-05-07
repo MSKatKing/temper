@@ -1,12 +1,19 @@
-use bevy_ecs::prelude::{Query, Res};
+use bevy_ecs::prelude::{Commands, Entity, Has, Query, Res};
 use std::collections::HashSet;
+use temper_components::last_chunk_pos::LastChunkPos;
 use temper_components::player::chunk_receiver::ChunkReceiver;
+use temper_components::player::player_marker::PlayerMarker;
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
 use temper_state::GlobalStateResource;
 use tracing::{error, trace};
 
-pub fn handle(state: Res<GlobalStateResource>, query: Query<&ChunkReceiver>) {
+pub fn handle(
+    state: Res<GlobalStateResource>,
+    query: Query<&ChunkReceiver>,
+    mut cmd: Commands,
+    entity_query: Query<(Entity, &LastChunkPos, Has<PlayerMarker>)>,
+) {
     // If there are no connected players, unload all cached chunks
     if query.count() == 0 {
         let mut removed = 0;
@@ -14,7 +21,7 @@ pub fn handle(state: Res<GlobalStateResource>, query: Query<&ChunkReceiver>) {
             let ((pos, dim), chunk) = chunk_candidate.pair();
             removed += 1;
             // Write chunks back to the world storage
-            if chunk.sections.iter().any(|section| section.dirty) {
+            if chunk.is_dirty() {
                 state
                     .0
                     .world
@@ -59,7 +66,18 @@ pub fn handle(state: Res<GlobalStateResource>, query: Query<&ChunkReceiver>) {
             .remove(&(*chunk_pos, Dimension::Overworld));
         match removed_chunk {
             Some(((pos, dim), chunk)) => {
-                let dirty = chunk.sections.iter().any(|section| section.dirty);
+                for (entity, last_chunk, is_player) in entity_query.iter() {
+                    if is_player || last_chunk.0 != *chunk_pos {
+                        continue;
+                    }
+
+                    trace!(
+                        "Unloading live entity {:?} from chunk {:?} as it is no longer visible to any player.",
+                        entity, chunk_pos
+                    );
+                    cmd.entity(entity).despawn();
+                }
+                let dirty = chunk.is_dirty();
                 if dirty {
                     state
                         .0

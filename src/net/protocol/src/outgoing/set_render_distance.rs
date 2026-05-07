@@ -18,7 +18,7 @@ impl Default for SetRenderDistance {
 impl SetRenderDistance {
     pub fn new(distance: u8) -> Self {
         Self {
-            distance: VarInt::new(distance as i32),
+            distance: VarInt::new(i32::from(distance)),
         }
     }
 }

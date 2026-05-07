@@ -60,9 +60,10 @@ impl PacketSkeleton {
         compressed: bool,
         state: ConnState,
     ) -> Result<Self, PacketError> {
-        let pak = match compressed {
-            true => Self::read_compressed(reader, state).await,
-            false => Self::read_uncompressed(reader, state).await,
+        let pak = if compressed {
+            Self::read_compressed(reader, state).await
+        } else {
+            Self::read_uncompressed(reader, state).await
         };
         match pak {
             Ok(p) => {

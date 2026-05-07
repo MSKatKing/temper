@@ -39,6 +39,10 @@ tui-input = { workspace = true }
 crossterm = { workspace = true }
 tui-logger = { workspace = true }
 type_hash = { workspace = true }
+reqwest = { workspace = true }
 
 [features]
 dashboard = ["dep:temper-dashboard"]
+
+[lints]
+workspace = true

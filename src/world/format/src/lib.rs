@@ -9,20 +9,27 @@ pub mod vanilla_chunk_format;
 use crate::errors::WorldError;
 use crate::heightmap::Heightmaps;
 use crate::section::{AIR, ChunkSection};
-use deepsize::DeepSizeOf;
+use dashmap::DashMap;
 use serde_derive::{Deserialize, Serialize};
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::{ChunkBlockPos, ChunkHeight};
+use temper_entities::entity_types::EntityTypeEnum;
 use temper_macros::block;
 use type_hash::TypeHash;
+use uuid::Uuid;
 use vanilla_chunk_format::VanillaChunk;
 
-#[derive(Clone, DeepSizeOf, Serialize, Deserialize, TypeHash)]
+#[derive(Clone, Serialize, Deserialize, TypeHash)]
 pub struct Chunk {
     pub sections: Box<[ChunkSection]>,
     height: ChunkHeight,
+    #[type_hash(foreign_type)]
+    pub entities: DashMap<Uuid, (EntityTypeEnum, Vec<u8>)>,
 
     heightmaps: Option<Heightmaps>,
+    dirty: Arc<AtomicBool>,
 }
 
 impl Chunk {
@@ -51,7 +58,9 @@ impl Chunk {
             sections: vec![ChunkSection::new_uniform(AIR); (height.height / 16) as usize]
                 .into_boxed_slice(),
             height,
+            entities: DashMap::new(),
             heightmaps: None,
+            dirty: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -76,6 +85,8 @@ impl Chunk {
             sections: sections.to_vec().into_boxed_slice(),
             height,
             heightmaps: None,
+            entities: DashMap::new(),
+            dirty: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -90,10 +101,10 @@ impl Chunk {
     ///
     /// * `assert` - Checks if the given y value is in range of the height of the chunk.
     pub fn fill_section(&mut self, y: i8, state: BlockStateId) {
-        assert!(y as i16 >= self.height.min_y / 16);
-        assert!((y as i16) < (self.height.min_y + self.height.height as i16) / 16);
+        assert!(i16::from(y) >= self.height.min_y / 16);
+        assert!(i16::from(y) < (self.height.min_y + self.height.height as i16) / 16);
 
-        let section = y as i16 + -self.height.min_y / 16;
+        let section = i16::from(y) + -self.height.min_y / 16;
 
         self.sections[section as usize] = ChunkSection::new_uniform(state)
     }
@@ -149,6 +160,38 @@ impl Chunk {
 
         self.sections[section as usize].set_block(pos.section_block_pos(), id);
     }
+
+    /// Marks the chunk as dirty.
+    ///
+    /// This indicates that the chunk has been modified and may need to be saved or updated.
+    pub fn mark_dirty(&self) {
+        self.dirty.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Checks if the chunk is dirty.
+    ///
+    /// A chunk is considered dirty if it has been marked as dirty or if any of its sections are dirty.
+    /// A dirty chunk may need to be saved or updated.
+    pub fn is_dirty(&self) -> bool {
+        self.dirty.load(std::sync::atomic::Ordering::Relaxed)
+            || self
+                .sections
+                .iter()
+                .any(|s| s.dirty.load(std::sync::atomic::Ordering::Relaxed))
+    }
+
+    /// Clears the dirty state of the chunk and all of its sections.
+    ///
+    /// This should be called after saving or updating a chunk to indicate that it is no longer dirty.
+    pub fn clear_dirty(&self) {
+        self.dirty
+            .store(false, std::sync::atomic::Ordering::Relaxed);
+        for section in &self.sections {
+            section
+                .dirty
+                .store(false, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
 }
 
 impl TryFrom<&VanillaChunk> for Chunk {
@@ -180,6 +223,8 @@ impl TryFrom<&VanillaChunk> for Chunk {
                 .heightmaps
                 .as_ref()
                 .and_then(|v| Heightmaps::try_from(v).ok()),
+            entities: DashMap::new(),
+            dirty: Arc::new(AtomicBool::new(false)),
         })
     }
 }

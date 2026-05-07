@@ -32,12 +32,12 @@ impl NetAngle {
 
     /// Converts the angle to degrees
     pub fn to_degrees(&self) -> f64 {
-        (self.0 as f64) * 360.0 / 256.0
+        f64::from(self.0) * 360.0 / 256.0
     }
 
     /// Converts the angle to radians
     pub fn to_radians(&self) -> f64 {
-        (self.0 as f64) * 2.0 * PI / 256.0
+        f64::from(self.0) * 2.0 * PI / 256.0
     }
 
     /// Returns the raw byte value

@@ -45,6 +45,7 @@
           nativeBuildInputs = [
             rust-toolchain
             pkgs.pkg-config
+            pkgs.cargo-nextest
           ];
           buildInputs = [
             pkgs.openssl

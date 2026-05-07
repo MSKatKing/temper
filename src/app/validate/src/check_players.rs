@@ -41,23 +41,22 @@ pub fn check_players(state: &ServerState) -> Result<(), String> {
             exit(1);
         }
     } else {
-        error!(
+        warn!(
             "Metadata database not found. This likely means that the world is empty and has no player data, so there is nothing to validate."
         );
-        error!(
+        warn!(
             "Check that the world path is correct and that the world has been generated or used by a player at least once."
         );
-        exit(1);
     }
 
     let Ok(db_opt) = env.open_database::<U128<BigEndian>, Bytes>(&txn, Some("player_data")) else {
-        error!(
+        warn!(
             "Player data database not found. This likely means that the world is empty and has no player data, so there is nothing to validate."
         );
-        error!(
+        warn!(
             "Check that the world path is correct and that the world has been generated or used by a player at least once."
         );
-        exit(1);
+        return Ok(());
     };
     let Some(db) = db_opt else {
         warn!(
