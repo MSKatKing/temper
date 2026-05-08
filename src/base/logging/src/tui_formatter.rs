@@ -1,3 +1,4 @@
+use lazy_static::lazy_static;
 use log::Level;
 use ratatui::prelude::{Line, Stylize};
 use tui_logger::{ExtLogRecord, LogFormatter};
@@ -6,6 +7,11 @@ use ratatui::style::Style;
 use ratatui::text::Span;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 pub struct TuiTracingFormatter;
+
+lazy_static! {
+    static ref NAME_REGEX: regex::Regex = regex::Regex::new(r#"(name:\s\S*)(.*)"#).unwrap();
+    static ref ADDRESS_REGEX: regex::Regex = regex::Regex::new(r#"(addy:\s[\d\\.:]*)(.*)"#).unwrap();
+}
 
 impl LogFormatter for TuiTracingFormatter {
     fn min_width(&self) -> u16 {
@@ -229,14 +235,12 @@ fn wrap_spans<'a>(spans: Vec<Span<'a>>, width: usize) -> Vec<Line<'a>> {
 
 // Filtering out name: and addy: prefixes from targets
 fn split_target(input: String) -> Vec<String> {
-    let name_regex = regex::Regex::new(r#"(name:\s\S*)(.*)"#).unwrap();
-    let address_regex = regex::Regex::new(r#"(addy:\s[\d\\.:]*)(.*)"#).unwrap();
     let mut parts = Vec::new();
-    if let Some(caps) = name_regex.captures(&input) {
+    if let Some(caps) = NAME_REGEX.captures(&input) {
         if let Some(rest) = caps.get(2) {
             parts.push(rest.as_str().to_string());
         }
-    } else if let Some(caps) = address_regex.captures(&input) {
+    } else if let Some(caps) = ADDRESS_REGEX.captures(&input) {
         parts.push(caps.get(1).unwrap().as_str().to_string());
         if let Some(rest) = caps.get(2) {
             parts.push(rest.as_str().to_string());
