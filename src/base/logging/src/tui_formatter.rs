@@ -10,7 +10,8 @@ pub struct TuiTracingFormatter;
 
 lazy_static! {
     static ref NAME_REGEX: regex::Regex = regex::Regex::new(r#"(name:\s\S*)(.*)"#).unwrap();
-    static ref ADDRESS_REGEX: regex::Regex = regex::Regex::new(r#"(addy:\s[\d\\.:]*)(.*)"#).unwrap();
+    static ref ADDRESS_REGEX: regex::Regex =
+        regex::Regex::new(r#"(addy:\s[\d\\.:]*)(.*)"#).unwrap();
 }
 
 impl LogFormatter for TuiTracingFormatter {
