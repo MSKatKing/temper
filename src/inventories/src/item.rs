@@ -7,7 +7,6 @@ use temper_codec::encode::errors::NetEncodeError;
 use temper_codec::encode::{NetEncode, NetEncodeOpts};
 use temper_codec::net_types::var_int::VarInt;
 use temper_core::block_state_id::BlockStateId;
-use tokio::io::{AsyncRead, AsyncWrite};
 use type_hash::TypeHash;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Decode, Encode, TypeHash)]
@@ -72,27 +71,11 @@ impl NetDecode for ItemID {
         let id = VarInt::decode(reader, opts)?;
         Ok(Self(id))
     }
-
-    async fn decode_async<R: AsyncRead + Unpin>(
-        reader: &mut R,
-        opts: &NetDecodeOpts,
-    ) -> Result<Self, NetDecodeError> {
-        let id = VarInt::decode_async(reader, opts).await?;
-        Ok(Self(id))
-    }
 }
 
 impl NetEncode for ItemID {
     fn encode<W: Write>(&self, writer: &mut W, opts: &NetEncodeOpts) -> Result<(), NetEncodeError> {
         self.0.encode(writer, opts)
-    }
-
-    async fn encode_async<W: AsyncWrite + Unpin>(
-        &self,
-        writer: &mut W,
-        opts: &NetEncodeOpts,
-    ) -> Result<(), NetEncodeError> {
-        self.0.encode_async(writer, opts).await
     }
 }
 

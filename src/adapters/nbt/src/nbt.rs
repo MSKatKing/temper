@@ -6,7 +6,6 @@ use temper_codec::decode::errors::NetDecodeError;
 use temper_codec::decode::{NetDecode, NetDecodeOpts};
 use temper_codec::encode::errors::NetEncodeError;
 use temper_codec::encode::{NetEncode, NetEncodeOpts};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 
 pub struct NBT<T> {
     inner: T,
@@ -27,17 +26,6 @@ impl<T: NBTSerializable> NetEncode for NBT<T> {
         self.inner.serialize(writer, &NBTSerializeOptions::Network);
         Ok(())
     }
-
-    async fn encode_async<W: AsyncWrite + Unpin>(
-        &self,
-        writer: &mut W,
-        _opts: &NetEncodeOpts,
-    ) -> std::result::Result<(), NetEncodeError> {
-        self.inner
-            .serialize_async(writer, &NBTSerializeOptions::Network)
-            .await;
-        Ok(())
-    }
 }
 
 impl<T: for<'a> FromNbt<'a>> NetDecode for NBT<T> {
@@ -56,24 +44,6 @@ impl<T: for<'a> FromNbt<'a>> NetDecode for NBT<T> {
                 ))?,
             )
             .map_err(|_| NetDecodeError::ExternalError("NBT Parse Error".into()))?,
-        })
-    }
-
-    async fn decode_async<R: AsyncRead + Unpin>(
-        reader: &mut R,
-        _opts: &NetDecodeOpts,
-    ) -> std::result::Result<Self, NetDecodeError> {
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes).await?;
-        let tape = NbtTape::new(&bytes);
-        Ok(NBT {
-            inner: T::from_nbt(
-                &tape,
-                tape.get("").ok_or(NetDecodeError::ExternalError(
-                    "NBT did not contain a root compound".into(),
-                ))?,
-            )
-            .map_err(|_| NetDecodeError::ExternalError("NBT Parse error".into()))?,
         })
     }
 }

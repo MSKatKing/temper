@@ -20,7 +20,6 @@ use temper_codec::{
     net_types::var_int::VarInt,
 };
 use temper_macros::NetEncode;
-use tokio::io::AsyncWrite;
 
 pub mod bool;
 pub mod char;
@@ -155,16 +154,6 @@ pub enum PrimitiveArgumentType {
 impl NetEncode for PrimitiveArgumentType {
     fn encode<W: Write>(&self, writer: &mut W, opts: &NetEncodeOpts) -> Result<(), NetEncodeError> {
         VarInt::new(i32::from(self.ordinal())).encode(writer, opts)
-    }
-
-    async fn encode_async<W: AsyncWrite + Unpin>(
-        &self,
-        writer: &mut W,
-        opts: &NetEncodeOpts,
-    ) -> Result<(), NetEncodeError> {
-        VarInt::new(i32::from(self.ordinal()))
-            .encode_async(writer, opts)
-            .await
     }
 }
 
