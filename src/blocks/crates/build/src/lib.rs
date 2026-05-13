@@ -27,7 +27,7 @@ pub fn separate_blocks(
                 id,
                 ComplexBlock {
                     name: state.name,
-                    properties: FxHashMap::from_iter(properties.into_iter()),
+                    properties: FxHashMap::from_iter(properties),
                 },
             )),
             None => simple_blocks.push((id, state.name)),
