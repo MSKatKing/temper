@@ -20,14 +20,17 @@ type WardenQuery<'a> = (
 );
 
 pub fn init_warden(
-    mut commands: Commands,
-    warden: Query<Entity, (With<Warden>, Without<BossbarOwner>)>,
-    boss_bar_resource: ResMut<BossBarResource>,
+    warden: Query<&BossbarOwner, With<Warden>>,
+    mut boss_bar_resource: ResMut<BossBarResource>,
 ) {
     let warden_max_health = 500.0;
     let warden_health = 500.0;
 
-    for entity in warden.iter() {
+    for owner in warden.iter() {
+        if boss_bar_resource.boss_bars.contains_key(&owner.id()) {
+            continue;
+        }
+
         let data = BossBarData::new(
             TextComponent::from("Warden"),
             warden_health,
@@ -35,11 +38,7 @@ pub fn init_warden(
             BossbarColor::Blue,
         );
 
-        let uuid = boss_bar_resource.add_bar(data);
-
-        let owner = BossbarOwner::new(uuid);
-
-        commands.entity(entity).insert(owner);
+        boss_bar_resource.register_bar_with_id(owner.id(), data);
     }
 }
 

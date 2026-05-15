@@ -117,40 +117,16 @@ pub fn spawn_command_processor(
             // Calculate spawn position 2 blocks in front of the player
             let spawn_pos = pos.offset_forward(rot, 2.0);
 
-            match command.entity_type {
-                EntityTypeEnum::Pig => {
+            match MobBundle::new(command.entity_type, spawn_pos) {
+                Some(bundle) => {
                     mob_bundle_events.write(SpawnMobBundle {
-                        bundle: MobBundle::Pig(PigBundle::new(spawn_pos)),
+                        bundle,
                         persist: true,
                     });
                 }
-                EntityTypeEnum::Fox => {
-                    mob_bundle_events.write(SpawnMobBundle {
-                        bundle: MobBundle::Fox(FoxBundle::new(spawn_pos)),
-                        persist: true,
-                    });
-                }
-                EntityTypeEnum::Cow => {
-                    mob_bundle_events.write(SpawnMobBundle {
-                        bundle: MobBundle::Cow(CowBundle::new(spawn_pos)),
-                        persist: true,
-                    });
-                }
-                EntityTypeEnum::Bat => {
-                    mob_bundle_events.write(SpawnMobBundle {
-                        bundle: MobBundle::Bat(BatBundle::new(spawn_pos)),
-                        persist: true,
-                    });
-                }
-                EntityTypeEnum::Axolotl => {
-                    mob_bundle_events.write(SpawnMobBundle {
-                        bundle: MobBundle::Axolotl(AxolotlBundle::new(spawn_pos)),
-                        persist: true,
-                    });
-                }
-                entity_type => {
+                None => {
                     spawn_events.write(SpawnEntityEvent {
-                        entity_type,
+                        entity_type: command.entity_type,
                         position: spawn_pos,
                     });
                 }

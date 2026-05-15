@@ -38,6 +38,7 @@ pub trait MobDefinition {
     const KIND: EntityTypeEnum;
     const PROFILE: MobProfile;
 
+    fn new(position: Position) -> Self::Bundle;
     fn clone_bundle(bundle: &Self::Bundle) -> Self::Bundle;
     fn from_standard_parts(parts: StandardMobParts<'_>) -> Self::Bundle;
     fn identity(bundle: &Self::Bundle) -> &Identity;
@@ -194,6 +195,10 @@ macro_rules! define_mob {
             const PROFILE: $crate::mob_definition::MobProfile =
                 $crate::mob_definition::MobProfile::$profile;
 
+            fn new(position: $position) -> Self::Bundle {
+                Self::Bundle::new(position)
+            }
+
             fn clone_bundle(bundle: &Self::Bundle) -> Self::Bundle {
                 Self::Bundle {
                     identity: bundle.identity.clone(),
@@ -273,10 +278,28 @@ macro_rules! define_mob_registry {
                 kind: $crate::entity_types::EntityTypeEnum,
                 data: &[u8],
             ) -> Option<Self> {
+                #[allow(unreachable_patterns)]
                 match kind {
                     $(
                         <$definition as $crate::mob_definition::MobDefinition>::KIND => {
                             bitcode::deserialize(data).ok().map(Self::$variant)
+                        }
+                    )+
+                    _ => None,
+                }
+            }
+
+            pub fn new(
+                kind: $crate::entity_types::EntityTypeEnum,
+                position: temper_components::player::position::Position,
+            ) -> Option<Self> {
+                #[allow(unreachable_patterns)]
+                match kind {
+                    $(
+                        <$definition as $crate::mob_definition::MobDefinition>::KIND => {
+                            Some(Self::$variant(
+                                <$definition as $crate::mob_definition::MobDefinition>::new(position),
+                            ))
                         }
                     )+
                     _ => None,
@@ -296,6 +319,7 @@ macro_rules! define_mob_registry {
                 kind: $crate::entity_types::EntityTypeEnum,
                 parts: $crate::mob_definition::StandardMobParts<'_>,
             ) -> Option<Self> {
+                #[allow(unreachable_patterns)]
                 match kind {
                     $(
                         <$definition as $crate::mob_definition::MobDefinition>::KIND => {
