@@ -1,0 +1,254 @@
+use crate::entity_types::EntityTypeEnum;
+use bevy_ecs::prelude::Component;
+use temper_components::combat::CombatProperties;
+use temper_components::entity_identity::Identity;
+use temper_components::last_synced_position::LastSyncedPosition;
+use temper_components::metadata::EntityMetadata;
+use temper_components::player::grounded::OnGround;
+use temper_components::player::position::Position;
+use temper_components::player::rotation::Rotation;
+use temper_components::player::velocity::Velocity;
+use temper_components::spawn::SpawnProperties;
+
+#[derive(Component, Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MobKind(pub EntityTypeEnum);
+
+pub struct StandardMobParts<'a> {
+    pub identity: &'a Identity,
+    pub metadata: &'a EntityMetadata,
+    pub combat: &'a CombatProperties,
+    pub spawn: &'a SpawnProperties,
+    pub position: &'a Position,
+    pub rotation: &'a Rotation,
+    pub velocity: &'a Velocity,
+    pub on_ground: &'a OnGround,
+    pub last_synced_position: &'a LastSyncedPosition,
+}
+
+pub trait MobDefinition {
+    type Bundle;
+
+    const KIND: EntityTypeEnum;
+
+    fn clone_bundle(bundle: &Self::Bundle) -> Self::Bundle;
+    fn from_standard_parts(parts: StandardMobParts<'_>) -> Self::Bundle;
+    fn identity(bundle: &Self::Bundle) -> &Identity;
+    fn position(bundle: &Self::Bundle) -> Position;
+}
+
+#[macro_export]
+macro_rules! define_mob {
+    (
+        $definition:ident {
+            kind = $kind:ident,
+            vanilla = $vanilla:ident,
+            bundle = $bundle:ident,
+            persisted = {
+                identity: $identity:path => clone,
+                metadata: $metadata:path => copy,
+                combat: $combat:path => copy,
+                spawn: $spawn:path => clone,
+                position: $position:path => copy,
+                rotation: $rotation:path => copy,
+                velocity: $velocity:path => copy,
+                on_ground: $on_ground:path => copy,
+                last_synced_position: $last_synced_position:path => copy $(,)?
+            } $(,)?
+        }
+    ) => {
+        use bevy_ecs::prelude::Bundle;
+        use temper_data::generated::entities::EntityType as VanillaEntityType;
+
+        fn de_meta<'de, D>(_: D) -> Result<$metadata, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            Ok(<$metadata>::from_vanilla(&VanillaEntityType::$vanilla))
+        }
+
+        fn de_spawn<'de, D>(_: D) -> Result<$spawn, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            Ok(<$spawn>::from_vanilla(&VanillaEntityType::$vanilla))
+        }
+
+        #[derive(Bundle, serde::Serialize, serde::Deserialize)]
+        pub struct $bundle {
+            pub identity: $identity,
+            #[serde(skip_serializing)]
+            #[serde(deserialize_with = "de_meta")]
+            pub metadata: $metadata,
+            pub combat: $combat,
+            #[serde(skip_serializing)]
+            #[serde(deserialize_with = "de_spawn")]
+            pub spawn: $spawn,
+            pub position: $position,
+            pub rotation: $rotation,
+            pub velocity: $velocity,
+            pub on_ground: $on_ground,
+            pub last_synced_position: $last_synced_position,
+        }
+
+        impl $bundle {
+            pub fn new(position: $position) -> Self {
+                let metadata = <$metadata>::from_vanilla(&VanillaEntityType::$vanilla);
+                let combat = <$combat>::from_metadata(&metadata);
+                let spawn = <$spawn>::from_metadata(&metadata);
+
+                Self {
+                    identity: <$identity>::new(None),
+                    metadata,
+                    combat,
+                    spawn,
+                    rotation: <$rotation>::default(),
+                    velocity: <$velocity>::zero(),
+                    on_ground: $on_ground(false),
+                    last_synced_position: <$last_synced_position>::from_position(&position),
+                    position,
+                }
+            }
+
+            pub fn with_rotation(position: $position, rotation: $rotation) -> Self {
+                let mut bundle = Self::new(position);
+                bundle.rotation = rotation;
+                bundle
+            }
+        }
+
+        pub struct $definition;
+
+        impl $crate::mob_definition::MobDefinition for $definition {
+            type Bundle = $bundle;
+
+            const KIND: $crate::entity_types::EntityTypeEnum =
+                $crate::entity_types::EntityTypeEnum::$kind;
+
+            fn clone_bundle(bundle: &Self::Bundle) -> Self::Bundle {
+                Self::Bundle {
+                    identity: bundle.identity.clone(),
+                    metadata: bundle.metadata,
+                    combat: bundle.combat,
+                    spawn: bundle.spawn.clone(),
+                    position: bundle.position,
+                    rotation: bundle.rotation,
+                    velocity: bundle.velocity,
+                    on_ground: bundle.on_ground,
+                    last_synced_position: bundle.last_synced_position,
+                }
+            }
+
+            fn from_standard_parts(
+                parts: $crate::mob_definition::StandardMobParts<'_>,
+            ) -> Self::Bundle {
+                Self::Bundle {
+                    identity: parts.identity.clone(),
+                    metadata: *parts.metadata,
+                    combat: *parts.combat,
+                    spawn: parts.spawn.clone(),
+                    position: *parts.position,
+                    rotation: *parts.rotation,
+                    velocity: *parts.velocity,
+                    on_ground: *parts.on_ground,
+                    last_synced_position: *parts.last_synced_position,
+                }
+            }
+
+            fn identity(bundle: &Self::Bundle) -> &$identity {
+                &bundle.identity
+            }
+
+            fn position(bundle: &Self::Bundle) -> $position {
+                bundle.position
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! define_mob_registry {
+    (
+        $(
+            $variant:ident = $definition:path
+        ),+ $(,)?
+    ) => {
+        pub enum MobBundle {
+            $(
+                $variant(<$definition as $crate::mob_definition::MobDefinition>::Bundle),
+            )+
+        }
+
+        impl Clone for MobBundle {
+            fn clone(&self) -> Self {
+                match self {
+                    $(
+                        Self::$variant(bundle) => {
+                            Self::$variant(
+                                <$definition as $crate::mob_definition::MobDefinition>::clone_bundle(bundle),
+                            )
+                        }
+                    )+
+                }
+            }
+        }
+
+        impl MobBundle {
+            pub fn deserialize(
+                kind: $crate::entity_types::EntityTypeEnum,
+                data: &[u8],
+            ) -> Option<Self> {
+                match kind {
+                    $(
+                        <$definition as $crate::mob_definition::MobDefinition>::KIND => {
+                            bitcode::deserialize(data).ok().map(Self::$variant)
+                        }
+                    )+
+                    _ => None,
+                }
+            }
+
+            pub fn from_standard_parts(
+                kind: $crate::entity_types::EntityTypeEnum,
+                parts: $crate::mob_definition::StandardMobParts<'_>,
+            ) -> Option<Self> {
+                match kind {
+                    $(
+                        <$definition as $crate::mob_definition::MobDefinition>::KIND => {
+                            Some(Self::$variant(
+                                <$definition as $crate::mob_definition::MobDefinition>::from_standard_parts(parts),
+                            ))
+                        }
+                    )+
+                    _ => None,
+                }
+            }
+
+            pub fn kind(&self) -> $crate::entity_types::EntityTypeEnum {
+                match self {
+                    $(
+                        Self::$variant(_) =>
+                            <$definition as $crate::mob_definition::MobDefinition>::KIND,
+                    )+
+                }
+            }
+
+            pub fn identity(&self) -> &temper_components::entity_identity::Identity {
+                match self {
+                    $(
+                        Self::$variant(bundle) =>
+                            <$definition as $crate::mob_definition::MobDefinition>::identity(bundle),
+                    )+
+                }
+            }
+
+            pub fn position(&self) -> temper_components::player::position::Position {
+                match self {
+                    $(
+                        Self::$variant(bundle) =>
+                            <$definition as $crate::mob_definition::MobDefinition>::position(bundle),
+                    )+
+                }
+            }
+        }
+    };
+}

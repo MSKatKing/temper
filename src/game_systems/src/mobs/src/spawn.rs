@@ -14,7 +14,8 @@ use temper_core::dimension::Dimension;
 use temper_entities::entity_types::EntityTypeEnum;
 use temper_entities::markers::entity_types::{Fox, Pig};
 use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
-use temper_entities::{FoxBundle, MobBundle, MobKind, PigBundle};
+use temper_entities::mob_definition::StandardMobParts;
+use temper_entities::{MobBundle, MobKind, PigBundle};
 use temper_messages::{
     SpawnMobBundle, load_chunk_entities::LoadChunkEntities, save_chunk_entities::SaveChunkEntities,
 };
@@ -211,29 +212,18 @@ fn standard_mob_bundle(
     last_synced_position: &LastSyncedPosition,
     mob_kind: &MobKind,
 ) -> Option<MobBundle> {
-    match mob_kind.0 {
-        EntityTypeEnum::Pig => Some(MobBundle::Pig(PigBundle {
-            identity: identity.clone(),
-            metadata: *metadata,
-            combat: *combat,
-            spawn: spawn.clone(),
-            position: *position,
-            rotation: *rotation,
-            velocity: *velocity,
-            on_ground: *on_ground,
-            last_synced_position: *last_synced_position,
-        })),
-        EntityTypeEnum::Fox => Some(MobBundle::Fox(FoxBundle {
-            identity: identity.clone(),
-            metadata: *metadata,
-            combat: *combat,
-            spawn: spawn.clone(),
-            position: *position,
-            rotation: *rotation,
-            velocity: *velocity,
-            on_ground: *on_ground,
-            last_synced_position: *last_synced_position,
-        })),
-        _ => None,
-    }
+    MobBundle::from_standard_parts(
+        mob_kind.0,
+        StandardMobParts {
+            identity,
+            metadata,
+            combat,
+            spawn,
+            position,
+            rotation,
+            velocity,
+            on_ground,
+            last_synced_position,
+        },
+    )
 }

@@ -50,7 +50,7 @@ pub use mooshroom::MooshroomBundle;
 pub use mule::MuleBundle;
 pub use ocelot::OcelotBundle;
 pub use parrot::ParrotBundle;
-pub use pig::PigBundle;
+pub use pig::{PigBundle, PigDefinition};
 pub use rabbit::RabbitBundle;
 pub use salmon::SalmonBundle;
 pub use sheep::SheepBundle;

@@ -23,7 +23,7 @@ pub use cave_spider::CaveSpiderBundle;
 pub use dolphin::DolphinBundle;
 pub use drowned::DrownedBundle;
 pub use enderman::EndermanBundle;
-pub use fox::FoxBundle;
+pub use fox::{FoxBundle, FoxDefinition};
 pub use goat::GoatBundle;
 pub use iron_golem::IronGolemBundle;
 pub use llama::LlamaBundle;
