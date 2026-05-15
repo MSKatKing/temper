@@ -3,7 +3,12 @@ crate::define_mob! {
         kind = Pig,
         vanilla = PIG,
         bundle = PigBundle,
+        marker = crate::markers::entity_types::Pig,
         profile = Ground,
+        runtime = {
+            ai: temper_components::mob_ai::PigAI => default,
+            pathfinder: temper_components::pathfinder::Pathfinder => default,
+        },
         persisted = {
             identity: temper_components::entity_identity::Identity => clone,
             metadata: temper_components::metadata::EntityMetadata => copy,

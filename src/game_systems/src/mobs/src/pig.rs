@@ -1,6 +1,7 @@
 use bevy_ecs::prelude::*;
 use bevy_math::{Vec2, Vec3A};
 use pathfinding::{Pathfinder, pos_to_block};
+use temper_components::mob_ai::PigAI;
 use temper_components::player::grounded::OnGround;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
@@ -18,12 +19,6 @@ const JUMP_IMPULSE: f32 = 0.42;
 /// How often to update the pathfinding target (ticks).
 const REPATH_INTERVAL: u32 = 40;
 
-/// Per-pig AI state.
-#[derive(Component, Default)]
-pub struct PigAI {
-    repath_cooldown: u32,
-}
-
 type PigQuery<'a> = (
     &'a Position,
     &'a mut Velocity,
@@ -31,16 +26,6 @@ type PigQuery<'a> = (
     &'a mut PigAI,
     &'a mut Pathfinder,
 );
-
-pub fn init_pig(mut commands: Commands, pigs: Query<Entity, (With<Pig>, Without<PigAI>)>) {
-    for entity in &pigs {
-        commands.entity(entity).insert((
-            PigAI::default(),
-            Pathfinder::default(),
-            pathfinding::PathfinderSearch::default(),
-        ));
-    }
-}
 
 pub fn tick_pig(
     mut pigs: Query<PigQuery, With<Pig>>,

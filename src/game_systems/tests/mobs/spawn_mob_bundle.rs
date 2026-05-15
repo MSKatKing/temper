@@ -1,12 +1,15 @@
 use bevy_ecs::prelude::*;
 use mobs::spawn::handle_spawn_mob_bundle;
+use pathfinding::{Pathfinder, PathfinderSearch};
 use temper_components::entity_identity::Identity;
 use temper_components::last_chunk_pos::LastChunkPos;
+use temper_components::mob_ai::PigAI;
 use temper_components::player::position::Position;
 use temper_core::dimension::Dimension;
 use temper_entities::entity_types::EntityTypeEnum;
 use temper_entities::markers::entity_types::{Axolotl, Bat, Cow, Fox, Pig};
 use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
+use temper_entities::mob_definition::MobProfile;
 use temper_entities::MobBundle;
 use temper_entities::{AxolotlBundle, BatBundle, CowBundle, FoxBundle, MobKind, PigBundle};
 use temper_messages::SpawnMobBundle;
@@ -35,6 +38,72 @@ fn emit_spawn_bundles(mut writer: MessageWriter<SpawnMobBundle>) {
     });
 }
 
+fn emit_unpersisted_cow(mut writer: MessageWriter<SpawnMobBundle>) {
+    writer.write(SpawnMobBundle {
+        bundle: MobBundle::Cow(CowBundle::new(Position::new(21.5, 64.0, 9.5))),
+        persist: false,
+    });
+}
+
+fn emit_pig(mut writer: MessageWriter<SpawnMobBundle>) {
+    writer.write(SpawnMobBundle {
+        bundle: MobBundle::Pig(PigBundle::new(Position::new(24.5, 64.0, 9.5))),
+        persist: false,
+    });
+}
+
+fn assert_registry_round_trip(
+    bundle: MobBundle,
+    kind: EntityTypeEnum,
+    profile: MobProfile,
+    position: Position,
+) {
+    assert_eq!(bundle.kind(), kind);
+    assert_eq!(bundle.profile(), profile);
+    assert_eq!(bundle.position().xyz(), position.xyz());
+
+    let data = bundle.serialize_for_chunk();
+    let decoded = MobBundle::deserialize(kind, &data).expect("bundle should deserialize");
+
+    assert_eq!(decoded.kind(), kind);
+    assert_eq!(decoded.profile(), profile);
+    assert_eq!(decoded.position().xyz(), position.xyz());
+}
+
+#[test]
+fn mob_registry_round_trips_supported_bundle_metadata() {
+    assert_registry_round_trip(
+        MobBundle::Pig(PigBundle::new(Position::new(1.5, 64.0, 2.5))),
+        EntityTypeEnum::Pig,
+        MobProfile::Ground,
+        Position::new(1.5, 64.0, 2.5),
+    );
+    assert_registry_round_trip(
+        MobBundle::Fox(FoxBundle::new(Position::new(3.5, 64.0, 4.5))),
+        EntityTypeEnum::Fox,
+        MobProfile::Ground,
+        Position::new(3.5, 64.0, 4.5),
+    );
+    assert_registry_round_trip(
+        MobBundle::Cow(CowBundle::new(Position::new(5.5, 64.0, 6.5))),
+        EntityTypeEnum::Cow,
+        MobProfile::Ground,
+        Position::new(5.5, 64.0, 6.5),
+    );
+    assert_registry_round_trip(
+        MobBundle::Bat(BatBundle::new(Position::new(7.5, 70.0, 8.5))),
+        EntityTypeEnum::Bat,
+        MobProfile::CollisionOnly,
+        Position::new(7.5, 70.0, 8.5),
+    );
+    assert_registry_round_trip(
+        MobBundle::Axolotl(AxolotlBundle::new(Position::new(9.5, 62.0, 10.5))),
+        EntityTypeEnum::Axolotl,
+        MobProfile::GravityNoDrag,
+        Position::new(9.5, 62.0, 10.5),
+    );
+}
+
 #[test]
 fn spawn_mob_bundle_message_spawns_and_persists_supported_mobs() {
     let mut world = World::new();
@@ -56,12 +125,23 @@ fn spawn_mob_bundle_message_spawns_and_persists_supported_mobs() {
         Has<HasGravity>,
         Has<HasCollisions>,
         Has<HasWaterDrag>,
+        Has<Pathfinder>,
     )>();
     let pigs: Vec<_> = pig_query
         .iter(&world)
-        .filter(|(_, _, _, _, is_pig, _, _, _)| *is_pig)
+        .filter(|(_, _, _, _, is_pig, _, _, _, _)| *is_pig)
         .map(
-            |(identity, position, last_chunk, mob_kind, is_pig, gravity, collisions, drag)| {
+            |(
+                identity,
+                position,
+                last_chunk,
+                mob_kind,
+                is_pig,
+                gravity,
+                collisions,
+                drag,
+                pathfinder,
+            )| {
                 (
                     identity.uuid,
                     *position,
@@ -71,6 +151,7 @@ fn spawn_mob_bundle_message_spawns_and_persists_supported_mobs() {
                     gravity,
                     collisions,
                     drag,
+                    pathfinder,
                 )
             },
         )
@@ -85,12 +166,14 @@ fn spawn_mob_bundle_message_spawns_and_persists_supported_mobs() {
         pig_gravity,
         pig_collisions,
         pig_drag,
+        pig_pathfinder,
     ) = pigs[0];
     assert!(is_pig);
     assert_eq!(pig_kind, MobKind(EntityTypeEnum::Pig));
     assert!(pig_gravity);
     assert!(pig_collisions);
     assert!(pig_drag);
+    assert!(pig_pathfinder);
     assert_eq!(pig_last_chunk.0, pig_position.chunk());
 
     let mut fox_query = world.query::<(
@@ -331,4 +414,64 @@ fn spawn_mob_bundle_message_spawns_and_persists_supported_mobs() {
         .get(&axolotl_uuid)
         .expect("axolotl should be persisted");
     assert_eq!(persisted_axolotl.value().0, EntityTypeEnum::Axolotl);
+}
+
+#[test]
+fn spawn_mob_bundle_respects_persist_flag() {
+    let mut world = World::new();
+    temper_messages::register_messages(&mut world);
+
+    let (state, _temp_dir) = create_test_state();
+    world.insert_resource(state.clone());
+
+    let mut schedule = Schedule::default();
+    schedule.add_systems((emit_unpersisted_cow, handle_spawn_mob_bundle).chain());
+    schedule.run(&mut world);
+
+    let mut cow_query = world.query::<(&Identity, &Position, Has<Cow>)>();
+    let cows: Vec<_> = cow_query
+        .iter(&world)
+        .filter(|(_, _, is_cow)| *is_cow)
+        .map(|(identity, position, _)| (identity.uuid, *position))
+        .collect();
+
+    assert_eq!(cows.len(), 1, "cow should still spawn into the ECS");
+    let (cow_uuid, cow_position) = cows[0];
+
+    let chunk = state
+        .0
+        .world
+        .get_chunk(cow_position.chunk(), Dimension::Overworld);
+    if let Ok(chunk) = chunk {
+        assert!(
+            chunk.entities.get(&cow_uuid).is_none(),
+            "unpersisted cow should not be written to the chunk entity map"
+        );
+    }
+}
+
+#[test]
+fn pig_bundle_supplies_ai_and_pathfinder_components() {
+    let mut world = World::new();
+    temper_messages::register_messages(&mut world);
+
+    let (state, _temp_dir) = create_test_state();
+    world.insert_resource(state);
+
+    let mut spawn_schedule = Schedule::default();
+    spawn_schedule.add_systems((emit_pig, handle_spawn_mob_bundle).chain());
+    spawn_schedule.run(&mut world);
+
+    let mut spawned_pigs =
+        world.query::<(Has<Pig>, Has<PigAI>, Has<Pathfinder>, Has<PathfinderSearch>)>();
+    let pigs: Vec<_> = spawned_pigs
+        .iter(&world)
+        .filter(|(is_pig, _, _, _)| *is_pig)
+        .collect();
+    assert_eq!(pigs.len(), 1, "one pig should be spawned");
+    let (_, has_ai, has_pathfinder, has_search) = pigs[0];
+    assert!(
+        has_ai && has_pathfinder && !has_search,
+        "standard mob spawn should include bundle components but not pathfinding search state"
+    );
 }

@@ -51,7 +51,13 @@ macro_rules! define_mob {
             kind = $kind:ident,
             vanilla = $vanilla:ident,
             bundle = $bundle:ident,
+            marker = $marker:path,
             profile = $profile:ident,
+            runtime = {
+                $(
+                    $runtime_field:ident: $runtime_ty:path => default
+                ),* $(,)?
+            },
             persisted = {
                 identity: $identity:path => clone,
                 metadata: $metadata:path => copy,
@@ -97,6 +103,10 @@ macro_rules! define_mob {
             pub velocity: $velocity,
             pub on_ground: $on_ground,
             pub last_synced_position: $last_synced_position,
+            $(
+                #[serde(skip)]
+                pub $runtime_field: $runtime_ty,
+            )*
         }
 
         impl $bundle {
@@ -115,6 +125,9 @@ macro_rules! define_mob {
                     on_ground: $on_ground(false),
                     last_synced_position: <$last_synced_position>::from_position(&position),
                     position,
+                    $(
+                        $runtime_field: <$runtime_ty>::default(),
+                    )*
                 }
             }
 
@@ -130,6 +143,48 @@ macro_rules! define_mob {
         }
 
         pub struct $definition;
+
+        impl $definition {
+            pub fn spawn_standard(
+                commands: &mut bevy_ecs::prelude::Commands<'_, '_>,
+                bundle: $bundle,
+            ) -> bevy_ecs::prelude::Entity {
+                let last_chunk =
+                    temper_components::last_chunk_pos::LastChunkPos::new(bundle.position.chunk());
+                let entity = commands
+                    .spawn((
+                        bundle,
+                        $marker,
+                        $crate::mob_definition::MobKind(
+                            $crate::entity_types::EntityTypeEnum::$kind,
+                        ),
+                        last_chunk,
+                    ))
+                    .id();
+
+                match $crate::mob_definition::MobProfile::$profile {
+                    $crate::mob_definition::MobProfile::Ground => {
+                        commands.entity(entity).insert((
+                            $crate::markers::HasGravity,
+                            $crate::markers::HasCollisions,
+                            $crate::markers::HasWaterDrag,
+                        ));
+                    }
+                    $crate::mob_definition::MobProfile::CollisionOnly => {
+                        commands
+                            .entity(entity)
+                            .insert($crate::markers::HasCollisions);
+                    }
+                    $crate::mob_definition::MobProfile::GravityNoDrag => {
+                        commands
+                            .entity(entity)
+                            .insert(($crate::markers::HasGravity, $crate::markers::HasCollisions));
+                    }
+                }
+
+                entity
+            }
+        }
 
         impl $crate::mob_definition::MobDefinition for $definition {
             type Bundle = $bundle;
@@ -150,6 +205,9 @@ macro_rules! define_mob {
                     velocity: bundle.velocity,
                     on_ground: bundle.on_ground,
                     last_synced_position: bundle.last_synced_position,
+                    $(
+                        $runtime_field: <$runtime_ty>::default(),
+                    )*
                 }
             }
 
@@ -166,6 +224,9 @@ macro_rules! define_mob {
                     velocity: *parts.velocity,
                     on_ground: *parts.on_ground,
                     last_synced_position: *parts.last_synced_position,
+                    $(
+                        $runtime_field: <$runtime_ty>::default(),
+                    )*
                 }
             }
 
@@ -279,6 +340,17 @@ macro_rules! define_mob_registry {
                     $(
                         Self::$variant(bundle) =>
                             <$definition as $crate::mob_definition::MobDefinition>::position(bundle),
+                    )+
+                }
+            }
+
+            pub fn spawn_standard(
+                self,
+                commands: &mut bevy_ecs::prelude::Commands<'_, '_>,
+            ) -> bevy_ecs::prelude::Entity {
+                match self {
+                    $(
+                        Self::$variant(bundle) => <$definition>::spawn_standard(commands, bundle),
                     )+
                 }
             }

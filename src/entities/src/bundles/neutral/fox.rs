@@ -3,7 +3,9 @@ crate::define_mob! {
         kind = Fox,
         vanilla = FOX,
         bundle = FoxBundle,
+        marker = crate::markers::entity_types::Fox,
         profile = Ground,
+        runtime = {},
         persisted = {
             identity: temper_components::entity_identity::Identity => clone,
             metadata: temper_components::metadata::EntityMetadata => copy,
