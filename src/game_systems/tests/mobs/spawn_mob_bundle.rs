@@ -1,7 +1,8 @@
 use bevy_ecs::prelude::*;
 use mobs::pig::tick_pig;
-use mobs::spawn::handle_spawn_mob_bundle;
+use mobs::spawn::{handle_despawn_mob, handle_spawn_mob_bundle};
 use pathfinding::{pos_to_block, Pathfinder, PathfinderSearch};
+use std::collections::HashMap;
 use temper_components::bossbar::BossbarOwner;
 use temper_components::entity_identity::Identity;
 use temper_components::last_chunk_pos::LastChunkPos;
@@ -19,7 +20,7 @@ use temper_entities::MobBundle;
 use temper_entities::{
     AxolotlBundle, BatBundle, CowBundle, FoxBundle, MobKind, PigBundle, WardenBundle,
 };
-use temper_messages::SpawnMobBundle;
+use temper_messages::{DespawnMob, SpawnMobBundle};
 use temper_state::create_test_state;
 
 fn emit_spawn_bundles(mut writer: MessageWriter<SpawnMobBundle>) {
@@ -52,6 +53,13 @@ fn emit_unpersisted_cow(mut writer: MessageWriter<SpawnMobBundle>) {
     });
 }
 
+fn emit_persisted_cow(mut writer: MessageWriter<SpawnMobBundle>) {
+    writer.write(SpawnMobBundle {
+        bundle: MobBundle::Cow(CowBundle::new(Position::new(22.5, 64.0, 9.5))),
+        persist: true,
+    });
+}
+
 fn emit_pig(mut writer: MessageWriter<SpawnMobBundle>) {
     writer.write(SpawnMobBundle {
         bundle: MobBundle::Pig(PigBundle::new(Position::new(24.5, 64.0, 9.5))),
@@ -64,6 +72,23 @@ fn emit_warden(mut writer: MessageWriter<SpawnMobBundle>) {
         bundle: MobBundle::Warden(WardenBundle::new(Position::new(27.5, 64.0, 9.5))),
         persist: false,
     });
+}
+
+fn emit_all_mob_bundles(mut writer: MessageWriter<SpawnMobBundle>) {
+    for (index, kind) in MobBundle::all_kinds().iter().copied().enumerate() {
+        let position = Position::new(index as f64 + 0.5, 80.0, 32.5);
+        let bundle = MobBundle::new(kind, position);
+        let data = bundle.serialize_for_chunk();
+        let decoded = MobBundle::deserialize(kind, &data).expect("bundle should deserialize");
+
+        assert_eq!(decoded.kind(), kind);
+        assert_eq!(decoded.position().xyz(), position.xyz());
+
+        writer.write(SpawnMobBundle {
+            bundle,
+            persist: false,
+        });
+    }
 }
 
 fn assert_registry_round_trip(
@@ -122,6 +147,66 @@ fn mob_registry_round_trips_supported_bundle_metadata() {
         MobProfile::Ground,
         Position::new(11.5, 64.0, 12.5),
     );
+}
+
+#[test]
+fn every_registered_mob_kind_constructs_round_trips_and_spawns() {
+    let mut world = World::new();
+    temper_messages::register_messages(&mut world);
+
+    let (state, _temp_dir) = create_test_state();
+    world.insert_resource(state);
+
+    let mut schedule = Schedule::default();
+    schedule.add_systems((emit_all_mob_bundles, handle_spawn_mob_bundle).chain());
+    schedule.run(&mut world);
+
+    let mut spawned_mobs = world.query::<(
+        &MobKind,
+        &Position,
+        Has<HasGravity>,
+        Has<HasCollisions>,
+        Has<HasWaterDrag>,
+    )>();
+    let spawned_mobs = spawned_mobs
+        .iter(&world)
+        .map(|(kind, position, gravity, collisions, drag)| {
+            (kind.0, (*position, gravity, collisions, drag))
+        })
+        .collect::<HashMap<_, _>>();
+
+    assert_eq!(
+        spawned_mobs.len(),
+        MobBundle::all_kinds().len(),
+        "every registered mob kind should spawn exactly once"
+    );
+
+    for (index, kind) in MobBundle::all_kinds().iter().copied().enumerate() {
+        let position = Position::new(index as f64 + 0.5, 80.0, 32.5);
+        let Some((spawned_position, gravity, collisions, drag)) = spawned_mobs.get(&kind) else {
+            panic!("missing spawned mob for {kind:?}");
+        };
+
+        assert_eq!(spawned_position.xyz(), position.xyz());
+
+        match MobBundle::new(kind, position).profile() {
+            MobProfile::Ground => {
+                assert!(*gravity, "{kind:?} should have gravity");
+                assert!(*collisions, "{kind:?} should have collisions");
+                assert!(*drag, "{kind:?} should have water drag");
+            }
+            MobProfile::CollisionOnly => {
+                assert!(!*gravity, "{kind:?} should not have gravity");
+                assert!(*collisions, "{kind:?} should have collisions");
+                assert!(!*drag, "{kind:?} should not have water drag");
+            }
+            MobProfile::GravityNoDrag => {
+                assert!(*gravity, "{kind:?} should have gravity");
+                assert!(*collisions, "{kind:?} should have collisions");
+                assert!(!*drag, "{kind:?} should not have water drag");
+            }
+        }
+    }
 }
 
 #[test]
@@ -468,6 +553,65 @@ fn spawn_mob_bundle_respects_persist_flag() {
             "unpersisted cow should not be written to the chunk entity map"
         );
     }
+}
+
+#[test]
+fn despawn_mob_message_removes_entity_and_persisted_data() {
+    let mut world = World::new();
+    temper_messages::register_messages(&mut world);
+
+    let (state, _temp_dir) = create_test_state();
+    world.insert_resource(state.clone());
+
+    let mut spawn_schedule = Schedule::default();
+    spawn_schedule.add_systems((emit_persisted_cow, handle_spawn_mob_bundle).chain());
+    spawn_schedule.run(&mut world);
+
+    let mut cow_query = world.query::<(Entity, &Identity, &Position, Has<Cow>)>();
+    let cows: Vec<_> = cow_query
+        .iter(&world)
+        .filter(|(_, _, _, is_cow)| *is_cow)
+        .map(|(entity, identity, position, _)| (entity, identity.uuid, *position))
+        .collect();
+    assert_eq!(cows.len(), 1, "one cow should be spawned");
+    let (cow_entity, cow_uuid, cow_position) = cows[0];
+
+    let chunk = state
+        .0
+        .world
+        .get_chunk(cow_position.chunk(), Dimension::Overworld)
+        .expect("cow chunk should be present");
+    assert!(
+        chunk.entities.get(&cow_uuid).is_some(),
+        "cow should be persisted before despawn"
+    );
+
+    let emit_despawn = move |mut writer: MessageWriter<DespawnMob>| {
+        writer.write(DespawnMob {
+            entity: cow_entity,
+            remove_from_chunk: true,
+        });
+    };
+
+    let mut despawn_schedule = Schedule::default();
+    despawn_schedule.add_systems((emit_despawn, handle_despawn_mob).chain());
+    despawn_schedule.run(&mut world);
+
+    let mut cow_query = world.query::<Has<Cow>>();
+    assert!(
+        cow_query.iter(&world).all(|is_cow| !is_cow),
+        "despawned cow should be removed from the ECS"
+    );
+
+    let chunk = state
+        .0
+        .world
+        .get_chunk(cow_position.chunk(), Dimension::Overworld)
+        .expect("cow chunk should still be present");
+    assert!(
+        chunk.entities.get(&cow_uuid).is_none(),
+        "despawned cow should be removed from persisted chunk data"
+    );
 }
 
 #[test]

@@ -113,7 +113,13 @@ fn register_tick_systems(schedule: &mut Schedule) {
     schedule.add_systems(background::day_cycle::tick_daylight_cycle);
     schedule.add_systems(background::mq::process);
     schedule.add_systems(background::server_command::handle);
-    schedule.add_systems(background::destroy_entity::destroy_entity_system);
+    schedule.add_systems(
+        (
+            background::destroy_entity::destroy_entity_system,
+            mobs::spawn::handle_despawn_mob,
+        )
+            .chain(),
+    );
 
     schedule.add_systems(
         (
@@ -152,7 +158,14 @@ fn register_chunk_gc_schedule_systems(schedule: &mut Schedule) {
     );
     schedule.add_systems(background::entity_unloader::handle.in_set(ChunkGcPhase::MarkForSave));
     mobs::register_save_systems(schedule);
-    schedule.add_systems(background::chunk_unloader::handle.in_set(ChunkGcPhase::UnloadChunks));
+    schedule.add_systems(
+        (
+            background::chunk_unloader::handle,
+            mobs::spawn::handle_despawn_mob,
+        )
+            .chain()
+            .in_set(ChunkGcPhase::UnloadChunks),
+    );
 }
 
 fn register_keepalive_schedule_systems(schedule: &mut Schedule) {

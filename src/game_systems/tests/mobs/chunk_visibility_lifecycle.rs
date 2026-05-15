@@ -1,6 +1,8 @@
 use background::{chunk_unloader, entity_unloader};
 use bevy_ecs::prelude::*;
-use mobs::spawn::{handle_spawn_mob_bundle, load_mob_bundles, save_mob_bundles};
+use mobs::spawn::{
+    handle_despawn_mob, handle_spawn_mob_bundle, load_mob_bundles, save_mob_bundles,
+};
 use player::chunk_calculator;
 use temper_components::entity_identity::Identity;
 use temper_components::last_chunk_pos::LastChunkPos;
@@ -130,6 +132,7 @@ fn multiple_entities_in_one_chunk_reload_together_when_player_returns() {
             entity_unloader::handle,
             save_mob_bundles,
             chunk_unloader::handle,
+            handle_despawn_mob,
         )
             .chain(),
     );
@@ -267,6 +270,7 @@ fn chunk_stays_loaded_while_a_second_player_keeps_it_visible() {
             entity_unloader::handle,
             save_mob_bundles,
             chunk_unloader::handle,
+            handle_despawn_mob,
         )
             .chain(),
     );

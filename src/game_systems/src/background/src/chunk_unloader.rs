@@ -1,10 +1,12 @@
-use bevy_ecs::prelude::{Commands, Entity, Has, Query, Res};
+use bevy_ecs::prelude::{Commands, Entity, Has, MessageWriter, Query, Res};
 use std::collections::HashSet;
 use temper_components::last_chunk_pos::LastChunkPos;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
+use temper_entities::MobKind;
+use temper_messages::DespawnMob;
 use temper_state::GlobalStateResource;
 use tracing::{error, trace};
 
@@ -12,7 +14,8 @@ pub fn handle(
     state: Res<GlobalStateResource>,
     query: Query<&ChunkReceiver>,
     mut cmd: Commands,
-    entity_query: Query<(Entity, &LastChunkPos, Has<PlayerMarker>)>,
+    entity_query: Query<(Entity, &LastChunkPos, Has<PlayerMarker>, Has<MobKind>)>,
+    mut despawn_mobs: MessageWriter<DespawnMob>,
 ) {
     // If there are no connected players, unload all cached chunks
     if query.count() == 0 {
@@ -66,7 +69,7 @@ pub fn handle(
             .remove(&(*chunk_pos, Dimension::Overworld));
         match removed_chunk {
             Some(((pos, dim), chunk)) => {
-                for (entity, last_chunk, is_player) in entity_query.iter() {
+                for (entity, last_chunk, is_player, is_mob) in entity_query.iter() {
                     if is_player || last_chunk.0 != *chunk_pos {
                         continue;
                     }
@@ -75,7 +78,14 @@ pub fn handle(
                         "Unloading live entity {:?} from chunk {:?} as it is no longer visible to any player.",
                         entity, chunk_pos
                     );
-                    cmd.entity(entity).despawn();
+                    if is_mob {
+                        despawn_mobs.write(DespawnMob {
+                            entity,
+                            remove_from_chunk: false,
+                        });
+                    } else {
+                        cmd.entity(entity).despawn();
+                    }
                 }
                 let dirty = chunk.is_dirty();
                 if dirty {
