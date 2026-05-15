@@ -274,6 +274,16 @@ macro_rules! define_mob_registry {
         }
 
         impl MobBundle {
+            pub fn all_kinds() -> &'static [$crate::entity_types::EntityTypeEnum] {
+                const KINDS: &[$crate::entity_types::EntityTypeEnum] = &[
+                    $(
+                        <$definition as $crate::mob_definition::MobDefinition>::KIND,
+                    )+
+                ];
+
+                KINDS
+            }
+
             pub fn deserialize(
                 kind: $crate::entity_types::EntityTypeEnum,
                 data: &[u8],

@@ -1,4 +1,6 @@
 use bevy_ecs::prelude::*;
+use std::collections::HashSet;
+use temper_components::bossbar::BossbarOwner;
 use temper_components::combat::CombatProperties;
 use temper_components::entity_identity::Identity;
 use temper_components::last_synced_position::LastSyncedPosition;
@@ -13,8 +15,10 @@ use temper_core::dimension::Dimension;
 use temper_entities::mob_definition::StandardMobParts;
 use temper_entities::{MobBundle, MobKind};
 use temper_messages::{
-    SpawnMobBundle, load_chunk_entities::LoadChunkEntities, save_chunk_entities::SaveChunkEntities,
+    DespawnMob, SpawnMobBundle, load_chunk_entities::LoadChunkEntities,
+    save_chunk_entities::SaveChunkEntities,
 };
+use temper_resources::bossbar::BossBarResource;
 use temper_state::GlobalStateResource;
 
 type StandardMobQuery<'a> = (
@@ -58,6 +62,48 @@ pub fn handle_spawn_mob_bundle(
         query.iter().for_each(|tracker| {
             tracker.to_track.push((uuid, kind.to_entity_type().id));
         });
+    }
+}
+
+pub fn handle_despawn_mob(
+    mut commands: Commands,
+    mut events: MessageReader<DespawnMob>,
+    query: Query<(&Position, &Identity, Option<&BossbarOwner>), With<MobKind>>,
+    trackers: Query<&EntityTracker>,
+    state: Res<GlobalStateResource>,
+    bossbar_res: Option<Res<BossBarResource>>,
+) {
+    let mut despawned = HashSet::new();
+
+    for event in events.read() {
+        if !despawned.insert(event.entity) {
+            continue;
+        }
+
+        let Ok((position, identity, bossbar_owner)) = query.get(event.entity) else {
+            continue;
+        };
+
+        if event.remove_from_chunk {
+            if let Ok(chunk) = state
+                .0
+                .world
+                .get_chunk(position.chunk(), Dimension::Overworld)
+                && chunk.entities.remove(&identity.uuid).is_some()
+            {
+                chunk.mark_dirty();
+            }
+        }
+
+        if let (Some(owner), Some(bossbar_res)) = (bossbar_owner, bossbar_res.as_ref()) {
+            bossbar_res.remove_bar(owner.id());
+        }
+
+        commands.entity(event.entity).despawn();
+
+        for tracker in trackers.iter() {
+            tracker.to_untrack.push(event.entity);
+        }
     }
 }
 

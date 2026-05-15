@@ -2,12 +2,12 @@ use bevy_ecs::prelude::*;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_entities::MobBundle;
-use temper_messages::{SpawnEntityCommand, SpawnMobBundle};
+use temper_messages::{SpawnMobBundle, SpawnMobCommand};
 use tracing::warn;
 
 /// Processes `/spawn` command messages by turning them into mob bundle spawns.
 pub fn spawn_command_processor(
-    mut spawn_commands: MessageReader<SpawnEntityCommand>,
+    mut spawn_commands: MessageReader<SpawnMobCommand>,
     query: Query<(&Position, &Rotation)>,
     mut mob_bundle_events: MessageWriter<SpawnMobBundle>,
 ) {
