@@ -5,7 +5,7 @@ use temper_core::dimension::Dimension;
 use temper_entities::markers::entity_types::{Fox, Pig};
 use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
 use temper_entities::{MobBundle, PigBundle};
-use temper_messages::SpawnMobBundle;
+use temper_messages::{SpawnMobBundle, load_chunk_entities::LoadChunkEntities};
 use temper_state::GlobalStateResource;
 
 trait SpawnMobBundleExt {
@@ -90,5 +90,30 @@ pub fn handle_spawn_mob_bundle(
         query.iter().for_each(|tracker| {
             tracker.to_track.push((uuid, kind.to_entity_type().id));
         });
+    }
+}
+
+pub fn load_mob_bundles(
+    state: Res<GlobalStateResource>,
+    mut load_events: MessageReader<LoadChunkEntities>,
+    mut spawn_events: MessageWriter<SpawnMobBundle>,
+) {
+    for event in load_events.read() {
+        let Ok(chunk) = state.0.world.get_chunk(event.0, Dimension::Overworld) else {
+            tracing::error!("Failed to load chunk {} for entity loading", event.0);
+            continue;
+        };
+
+        for kv in chunk.entities.iter() {
+            let (kind, data) = kv.value();
+            let Some(bundle) = MobBundle::deserialize(*kind, data) else {
+                continue;
+            };
+
+            spawn_events.write(SpawnMobBundle {
+                bundle,
+                persist: false,
+            });
+        }
     }
 }

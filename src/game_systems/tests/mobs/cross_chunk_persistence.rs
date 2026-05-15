@@ -1,6 +1,7 @@
 use background::cross_chunk_border;
 use bevy_ecs::prelude::*;
-use mobs::ground::{load_fox, save_fox};
+use mobs::ground::save_fox;
+use mobs::spawn::{handle_spawn_mob_bundle, load_mob_bundles};
 use physics::chunk_boundary;
 use temper_components::entity_identity::Identity;
 use temper_components::last_chunk_pos::LastChunkPos;
@@ -118,7 +119,14 @@ fn mob_crossing_a_chunk_border_reloads_from_its_new_chunk() {
     world.despawn(fox_entity);
 
     let mut load_schedule = Schedule::default();
-    load_schedule.add_systems((emit_load_for(new_chunk), load_fox).chain());
+    load_schedule.add_systems(
+        (
+            emit_load_for(new_chunk),
+            load_mob_bundles,
+            handle_spawn_mob_bundle,
+        )
+            .chain(),
+    );
     load_schedule.run(&mut world);
 
     let mut fox_query = world.query::<(&Identity, &Position, &LastChunkPos, Has<Fox>)>();

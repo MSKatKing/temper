@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::*;
-use mobs::ground::{load_fox, load_pig, save_fox, save_pig};
+use mobs::ground::{save_fox, save_pig};
+use mobs::spawn::{handle_spawn_mob_bundle, load_mob_bundles};
 use temper_components::entity_identity::Identity;
 use temper_components::last_chunk_pos::LastChunkPos;
 use temper_components::last_synced_position::LastSyncedPosition;
@@ -69,7 +70,14 @@ fn pig_round_trips_through_chunk_save_and_load() {
     world.despawn(original_entity);
 
     let mut load_schedule = Schedule::default();
-    load_schedule.add_systems((emit_load_for(chunk), load_pig).chain());
+    load_schedule.add_systems(
+        (
+            emit_load_for(chunk),
+            load_mob_bundles,
+            handle_spawn_mob_bundle,
+        )
+            .chain(),
+    );
     load_schedule.run(&mut world);
 
     let mut query = world.query::<(
@@ -146,7 +154,14 @@ fn fox_loads_in_a_separate_ecs_world_after_save() {
         second_world.insert_resource(state.clone());
 
         let mut load_schedule = Schedule::default();
-        load_schedule.add_systems((emit_load_for(chunk), load_fox).chain());
+        load_schedule.add_systems(
+            (
+                emit_load_for(chunk),
+                load_mob_bundles,
+                handle_spawn_mob_bundle,
+            )
+                .chain(),
+        );
         load_schedule.run(&mut second_world);
 
         let mut query = second_world.query::<(
