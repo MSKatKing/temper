@@ -3,7 +3,9 @@ crate::define_mob! {
         kind = Bat,
         vanilla = BAT,
         bundle = BatBundle,
+        marker = crate::markers::entity_types::Bat,
         profile = CollisionOnly,
+        runtime = {},
         persisted = {
             identity: temper_components::entity_identity::Identity => clone,
             metadata: temper_components::metadata::EntityMetadata => copy,

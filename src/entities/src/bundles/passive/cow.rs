@@ -3,7 +3,9 @@ crate::define_mob! {
         kind = Cow,
         vanilla = COW,
         bundle = CowBundle,
+        marker = crate::markers::entity_types::Cow,
         profile = Ground,
+        runtime = {},
         persisted = {
             identity: temper_components::entity_identity::Identity => clone,
             metadata: temper_components::metadata::EntityMetadata => copy,

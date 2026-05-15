@@ -301,21 +301,6 @@ crate::define_standard_mob_save_load!(
 );
 
 crate::define_standard_mob_save_load!(
-    pig,
-    marker = temper_entities::markers::entity_types::Pig,
-    bundle = temper_entities::PigBundle,
-    entity_type = Pig,
-    runtime_components = (
-        temper_entities::markers::HasGravity,
-        temper_entities::markers::HasCollisions,
-        temper_entities::markers::HasWaterDrag,
-        crate::pig::PigAI::default(),
-        pathfinding::Pathfinder::default(),
-        pathfinding::PathfinderSearch::default()
-    )
-);
-
-crate::define_standard_mob_save_load!(
     piglin,
     marker = temper_entities::markers::entity_types::Piglin,
     bundle = temper_entities::PiglinBundle,

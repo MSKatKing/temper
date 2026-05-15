@@ -1,7 +1,6 @@
 use bevy_ecs::prelude::*;
 use temper_components::combat::CombatProperties;
 use temper_components::entity_identity::Identity;
-use temper_components::last_chunk_pos::LastChunkPos;
 use temper_components::last_synced_position::LastSyncedPosition;
 use temper_components::metadata::EntityMetadata;
 use temper_components::player::entity_tracker::EntityTracker;
@@ -11,11 +10,8 @@ use temper_components::player::rotation::Rotation;
 use temper_components::player::velocity::Velocity;
 use temper_components::spawn::SpawnProperties;
 use temper_core::dimension::Dimension;
-use temper_entities::entity_types::EntityTypeEnum;
-use temper_entities::markers::entity_types::{Axolotl, Bat, Cow, Fox, Pig};
-use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
-use temper_entities::mob_definition::{MobProfile, StandardMobParts};
-use temper_entities::{MobBundle, MobKind, PigBundle};
+use temper_entities::mob_definition::StandardMobParts;
+use temper_entities::{MobBundle, MobKind};
 use temper_messages::{
     SpawnMobBundle, load_chunk_entities::LoadChunkEntities, save_chunk_entities::SaveChunkEntities,
 };
@@ -33,119 +29,6 @@ type StandardMobQuery<'a> = (
     &'a LastSyncedPosition,
     &'a MobKind,
 );
-
-trait SpawnMobBundleExt {
-    fn spawn(self, commands: &mut Commands) -> Entity;
-}
-
-impl SpawnMobBundleExt for MobBundle {
-    fn spawn(self, commands: &mut Commands) -> Entity {
-        match self {
-            Self::Pig(bundle) => spawn_pig(commands, bundle),
-            Self::Fox(bundle) => {
-                let position = bundle.position;
-                let profile = bundle.profile();
-                spawn_profiled(
-                    commands,
-                    bundle,
-                    Fox,
-                    EntityTypeEnum::Fox,
-                    profile,
-                    position,
-                )
-            }
-            Self::Cow(bundle) => {
-                let position = bundle.position;
-                let profile = bundle.profile();
-                spawn_profiled(
-                    commands,
-                    bundle,
-                    Cow,
-                    EntityTypeEnum::Cow,
-                    profile,
-                    position,
-                )
-            }
-            Self::Bat(bundle) => {
-                let position = bundle.position;
-                let profile = bundle.profile();
-                spawn_profiled(
-                    commands,
-                    bundle,
-                    Bat,
-                    EntityTypeEnum::Bat,
-                    profile,
-                    position,
-                )
-            }
-            Self::Axolotl(bundle) => {
-                let position = bundle.position;
-                let profile = bundle.profile();
-                spawn_profiled(
-                    commands,
-                    bundle,
-                    Axolotl,
-                    EntityTypeEnum::Axolotl,
-                    profile,
-                    position,
-                )
-            }
-        }
-    }
-}
-
-fn spawn_pig(commands: &mut Commands, bundle: PigBundle) -> Entity {
-    let position = bundle.position;
-    let profile = bundle.profile();
-    let entity = spawn_profiled(
-        commands,
-        bundle,
-        Pig,
-        EntityTypeEnum::Pig,
-        profile,
-        position,
-    );
-    commands.entity(entity).insert((
-        crate::pig::PigAI::default(),
-        pathfinding::Pathfinder::default(),
-        pathfinding::PathfinderSearch::default(),
-    ));
-    entity
-}
-
-fn spawn_profiled<B, M>(
-    commands: &mut Commands,
-    bundle: B,
-    marker: M,
-    kind: EntityTypeEnum,
-    profile: MobProfile,
-    position: Position,
-) -> Entity
-where
-    B: Bundle,
-    M: Component,
-{
-    let last_chunk = LastChunkPos::new(position.chunk());
-    let entity = commands
-        .spawn((bundle, marker, MobKind(kind), last_chunk))
-        .id();
-
-    match profile {
-        MobProfile::Ground => {
-            commands
-                .entity(entity)
-                .insert((HasGravity, HasCollisions, HasWaterDrag));
-        }
-        MobProfile::CollisionOnly => {
-            commands.entity(entity).insert(HasCollisions);
-        }
-        MobProfile::GravityNoDrag => {
-            commands.entity(entity).insert((HasGravity, HasCollisions));
-        }
-    }
-
-    entity
-}
 
 pub fn handle_spawn_mob_bundle(
     mut events: MessageReader<SpawnMobBundle>,
@@ -170,7 +53,7 @@ pub fn handle_spawn_mob_bundle(
             chunk.mark_dirty();
         }
 
-        event.bundle.clone().spawn(&mut commands);
+        event.bundle.clone().spawn_standard(&mut commands);
 
         query.iter().for_each(|tracker| {
             tracker.to_track.push((uuid, kind.to_entity_type().id));

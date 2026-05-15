@@ -3,7 +3,9 @@ crate::define_mob! {
         kind = Axolotl,
         vanilla = AXOLOTL,
         bundle = AxolotlBundle,
+        marker = crate::markers::entity_types::Axolotl,
         profile = GravityNoDrag,
+        runtime = {},
         persisted = {
             identity: temper_components::entity_identity::Identity => clone,
             metadata: temper_components::metadata::EntityMetadata => copy,
