@@ -12,9 +12,9 @@ use temper_components::player::velocity::Velocity;
 use temper_components::spawn::SpawnProperties;
 use temper_core::dimension::Dimension;
 use temper_entities::entity_types::EntityTypeEnum;
-use temper_entities::markers::entity_types::{Fox, Pig};
+use temper_entities::markers::entity_types::{Axolotl, Bat, Cow, Fox, Pig};
 use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
-use temper_entities::mob_definition::StandardMobParts;
+use temper_entities::mob_definition::{MobProfile, StandardMobParts};
 use temper_entities::{MobBundle, MobKind, PigBundle};
 use temper_messages::{
     SpawnMobBundle, load_chunk_entities::LoadChunkEntities, save_chunk_entities::SaveChunkEntities,
@@ -35,60 +35,116 @@ type StandardMobQuery<'a> = (
 );
 
 trait SpawnMobBundleExt {
-    fn serialize_for_chunk(&self) -> Vec<u8>;
     fn spawn(self, commands: &mut Commands) -> Entity;
 }
 
 impl SpawnMobBundleExt for MobBundle {
-    fn serialize_for_chunk(&self) -> Vec<u8> {
-        match self {
-            Self::Pig(bundle) => {
-                bitcode::serialize(bundle).expect("Failed to serialize pig bundle")
-            }
-            Self::Fox(bundle) => {
-                bitcode::serialize(bundle).expect("Failed to serialize fox bundle")
-            }
-        }
-    }
-
     fn spawn(self, commands: &mut Commands) -> Entity {
         match self {
             Self::Pig(bundle) => spawn_pig(commands, bundle),
             Self::Fox(bundle) => {
-                let kind = MobKind(EntityTypeEnum::Fox);
-                let last_chunk = LastChunkPos::new(bundle.position.chunk());
-                commands
-                    .spawn((
-                        bundle,
-                        Fox,
-                        kind,
-                        HasGravity,
-                        HasCollisions,
-                        HasWaterDrag,
-                        last_chunk,
-                    ))
-                    .id()
+                let position = bundle.position;
+                let profile = bundle.profile();
+                spawn_profiled(
+                    commands,
+                    bundle,
+                    Fox,
+                    EntityTypeEnum::Fox,
+                    profile,
+                    position,
+                )
+            }
+            Self::Cow(bundle) => {
+                let position = bundle.position;
+                let profile = bundle.profile();
+                spawn_profiled(
+                    commands,
+                    bundle,
+                    Cow,
+                    EntityTypeEnum::Cow,
+                    profile,
+                    position,
+                )
+            }
+            Self::Bat(bundle) => {
+                let position = bundle.position;
+                let profile = bundle.profile();
+                spawn_profiled(
+                    commands,
+                    bundle,
+                    Bat,
+                    EntityTypeEnum::Bat,
+                    profile,
+                    position,
+                )
+            }
+            Self::Axolotl(bundle) => {
+                let position = bundle.position;
+                let profile = bundle.profile();
+                spawn_profiled(
+                    commands,
+                    bundle,
+                    Axolotl,
+                    EntityTypeEnum::Axolotl,
+                    profile,
+                    position,
+                )
             }
         }
     }
 }
 
 fn spawn_pig(commands: &mut Commands, bundle: PigBundle) -> Entity {
-    let last_chunk = LastChunkPos::new(bundle.position.chunk());
-    commands
-        .spawn((
-            bundle,
-            Pig,
-            MobKind(EntityTypeEnum::Pig),
-            HasGravity,
-            HasCollisions,
-            HasWaterDrag,
-            crate::pig::PigAI::default(),
-            pathfinding::Pathfinder::default(),
-            pathfinding::PathfinderSearch::default(),
-            last_chunk,
-        ))
-        .id()
+    let position = bundle.position;
+    let profile = bundle.profile();
+    let entity = spawn_profiled(
+        commands,
+        bundle,
+        Pig,
+        EntityTypeEnum::Pig,
+        profile,
+        position,
+    );
+    commands.entity(entity).insert((
+        crate::pig::PigAI::default(),
+        pathfinding::Pathfinder::default(),
+        pathfinding::PathfinderSearch::default(),
+    ));
+    entity
+}
+
+fn spawn_profiled<B, M>(
+    commands: &mut Commands,
+    bundle: B,
+    marker: M,
+    kind: EntityTypeEnum,
+    profile: MobProfile,
+    position: Position,
+) -> Entity
+where
+    B: Bundle,
+    M: Component,
+{
+    let last_chunk = LastChunkPos::new(position.chunk());
+    let entity = commands
+        .spawn((bundle, marker, MobKind(kind), last_chunk))
+        .id();
+
+    match profile {
+        MobProfile::Ground => {
+            commands
+                .entity(entity)
+                .insert((HasGravity, HasCollisions, HasWaterDrag));
+        }
+        MobProfile::CollisionOnly => {
+            commands.entity(entity).insert(HasCollisions);
+        }
+        MobProfile::GravityNoDrag => {
+            commands.entity(entity).insert((HasGravity, HasCollisions));
+        }
+    }
+
+    entity
 }
 
 pub fn handle_spawn_mob_bundle(

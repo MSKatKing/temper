@@ -166,7 +166,6 @@ pub fn register_load_systems(schedule: &mut Schedule) {
         crate::MobLoadSystems,
         [
             load_allay,
-            load_bat,
             load_bee,
             load_blaze,
             load_breeze,
@@ -195,7 +194,6 @@ pub fn register_save_systems(schedule: &mut Schedule) {
         crate::MobSaveSystems,
         [
             save_allay,
-            save_bat,
             save_bee,
             save_blaze,
             save_breeze,

@@ -35,13 +35,13 @@ pub mod zombie_horse;
 // Re-exports
 pub use allay::AllayBundle;
 pub use armadillo::ArmadilloBundle;
-pub use axolotl::AxolotlBundle;
-pub use bat::BatBundle;
+pub use axolotl::{AxolotlBundle, AxolotlDefinition};
+pub use bat::{BatBundle, BatDefinition};
 pub use camel::CamelBundle;
 pub use cat::CatBundle;
 pub use chicken::ChickenBundle;
 pub use cod::CodBundle;
-pub use cow::CowBundle;
+pub use cow::{CowBundle, CowDefinition};
 pub use donkey::DonkeyBundle;
 pub use frog::FrogBundle;
 pub use glow_squid::GlowSquidBundle;
