@@ -24,6 +24,7 @@ pub mod collision_only;
 pub mod gravity_no_drag;
 pub mod ground;
 pub mod pig;
+pub mod spawn;
 mod warden;
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]

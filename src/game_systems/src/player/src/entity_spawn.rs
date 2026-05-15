@@ -3,11 +3,12 @@ use temper_components::last_chunk_pos::LastChunkPos;
 use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
+use temper_entities::MobBundle;
 use temper_entities::bundles::*;
 use temper_entities::entity_types::EntityTypeEnum;
 use temper_entities::markers::entity_types::*;
 use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
-use temper_messages::{SpawnEntityCommand, SpawnEntityEvent};
+use temper_messages::{SpawnEntityCommand, SpawnEntityEvent, SpawnMobBundle};
 use temper_state::GlobalStateResource;
 use tracing::warn;
 
@@ -107,6 +108,7 @@ pub fn spawn_command_processor(
     mut spawn_commands: MessageReader<SpawnEntityCommand>,
     query: Query<(&Position, &Rotation)>,
     mut spawn_events: MessageWriter<SpawnEntityEvent>,
+    mut mob_bundle_events: MessageWriter<SpawnMobBundle>,
 ) {
     // Process all spawn command messages
     for command in spawn_commands.read() {
@@ -115,10 +117,26 @@ pub fn spawn_command_processor(
             // Calculate spawn position 2 blocks in front of the player
             let spawn_pos = pos.offset_forward(rot, 2.0);
 
-            spawn_events.write(SpawnEntityEvent {
-                entity_type: command.entity_type,
-                position: spawn_pos,
-            });
+            match command.entity_type {
+                EntityTypeEnum::Pig => {
+                    mob_bundle_events.write(SpawnMobBundle {
+                        bundle: MobBundle::Pig(PigBundle::new(spawn_pos)),
+                        persist: true,
+                    });
+                }
+                EntityTypeEnum::Fox => {
+                    mob_bundle_events.write(SpawnMobBundle {
+                        bundle: MobBundle::Fox(FoxBundle::new(spawn_pos)),
+                        persist: true,
+                    });
+                }
+                entity_type => {
+                    spawn_events.write(SpawnEntityEvent {
+                        entity_type,
+                        position: spawn_pos,
+                    });
+                }
+            }
         } else {
             warn!(
                 "Failed to get position for entity {:?}",

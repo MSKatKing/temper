@@ -66,6 +66,7 @@ fn register_tick_systems(schedule: &mut Schedule) {
     schedule.add_systems(player::digging_system::handle_finish_digging);
     schedule.add_systems(player::digging_system::handle_start_digging);
     schedule.add_systems(player::digging_system::handle_cancel_digging);
+    schedule.add_systems(mobs::spawn::handle_spawn_mob_bundle);
     schedule.add_systems(player::entity_spawn::handle_spawn_entity);
     schedule.add_systems(player::entity_spawn::spawn_command_processor);
     schedule.add_systems(player::gamemode_change::handle);
