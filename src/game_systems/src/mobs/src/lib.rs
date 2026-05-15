@@ -56,6 +56,7 @@ pub fn register_load_systems(schedule: &mut Schedule) {
 }
 
 pub fn register_save_systems(schedule: &mut Schedule) {
+    schedule.add_systems(spawn::save_mob_bundles.in_set(MobSaveSystems));
     ground::register_save_systems(schedule);
     collision_only::register_save_systems(schedule);
     gravity_no_drag::register_save_systems(schedule);

@@ -10,4 +10,4 @@ pub use bundles::*;
 pub use components::physical_registry::PhysicalRegistry;
 pub use components::*;
 pub use markers::*;
-pub use mob_bundle::MobBundle;
+pub use mob_bundle::{MobBundle, MobKind};

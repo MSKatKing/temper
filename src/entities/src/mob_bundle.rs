@@ -1,8 +1,12 @@
+use bevy_ecs::prelude::Component;
 use temper_components::entity_identity::Identity;
 use temper_components::player::position::Position;
 
 use crate::bundles::{FoxBundle, PigBundle};
 use crate::entity_types::EntityTypeEnum;
+
+#[derive(Component, Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MobKind(pub EntityTypeEnum);
 
 pub enum MobBundle {
     Pig(PigBundle),
