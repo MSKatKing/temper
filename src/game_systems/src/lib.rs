@@ -75,11 +75,6 @@ fn register_tick_systems(schedule: &mut Schedule) {
             .after(player::entity_spawn::spawn_command_processor)
             .in_set(TickPhase::MobSpawning),
     );
-    schedule.add_systems(
-        player::entity_spawn::handle_spawn_entity
-            .after(player::entity_spawn::spawn_command_processor)
-            .in_set(TickPhase::MobSpawning),
-    );
     schedule.add_systems(player::gamemode_change::handle);
     schedule.add_systems(player::movement_broadcast::handle_player_move);
 

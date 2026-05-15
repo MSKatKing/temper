@@ -537,7 +537,7 @@ fn pig_ai_requests_path_toward_nearest_player() {
 }
 
 #[test]
-fn warden_bundle_supplies_bossbar_owner_and_pathfinder_components() {
+fn warden_bundle_supplies_bossbar_owner() {
     let mut world = World::new();
     temper_messages::register_messages(&mut world);
 
@@ -551,7 +551,6 @@ fn warden_bundle_supplies_bossbar_owner_and_pathfinder_components() {
     let mut spawned_wardens = world.query::<(
         Has<Warden>,
         Has<BossbarOwner>,
-        Has<Pathfinder>,
         Has<PathfinderSearch>,
         Has<HasGravity>,
         Has<HasCollisions>,
@@ -559,13 +558,12 @@ fn warden_bundle_supplies_bossbar_owner_and_pathfinder_components() {
     )>();
     let wardens: Vec<_> = spawned_wardens
         .iter(&world)
-        .filter(|(is_warden, _, _, _, _, _, _)| *is_warden)
+        .filter(|(is_warden, _, _, _, _, _)| *is_warden)
         .collect();
 
     assert_eq!(wardens.len(), 1, "one warden should be spawned");
-    let (_, has_owner, has_pathfinder, has_search, gravity, collisions, drag) = wardens[0];
+    let (_, has_owner, has_search, gravity, collisions, drag) = wardens[0];
     assert!(has_owner);
-    assert!(has_pathfinder);
     assert!(!has_search);
     assert!(gravity);
     assert!(collisions);

@@ -7,7 +7,6 @@ crate::define_mob! {
         profile = Ground,
         runtime = {
             bossbar_owner: temper_components::bossbar::BossbarOwner => default,
-            pathfinder: temper_components::pathfinder::Pathfinder => default,
         },
         persisted = {
             identity: temper_components::entity_identity::Identity => clone,
