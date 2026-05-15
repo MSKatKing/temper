@@ -39,6 +39,14 @@ impl Clone for MobBundle {
 }
 
 impl MobBundle {
+    pub fn deserialize(kind: EntityTypeEnum, data: &[u8]) -> Option<Self> {
+        match kind {
+            EntityTypeEnum::Pig => bitcode::deserialize(data).ok().map(Self::Pig),
+            EntityTypeEnum::Fox => bitcode::deserialize(data).ok().map(Self::Fox),
+            _ => None,
+        }
+    }
+
     pub fn kind(&self) -> EntityTypeEnum {
         match self {
             Self::Pig(_) => EntityTypeEnum::Pig,

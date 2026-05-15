@@ -49,6 +49,7 @@ pub fn register_tick_systems(schedule: &mut Schedule) {
 }
 
 pub fn register_load_systems(schedule: &mut Schedule) {
+    schedule.add_systems(spawn::load_mob_bundles.in_set(MobLoadSystems));
     ground::register_load_systems(schedule);
     collision_only::register_load_systems(schedule);
     gravity_no_drag::register_load_systems(schedule);

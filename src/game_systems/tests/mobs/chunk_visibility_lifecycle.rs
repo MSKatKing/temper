@@ -1,6 +1,7 @@
 use background::{chunk_unloader, entity_unloader};
 use bevy_ecs::prelude::*;
-use mobs::ground::{load_fox, load_pig, save_fox, save_pig};
+use mobs::ground::{save_fox, save_pig};
+use mobs::spawn::{handle_spawn_mob_bundle, load_mob_bundles};
 use player::chunk_calculator;
 use temper_components::entity_identity::Identity;
 use temper_components::last_chunk_pos::LastChunkPos;
@@ -183,7 +184,14 @@ fn multiple_entities_in_one_chunk_reload_together_when_player_returns() {
     chunk_calc_schedule.run(&mut world);
 
     let mut load_schedule = Schedule::default();
-    load_schedule.add_systems((emit_load_messages_for_known_chunks, load_fox, load_pig).chain());
+    load_schedule.add_systems(
+        (
+            emit_load_messages_for_known_chunks,
+            load_mob_bundles,
+            handle_spawn_mob_bundle,
+        )
+            .chain(),
+    );
     load_schedule.run(&mut world);
 
     let mut fox_query = world.query::<(&Identity, Has<Fox>)>();
