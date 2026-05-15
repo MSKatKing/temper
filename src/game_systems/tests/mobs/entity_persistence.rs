@@ -1,6 +1,5 @@
 use bevy_ecs::prelude::*;
-use mobs::ground::{save_fox, save_pig};
-use mobs::spawn::{handle_spawn_mob_bundle, load_mob_bundles};
+use mobs::spawn::{handle_spawn_mob_bundle, load_mob_bundles, save_mob_bundles};
 use temper_components::entity_identity::Identity;
 use temper_components::last_chunk_pos::LastChunkPos;
 use temper_components::last_synced_position::LastSyncedPosition;
@@ -9,7 +8,7 @@ use temper_core::dimension::Dimension;
 use temper_entities::entity_types::EntityTypeEnum;
 use temper_entities::markers::entity_types::{Fox, Pig};
 use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
-use temper_entities::{FoxBundle, PigBundle};
+use temper_entities::{FoxBundle, MobKind, PigBundle};
 use temper_messages::load_chunk_entities::LoadChunkEntities;
 use temper_messages::save_chunk_entities::SaveChunkEntities;
 use temper_state::create_test_state;
@@ -45,11 +44,18 @@ fn pig_round_trips_through_chunk_save_and_load() {
     let expected_last_synced = bundle.last_synced_position;
 
     let original_entity = world
-        .spawn((bundle, Pig, HasGravity, HasCollisions, HasWaterDrag))
+        .spawn((
+            bundle,
+            Pig,
+            MobKind(EntityTypeEnum::Pig),
+            HasGravity,
+            HasCollisions,
+            HasWaterDrag,
+        ))
         .id();
 
     let mut save_schedule = Schedule::default();
-    save_schedule.add_systems((emit_save_for(chunk), save_pig).chain());
+    save_schedule.add_systems((emit_save_for(chunk), save_mob_bundles).chain());
     save_schedule.run(&mut world);
 
     {
@@ -134,10 +140,17 @@ fn fox_loads_in_a_separate_ecs_world_after_save() {
         let mut first_world = World::new();
         temper_messages::register_messages(&mut first_world);
         first_world.insert_resource(state.clone());
-        first_world.spawn((bundle, Fox, HasGravity, HasCollisions, HasWaterDrag));
+        first_world.spawn((
+            bundle,
+            Fox,
+            MobKind(EntityTypeEnum::Fox),
+            HasGravity,
+            HasCollisions,
+            HasWaterDrag,
+        ));
 
         let mut save_schedule = Schedule::default();
-        save_schedule.add_systems((emit_save_for(chunk), save_fox).chain());
+        save_schedule.add_systems((emit_save_for(chunk), save_mob_bundles).chain());
         save_schedule.run(&mut first_world);
     }
 

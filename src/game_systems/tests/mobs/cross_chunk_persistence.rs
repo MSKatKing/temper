@@ -1,7 +1,6 @@
 use background::cross_chunk_border;
 use bevy_ecs::prelude::*;
-use mobs::ground::save_fox;
-use mobs::spawn::{handle_spawn_mob_bundle, load_mob_bundles};
+use mobs::spawn::{handle_spawn_mob_bundle, load_mob_bundles, save_mob_bundles};
 use physics::chunk_boundary;
 use temper_components::entity_identity::Identity;
 use temper_components::last_chunk_pos::LastChunkPos;
@@ -10,7 +9,7 @@ use temper_core::dimension::Dimension;
 use temper_entities::entity_types::EntityTypeEnum;
 use temper_entities::markers::entity_types::Fox;
 use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
-use temper_entities::FoxBundle;
+use temper_entities::{FoxBundle, MobKind};
 use temper_messages::load_chunk_entities::LoadChunkEntities;
 use temper_messages::save_chunk_entities::SaveChunkEntities;
 use temper_state::create_test_state;
@@ -50,6 +49,7 @@ fn mob_crossing_a_chunk_border_reloads_from_its_new_chunk() {
         .spawn((
             fox_bundle,
             Fox,
+            MobKind(EntityTypeEnum::Fox),
             HasGravity,
             HasCollisions,
             HasWaterDrag,
@@ -68,7 +68,7 @@ fn mob_crossing_a_chunk_border_reloads_from_its_new_chunk() {
     }
 
     let mut initial_save_schedule = Schedule::default();
-    initial_save_schedule.add_systems((emit_save_for(old_chunk), save_fox).chain());
+    initial_save_schedule.add_systems((emit_save_for(old_chunk), save_mob_bundles).chain());
     initial_save_schedule.run(&mut world);
 
     {
@@ -113,7 +113,7 @@ fn mob_crossing_a_chunk_border_reloads_from_its_new_chunk() {
     }
 
     let mut refresh_save_schedule = Schedule::default();
-    refresh_save_schedule.add_systems((emit_save_for(new_chunk), save_fox).chain());
+    refresh_save_schedule.add_systems((emit_save_for(new_chunk), save_mob_bundles).chain());
     refresh_save_schedule.run(&mut world);
 
     world.despawn(fox_entity);

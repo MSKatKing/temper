@@ -1,7 +1,6 @@
 use background::{chunk_unloader, entity_unloader};
 use bevy_ecs::prelude::*;
-use mobs::ground::{save_fox, save_pig};
-use mobs::spawn::{handle_spawn_mob_bundle, load_mob_bundles};
+use mobs::spawn::{handle_spawn_mob_bundle, load_mob_bundles, save_mob_bundles};
 use player::chunk_calculator;
 use temper_components::entity_identity::Identity;
 use temper_components::last_chunk_pos::LastChunkPos;
@@ -11,8 +10,10 @@ use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
+use temper_entities::entity_types::EntityTypeEnum;
 use temper_entities::markers::entity_types::{Fox, Pig};
 use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
+use temper_entities::MobKind;
 use temper_entities::{FoxBundle, PigBundle};
 use temper_messages::chunk_calc::ChunkCalc;
 use temper_messages::load_chunk_entities::LoadChunkEntities;
@@ -85,6 +86,7 @@ fn multiple_entities_in_one_chunk_reload_together_when_player_returns() {
     world.spawn((
         fox_bundle,
         Fox,
+        MobKind(EntityTypeEnum::Fox),
         HasGravity,
         HasCollisions,
         HasWaterDrag,
@@ -93,6 +95,7 @@ fn multiple_entities_in_one_chunk_reload_together_when_player_returns() {
     world.spawn((
         pig_bundle,
         Pig,
+        MobKind(EntityTypeEnum::Pig),
         HasGravity,
         HasCollisions,
         HasWaterDrag,
@@ -125,8 +128,7 @@ fn multiple_entities_in_one_chunk_reload_together_when_player_returns() {
     unload_schedule.add_systems(
         (
             entity_unloader::handle,
-            save_fox,
-            save_pig,
+            save_mob_bundles,
             chunk_unloader::handle,
         )
             .chain(),
@@ -230,6 +232,7 @@ fn chunk_stays_loaded_while_a_second_player_keeps_it_visible() {
     world.spawn((
         fox_bundle,
         Fox,
+        MobKind(EntityTypeEnum::Fox),
         HasGravity,
         HasCollisions,
         HasWaterDrag,
@@ -259,8 +262,14 @@ fn chunk_stays_loaded_while_a_second_player_keeps_it_visible() {
     chunk_calc_schedule.run(&mut world);
 
     let mut unload_schedule = Schedule::default();
-    unload_schedule
-        .add_systems((entity_unloader::handle, save_fox, chunk_unloader::handle).chain());
+    unload_schedule.add_systems(
+        (
+            entity_unloader::handle,
+            save_mob_bundles,
+            chunk_unloader::handle,
+        )
+            .chain(),
+    );
     unload_schedule.run(&mut world);
 
     let mut fox_query = world.query::<(&Identity, Has<Fox>)>();
