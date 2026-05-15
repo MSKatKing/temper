@@ -28,7 +28,7 @@ pub mod entity_spawn;
 pub mod entity_update;
 pub mod particle;
 
-pub use entity_spawn::{SpawnEntityCommand, SpawnEntityEvent, SpawnMobBundle};
+pub use entity_spawn::{SpawnEntityCommand, SpawnMobBundle};
 
 pub mod block_break;
 pub mod block_interaction;
@@ -75,7 +75,6 @@ pub fn register_messages(world: &mut World) {
     MessageRegistry::register_message::<PlayerLeveledUp>(world);
     MessageRegistry::register_message::<PlayerGameModeChanged>(world);
     MessageRegistry::register_message::<SpawnEntityCommand>(world);
-    MessageRegistry::register_message::<SpawnEntityEvent>(world);
     MessageRegistry::register_message::<SpawnMobBundle>(world);
     MessageRegistry::register_message::<SendEntityUpdate>(world);
     MessageRegistry::register_message::<SendParticle>(world);

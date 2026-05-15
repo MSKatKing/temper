@@ -109,7 +109,7 @@ pub fn save_mob_bundles(
                 continue;
             }
 
-            let Some(bundle) = standard_mob_bundle(
+            let bundle = standard_mob_bundle(
                 identity,
                 metadata,
                 combat,
@@ -120,9 +120,7 @@ pub fn save_mob_bundles(
                 on_ground,
                 last_synced_position,
                 mob_kind,
-            ) else {
-                continue;
-            };
+            );
 
             let kind = bundle.kind();
             let uuid = bundle.identity().uuid;
@@ -150,7 +148,7 @@ fn standard_mob_bundle(
     on_ground: &OnGround,
     last_synced_position: &LastSyncedPosition,
     mob_kind: &MobKind,
-) -> Option<MobBundle> {
+) -> MobBundle {
     MobBundle::from_standard_parts(
         mob_kind.0,
         StandardMobParts {
