@@ -13,6 +13,13 @@ use temper_components::spawn::SpawnProperties;
 #[derive(Component, Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MobKind(pub EntityTypeEnum);
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MobProfile {
+    Ground,
+    CollisionOnly,
+    GravityNoDrag,
+}
+
 pub struct StandardMobParts<'a> {
     pub identity: &'a Identity,
     pub metadata: &'a EntityMetadata,
@@ -29,6 +36,7 @@ pub trait MobDefinition {
     type Bundle;
 
     const KIND: EntityTypeEnum;
+    const PROFILE: MobProfile;
 
     fn clone_bundle(bundle: &Self::Bundle) -> Self::Bundle;
     fn from_standard_parts(parts: StandardMobParts<'_>) -> Self::Bundle;
@@ -43,6 +51,7 @@ macro_rules! define_mob {
             kind = $kind:ident,
             vanilla = $vanilla:ident,
             bundle = $bundle:ident,
+            profile = $profile:ident,
             persisted = {
                 identity: $identity:path => clone,
                 metadata: $metadata:path => copy,
@@ -114,6 +123,10 @@ macro_rules! define_mob {
                 bundle.rotation = rotation;
                 bundle
             }
+
+            pub fn profile(&self) -> $crate::mob_definition::MobProfile {
+                $crate::mob_definition::MobProfile::$profile
+            }
         }
 
         pub struct $definition;
@@ -123,6 +136,8 @@ macro_rules! define_mob {
 
             const KIND: $crate::entity_types::EntityTypeEnum =
                 $crate::entity_types::EntityTypeEnum::$kind;
+            const PROFILE: $crate::mob_definition::MobProfile =
+                $crate::mob_definition::MobProfile::$profile;
 
             fn clone_bundle(bundle: &Self::Bundle) -> Self::Bundle {
                 Self::Bundle {
@@ -207,6 +222,15 @@ macro_rules! define_mob_registry {
                 }
             }
 
+            pub fn serialize_for_chunk(&self) -> Vec<u8> {
+                match self {
+                    $(
+                        Self::$variant(bundle) =>
+                            bitcode::serialize(bundle).expect("Failed to serialize mob bundle"),
+                    )+
+                }
+            }
+
             pub fn from_standard_parts(
                 kind: $crate::entity_types::EntityTypeEnum,
                 parts: $crate::mob_definition::StandardMobParts<'_>,
@@ -228,6 +252,15 @@ macro_rules! define_mob_registry {
                     $(
                         Self::$variant(_) =>
                             <$definition as $crate::mob_definition::MobDefinition>::KIND,
+                    )+
+                }
+            }
+
+            pub fn profile(&self) -> $crate::mob_definition::MobProfile {
+                match self {
+                    $(
+                        Self::$variant(_) =>
+                            <$definition as $crate::mob_definition::MobDefinition>::PROFILE,
                     )+
                 }
             }

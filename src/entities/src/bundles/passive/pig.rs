@@ -3,6 +3,7 @@ crate::define_mob! {
         kind = Pig,
         vanilla = PIG,
         bundle = PigBundle,
+        profile = Ground,
         persisted = {
             identity: temper_components::entity_identity::Identity => clone,
             metadata: temper_components::metadata::EntityMetadata => copy,

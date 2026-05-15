@@ -130,6 +130,24 @@ pub fn spawn_command_processor(
                         persist: true,
                     });
                 }
+                EntityTypeEnum::Cow => {
+                    mob_bundle_events.write(SpawnMobBundle {
+                        bundle: MobBundle::Cow(CowBundle::new(spawn_pos)),
+                        persist: true,
+                    });
+                }
+                EntityTypeEnum::Bat => {
+                    mob_bundle_events.write(SpawnMobBundle {
+                        bundle: MobBundle::Bat(BatBundle::new(spawn_pos)),
+                        persist: true,
+                    });
+                }
+                EntityTypeEnum::Axolotl => {
+                    mob_bundle_events.write(SpawnMobBundle {
+                        bundle: MobBundle::Axolotl(AxolotlBundle::new(spawn_pos)),
+                        persist: true,
+                    });
+                }
                 entity_type => {
                     spawn_events.write(SpawnEntityEvent {
                         entity_type,

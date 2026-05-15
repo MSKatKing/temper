@@ -3,6 +3,7 @@ crate::define_mob! {
         kind = Fox,
         vanilla = FOX,
         bundle = FoxBundle,
+        profile = Ground,
         persisted = {
             identity: temper_components::entity_identity::Identity => clone,
             metadata: temper_components::metadata::EntityMetadata => copy,
