@@ -1,17 +1,24 @@
 use bevy_ecs::prelude::*;
+use mobs::pig::tick_pig;
 use mobs::spawn::handle_spawn_mob_bundle;
-use pathfinding::{Pathfinder, PathfinderSearch};
+use pathfinding::{pos_to_block, Pathfinder, PathfinderSearch};
+use temper_components::bossbar::BossbarOwner;
 use temper_components::entity_identity::Identity;
 use temper_components::last_chunk_pos::LastChunkPos;
 use temper_components::mob_ai::PigAI;
+use temper_components::player::grounded::OnGround;
+use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
+use temper_components::player::velocity::Velocity;
 use temper_core::dimension::Dimension;
 use temper_entities::entity_types::EntityTypeEnum;
-use temper_entities::markers::entity_types::{Axolotl, Bat, Cow, Fox, Pig};
+use temper_entities::markers::entity_types::{Axolotl, Bat, Cow, Fox, Pig, Warden};
 use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
 use temper_entities::mob_definition::MobProfile;
 use temper_entities::MobBundle;
-use temper_entities::{AxolotlBundle, BatBundle, CowBundle, FoxBundle, MobKind, PigBundle};
+use temper_entities::{
+    AxolotlBundle, BatBundle, CowBundle, FoxBundle, MobKind, PigBundle, WardenBundle,
+};
 use temper_messages::SpawnMobBundle;
 use temper_state::create_test_state;
 
@@ -48,6 +55,13 @@ fn emit_unpersisted_cow(mut writer: MessageWriter<SpawnMobBundle>) {
 fn emit_pig(mut writer: MessageWriter<SpawnMobBundle>) {
     writer.write(SpawnMobBundle {
         bundle: MobBundle::Pig(PigBundle::new(Position::new(24.5, 64.0, 9.5))),
+        persist: false,
+    });
+}
+
+fn emit_warden(mut writer: MessageWriter<SpawnMobBundle>) {
+    writer.write(SpawnMobBundle {
+        bundle: MobBundle::Warden(WardenBundle::new(Position::new(27.5, 64.0, 9.5))),
         persist: false,
     });
 }
@@ -101,6 +115,12 @@ fn mob_registry_round_trips_supported_bundle_metadata() {
         EntityTypeEnum::Axolotl,
         MobProfile::GravityNoDrag,
         Position::new(9.5, 62.0, 10.5),
+    );
+    assert_registry_round_trip(
+        MobBundle::Warden(WardenBundle::new(Position::new(11.5, 64.0, 12.5))),
+        EntityTypeEnum::Warden,
+        MobProfile::Ground,
+        Position::new(11.5, 64.0, 12.5),
     );
 }
 
@@ -474,4 +494,80 @@ fn pig_bundle_supplies_ai_and_pathfinder_components() {
         has_ai && has_pathfinder && !has_search,
         "standard mob spawn should include bundle components but not pathfinding search state"
     );
+}
+
+#[test]
+fn pig_ai_requests_path_toward_nearest_player() {
+    let mut world = World::new();
+    temper_messages::register_messages(&mut world);
+
+    let (state, _temp_dir) = create_test_state();
+    world.insert_resource(state);
+
+    let pig_position = Position::new(24.5, 64.0, 9.5);
+    let player_position = Position::new(30.5, 64.0, 9.5);
+
+    let mut spawn_schedule = Schedule::default();
+    spawn_schedule.add_systems((emit_pig, handle_spawn_mob_bundle).chain());
+    spawn_schedule.run(&mut world);
+    world.spawn((player_position, PlayerMarker));
+
+    let mut tick_schedule = Schedule::default();
+    tick_schedule.add_systems(tick_pig);
+    tick_schedule.run(&mut world);
+
+    let mut pigs = world.query::<(
+        Has<Pig>,
+        &Position,
+        &Velocity,
+        &OnGround,
+        &PigAI,
+        &Pathfinder,
+    )>();
+    let pigs: Vec<_> = pigs
+        .iter(&world)
+        .filter(|(is_pig, _, _, _, _, _)| *is_pig)
+        .collect();
+
+    assert_eq!(pigs.len(), 1, "one pig should be spawned");
+    let (_, position, _, _, ai, pathfinder) = pigs[0];
+    assert_eq!(position.xyz(), pig_position.xyz());
+    assert_eq!(pathfinder.target, Some(pos_to_block(&player_position)));
+    assert_eq!(ai.repath_cooldown, 40);
+}
+
+#[test]
+fn warden_bundle_supplies_bossbar_owner_and_pathfinder_components() {
+    let mut world = World::new();
+    temper_messages::register_messages(&mut world);
+
+    let (state, _temp_dir) = create_test_state();
+    world.insert_resource(state);
+
+    let mut spawn_schedule = Schedule::default();
+    spawn_schedule.add_systems((emit_warden, handle_spawn_mob_bundle).chain());
+    spawn_schedule.run(&mut world);
+
+    let mut spawned_wardens = world.query::<(
+        Has<Warden>,
+        Has<BossbarOwner>,
+        Has<Pathfinder>,
+        Has<PathfinderSearch>,
+        Has<HasGravity>,
+        Has<HasCollisions>,
+        Has<HasWaterDrag>,
+    )>();
+    let wardens: Vec<_> = spawned_wardens
+        .iter(&world)
+        .filter(|(is_warden, _, _, _, _, _, _)| *is_warden)
+        .collect();
+
+    assert_eq!(wardens.len(), 1, "one warden should be spawned");
+    let (_, has_owner, has_pathfinder, has_search, gravity, collisions, drag) = wardens[0];
+    assert!(has_owner);
+    assert!(has_pathfinder);
+    assert!(!has_search);
+    assert!(gravity);
+    assert!(collisions);
+    assert!(drag);
 }

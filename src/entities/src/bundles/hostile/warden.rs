@@ -1,1 +1,24 @@
-crate::define_entity_bundle!(WardenBundle, WARDEN);
+crate::define_mob! {
+    WardenDefinition {
+        kind = Warden,
+        vanilla = WARDEN,
+        bundle = WardenBundle,
+        marker = crate::markers::entity_types::Warden,
+        profile = Ground,
+        runtime = {
+            bossbar_owner: temper_components::bossbar::BossbarOwner => default,
+            pathfinder: temper_components::pathfinder::Pathfinder => default,
+        },
+        persisted = {
+            identity: temper_components::entity_identity::Identity => clone,
+            metadata: temper_components::metadata::EntityMetadata => copy,
+            combat: temper_components::combat::CombatProperties => copy,
+            spawn: temper_components::spawn::SpawnProperties => clone,
+            position: temper_components::player::position::Position => copy,
+            rotation: temper_components::player::rotation::Rotation => copy,
+            velocity: temper_components::player::velocity::Velocity => copy,
+            on_ground: temper_components::player::grounded::OnGround => copy,
+            last_synced_position: temper_components::last_synced_position::LastSyncedPosition => copy,
+        },
+    }
+}
