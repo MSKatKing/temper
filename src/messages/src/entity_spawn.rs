@@ -1,6 +1,7 @@
 use bevy_ecs::prelude::{Entity, Message};
 use temper_components::player::position::Position;
 pub(crate) use temper_entities::entity_types::EntityTypeEnum;
+use temper_entities::MobBundle;
 
 /// Command to spawn an entity in front of a player.
 ///
@@ -20,4 +21,10 @@ pub struct SpawnEntityCommand {
 pub struct SpawnEntityEvent {
     pub entity_type: EntityTypeEnum,
     pub position: Position,
+}
+
+#[derive(Message)]
+pub struct SpawnMobBundle {
+    pub bundle: MobBundle,
+    pub persist: bool,
 }
