@@ -9,7 +9,7 @@ use temper_core::dimension::Dimension;
 use temper_entities::entity_types::EntityTypeEnum;
 use temper_entities::markers::entity_types::Fox;
 use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
-use temper_entities::{FoxBundle, MobKind};
+use temper_entities::{FoxBundle, MobBundle, MobKind};
 use temper_messages::load_chunk_entities::LoadChunkEntities;
 use temper_messages::save_chunk_entities::SaveChunkEntities;
 use temper_state::create_test_state;
@@ -110,14 +110,13 @@ fn mob_crossing_a_chunk_border_reloads_from_its_new_chunk() {
             .get(&expected_identity.uuid)
             .expect("fox should be stored in its new chunk after crossing the border");
         assert_eq!(stored.value().0, EntityTypeEnum::Fox);
+
+        let stored_bundle = MobBundle::deserialize(stored.value().0, &stored.value().1)
+            .expect("stored fox bundle should deserialize");
+        assert_eq!(stored_bundle.position().coords, new_position.coords);
     }
 
-    let mut refresh_save_schedule = Schedule::default();
-    refresh_save_schedule.add_systems((emit_save_for(new_chunk), save_mob_bundles).chain());
-    refresh_save_schedule.run(&mut world);
-
     world.despawn(fox_entity);
-
     let mut load_schedule = Schedule::default();
     load_schedule.add_systems(
         (

@@ -6,7 +6,7 @@ crate::define_mob! {
         marker = crate::markers::entity_types::Warden,
         profile = Ground,
         runtime = {
-            bossbar_owner: temper_components::bossbar::BossbarOwner => default,
+            bossbar_owner: temper_components::bossbar::BossbarOwner,
         },
         persisted = {
             identity: temper_components::entity_identity::Identity => clone,

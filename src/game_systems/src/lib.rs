@@ -156,7 +156,14 @@ fn register_chunk_gc_schedule_systems(schedule: &mut Schedule) {
         )
             .chain(),
     );
-    schedule.add_systems(background::entity_unloader::handle.in_set(ChunkGcPhase::MarkForSave));
+    schedule.add_systems(
+        (
+            background::entity_unloader::handle,
+            mobs::spawn::queue_live_mob_chunk_saves,
+        )
+            .chain()
+            .in_set(ChunkGcPhase::MarkForSave),
+    );
     mobs::register_save_systems(schedule);
     schedule.add_systems(
         (
@@ -226,7 +233,12 @@ pub fn register_schedules(timed: &mut Scheduler, shutdown_schedule: &mut Schedul
             .chain(),
     );
     shutdown_schedule.add_systems(
-        shutdown::send_save_message::send_save_message.in_set(ShutdownPhase::EmitSaveMessages),
+        (
+            shutdown::send_save_message::send_save_message,
+            mobs::spawn::queue_live_mob_chunk_saves,
+        )
+            .chain()
+            .in_set(ShutdownPhase::EmitSaveMessages),
     );
     mobs::register_save_systems(shutdown_schedule);
     shutdown_schedule

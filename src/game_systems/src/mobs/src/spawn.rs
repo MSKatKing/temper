@@ -55,6 +55,13 @@ pub fn handle_spawn_mob_bundle(
                 .entities
                 .insert(uuid, (kind, event.bundle.serialize_for_chunk()));
             chunk.mark_dirty();
+            tracing::trace!(
+                "Persisted spawned {:?} mob {:?} at {} in chunk {}",
+                kind,
+                uuid,
+                position,
+                position.chunk()
+            );
         }
 
         event.bundle.clone().spawn_standard(&mut commands);
@@ -121,6 +128,12 @@ pub fn load_mob_bundles(
         for kv in chunk.entities.iter() {
             let (kind, data) = kv.value();
             let Some(bundle) = MobBundle::deserialize(*kind, data) else {
+                tracing::error!(
+                    "Failed to deserialize persisted {:?} mob {:?} in chunk {}",
+                    kind,
+                    kv.key(),
+                    event.0
+                );
                 continue;
             };
 
@@ -137,7 +150,15 @@ pub fn save_mob_bundles(
     query: Query<StandardMobQuery>,
     mut save_events: MessageReader<SaveChunkEntities>,
 ) {
+    let mut saved_chunks = HashSet::new();
+
     for event in save_events.read() {
+        if !saved_chunks.insert(event.0) {
+            continue;
+        }
+
+        let mut saved_mobs = 0;
+
         for (
             identity,
             metadata,
@@ -179,6 +200,25 @@ pub fn save_mob_bundles(
                 .entities
                 .insert(uuid, (kind, bundle.serialize_for_chunk()));
             chunk.mark_dirty();
+            saved_mobs += 1;
+        }
+
+        if saved_mobs > 0 {
+            tracing::trace!("Saved {} mob(s) in chunk {}", saved_mobs, event.0);
+        }
+    }
+}
+
+pub fn queue_live_mob_chunk_saves(
+    query: Query<&Position, With<MobKind>>,
+    mut save_events: MessageWriter<SaveChunkEntities>,
+) {
+    let mut chunks = HashSet::new();
+
+    for position in query.iter() {
+        let chunk = position.chunk();
+        if chunks.insert(chunk) {
+            save_events.write(SaveChunkEntities(chunk));
         }
     }
 }
