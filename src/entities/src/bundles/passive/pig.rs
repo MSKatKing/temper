@@ -6,8 +6,8 @@ crate::define_mob! {
         marker = crate::markers::entity_types::Pig,
         profile = Ground,
         runtime = {
-            ai: temper_components::mob_ai::PigAI => default,
-            pathfinder: temper_components::pathfinder::Pathfinder => default,
+            ai: temper_components::mob_ai::PigAI,
+            pathfinder: temper_components::pathfinder::Pathfinder,
         },
         persisted = {
             identity: temper_components::entity_identity::Identity => clone,

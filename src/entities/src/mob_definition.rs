@@ -56,7 +56,37 @@ macro_rules! define_mob {
             profile = $profile:ident,
             runtime = {
                 $(
-                    $runtime_field:ident: $runtime_ty:path => default
+                    $runtime_field:ident: $runtime_ty:path => $runtime_init:ident
+                ),+ $(,)?
+            },
+            persisted = {
+                identity: $identity:path => clone,
+                metadata: $metadata:path => copy,
+                combat: $combat:path => copy,
+                spawn: $spawn:path => clone,
+                position: $position:path => copy,
+                rotation: $rotation:path => copy,
+                velocity: $velocity:path => copy,
+                on_ground: $on_ground:path => copy,
+                last_synced_position: $last_synced_position:path => copy $(,)?
+            } $(,)?
+        }
+    ) => {
+        compile_error!(
+            "define_mob! runtime components are defaulted automatically; write `field: Type` instead of `field: Type => default`"
+        );
+    };
+
+    (
+        $definition:ident {
+            kind = $kind:ident,
+            vanilla = $vanilla:ident,
+            bundle = $bundle:ident,
+            marker = $marker:path,
+            profile = $profile:ident,
+            runtime = {
+                $(
+                    $runtime_field:ident: $runtime_ty:path
                 ),* $(,)?
             },
             persisted = {
@@ -243,6 +273,18 @@ macro_rules! define_mob {
                 bundle.position
             }
         }
+    };
+
+    ($definition:ident { $($tokens:tt)* }) => {
+        compile_error!(
+            "invalid define_mob! syntax; expected `kind`, `vanilla`, `bundle`, `marker`, `profile`, `runtime`, and `persisted` sections"
+        );
+    };
+
+    ($($tokens:tt)*) => {
+        compile_error!(
+            "invalid define_mob! invocation; expected `define_mob! { MobDefinition { ... } }`"
+        );
     };
 }
 

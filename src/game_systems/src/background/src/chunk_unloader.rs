@@ -23,6 +23,25 @@ pub fn handle(
         for chunk_candidate in state.0.world.get_cache() {
             let ((pos, dim), chunk) = chunk_candidate.pair();
             removed += 1;
+            for (entity, last_chunk, is_player, is_mob) in entity_query.iter() {
+                if is_player || last_chunk.0 != *pos {
+                    continue;
+                }
+
+                trace!(
+                    "Unloading live entity {:?} from chunk {:?} as no players are connected.",
+                    entity, pos
+                );
+                if is_mob {
+                    despawn_mobs.write(DespawnMob {
+                        entity,
+                        remove_from_chunk: false,
+                    });
+                } else {
+                    cmd.entity(entity).despawn();
+                }
+            }
+
             // Write chunks back to the world storage
             if chunk.is_dirty() {
                 state
