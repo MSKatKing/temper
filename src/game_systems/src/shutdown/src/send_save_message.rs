@@ -7,7 +7,6 @@ pub fn send_save_message(
     state: Res<GlobalStateResource>,
 ) {
     for entry in state.0.world.get_cache() {
-        tracing::trace!("Queueing entity save for chunk {}", entry.key().0);
         writer.write(SaveChunkEntities(entry.key().0));
     }
 }
