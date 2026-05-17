@@ -21,7 +21,18 @@ use temper_entities::{
     AxolotlBundle, BatBundle, CowBundle, FoxBundle, MobKind, PigBundle, WardenBundle,
 };
 use temper_messages::{DespawnMob, SpawnMobBundle};
-use temper_state::create_test_state;
+use temper_state::{create_test_state, GlobalStateResource};
+
+#[derive(Clone)]
+struct SpawnedMob {
+    identity: Identity,
+    position: Position,
+    last_chunk: LastChunkPos,
+    kind: MobKind,
+    gravity: bool,
+    collisions: bool,
+    water_drag: bool,
+}
 
 fn emit_spawn_bundles(mut writer: MessageWriter<SpawnMobBundle>) {
     writer.write(SpawnMobBundle {
@@ -107,6 +118,70 @@ fn assert_registry_round_trip(
     assert_eq!(decoded.kind(), kind);
     assert_eq!(decoded.profile(), profile);
     assert_eq!(decoded.position().xyz(), position.xyz());
+}
+
+fn spawned_markers<M: Component>(world: &mut World) -> Vec<SpawnedMob> {
+    let mut query = world.query::<(
+        &Identity,
+        &Position,
+        &LastChunkPos,
+        &MobKind,
+        Has<M>,
+        Has<HasGravity>,
+        Has<HasCollisions>,
+        Has<HasWaterDrag>,
+    )>();
+
+    query
+        .iter(world)
+        .filter(|(_, _, _, _, is_marker, _, _, _)| *is_marker)
+        .map(
+            |(identity, position, last_chunk, kind, _, gravity, collisions, water_drag)| {
+                SpawnedMob {
+                    identity: identity.clone(),
+                    position: *position,
+                    last_chunk: *last_chunk,
+                    kind: *kind,
+                    gravity,
+                    collisions,
+                    water_drag,
+                }
+            },
+        )
+        .collect()
+}
+
+fn lone_marker<M: Component>(world: &mut World, label: &str) -> SpawnedMob {
+    let matches = spawned_markers::<M>(world);
+    assert_eq!(matches.len(), 1, "expected one {label}");
+    matches[0].clone()
+}
+
+fn assert_spawn_profile(
+    mob: &SpawnedMob,
+    kind: EntityTypeEnum,
+    gravity: bool,
+    collisions: bool,
+    water_drag: bool,
+) {
+    assert_eq!(mob.kind, MobKind(kind));
+    assert_eq!(mob.gravity, gravity);
+    assert_eq!(mob.collisions, collisions);
+    assert_eq!(mob.water_drag, water_drag);
+    assert_eq!(mob.last_chunk.0, mob.position.chunk());
+}
+
+fn assert_stored(state: &GlobalStateResource, mob: &SpawnedMob, kind: EntityTypeEnum, label: &str) {
+    let chunk = state
+        .0
+        .world
+        .get_chunk(mob.position.chunk(), Dimension::Overworld)
+        .unwrap_or_else(|_| panic!("{label} chunk should be present"));
+    let stored = chunk
+        .entities
+        .get(&mob.identity.uuid)
+        .unwrap_or_else(|| panic!("{label} should be persisted"));
+    assert_eq!(stored.value().0, kind);
 }
 
 #[test]
@@ -210,7 +285,7 @@ fn every_registered_mob_kind_constructs_round_trips_and_spawns() {
 }
 
 #[test]
-fn spawn_mob_bundle_message_spawns_and_persists_supported_mobs() {
+fn spawn_bundle_messages_cover_markers_profiles_and_storage() {
     let mut world = World::new();
     temper_messages::register_messages(&mut world);
 
@@ -221,304 +296,32 @@ fn spawn_mob_bundle_message_spawns_and_persists_supported_mobs() {
     schedule.add_systems((emit_spawn_bundles, handle_spawn_mob_bundle).chain());
     schedule.run(&mut world);
 
-    let mut pig_query = world.query::<(
-        &Identity,
-        &Position,
-        &LastChunkPos,
-        &MobKind,
-        Has<Pig>,
-        Has<HasGravity>,
-        Has<HasCollisions>,
-        Has<HasWaterDrag>,
-        Has<Pathfinder>,
-    )>();
-    let pigs: Vec<_> = pig_query
+    let pig = lone_marker::<Pig>(&mut world, "pig");
+    assert_spawn_profile(&pig, EntityTypeEnum::Pig, true, true, true);
+    assert_stored(&state, &pig, EntityTypeEnum::Pig, "pig");
+
+    let pasture = lone_marker::<Cow>(&mut world, "cow");
+    assert_spawn_profile(&pasture, EntityTypeEnum::Cow, true, true, true);
+    assert_stored(&state, &pasture, EntityTypeEnum::Cow, "cow");
+
+    let fox = lone_marker::<Fox>(&mut world, "fox");
+    assert_spawn_profile(&fox, EntityTypeEnum::Fox, true, true, true);
+    assert_stored(&state, &fox, EntityTypeEnum::Fox, "fox");
+
+    let cave_flyer = lone_marker::<Bat>(&mut world, "bat");
+    assert_spawn_profile(&cave_flyer, EntityTypeEnum::Bat, false, true, false);
+    assert_stored(&state, &cave_flyer, EntityTypeEnum::Bat, "bat");
+
+    let swimmer = lone_marker::<Axolotl>(&mut world, "axolotl");
+    assert_spawn_profile(&swimmer, EntityTypeEnum::Axolotl, true, true, false);
+    assert_stored(&state, &swimmer, EntityTypeEnum::Axolotl, "axolotl");
+
+    let mut pig_runtime = world.query::<(Has<Pig>, Has<Pathfinder>)>();
+    let has_pathfinder = pig_runtime
         .iter(&world)
-        .filter(|(_, _, _, _, is_pig, _, _, _, _)| *is_pig)
-        .map(
-            |(
-                identity,
-                position,
-                last_chunk,
-                mob_kind,
-                is_pig,
-                gravity,
-                collisions,
-                drag,
-                pathfinder,
-            )| {
-                (
-                    identity.uuid,
-                    *position,
-                    *last_chunk,
-                    *mob_kind,
-                    is_pig,
-                    gravity,
-                    collisions,
-                    drag,
-                    pathfinder,
-                )
-            },
-        )
-        .collect();
-    assert_eq!(pigs.len(), 1, "one pig should be spawned");
-    let (
-        pig_uuid,
-        pig_position,
-        pig_last_chunk,
-        pig_kind,
-        is_pig,
-        pig_gravity,
-        pig_collisions,
-        pig_drag,
-        pig_pathfinder,
-    ) = pigs[0];
-    assert!(is_pig);
-    assert_eq!(pig_kind, MobKind(EntityTypeEnum::Pig));
-    assert!(pig_gravity);
-    assert!(pig_collisions);
-    assert!(pig_drag);
-    assert!(pig_pathfinder);
-    assert_eq!(pig_last_chunk.0, pig_position.chunk());
-
-    let mut fox_query = world.query::<(
-        &Identity,
-        &Position,
-        &LastChunkPos,
-        &MobKind,
-        Has<Fox>,
-        Has<HasGravity>,
-        Has<HasCollisions>,
-        Has<HasWaterDrag>,
-    )>();
-    let foxes: Vec<_> = fox_query
-        .iter(&world)
-        .filter(|(_, _, _, _, is_fox, _, _, _)| *is_fox)
-        .map(
-            |(identity, position, last_chunk, mob_kind, is_fox, gravity, collisions, drag)| {
-                (
-                    identity.uuid,
-                    *position,
-                    *last_chunk,
-                    *mob_kind,
-                    is_fox,
-                    gravity,
-                    collisions,
-                    drag,
-                )
-            },
-        )
-        .collect();
-    assert_eq!(foxes.len(), 1, "one fox should be spawned");
-    let (
-        fox_uuid,
-        fox_position,
-        fox_last_chunk,
-        fox_kind,
-        is_fox,
-        fox_gravity,
-        fox_collisions,
-        fox_drag,
-    ) = foxes[0];
-    assert!(is_fox);
-    assert_eq!(fox_kind, MobKind(EntityTypeEnum::Fox));
-    assert!(fox_gravity);
-    assert!(fox_collisions);
-    assert!(fox_drag);
-    assert_eq!(fox_last_chunk.0, fox_position.chunk());
-
-    let mut cow_query = world.query::<(
-        &Identity,
-        &Position,
-        &LastChunkPos,
-        &MobKind,
-        Has<Cow>,
-        Has<HasGravity>,
-        Has<HasCollisions>,
-        Has<HasWaterDrag>,
-    )>();
-    let cows: Vec<_> = cow_query
-        .iter(&world)
-        .filter(|(_, _, _, _, is_cow, _, _, _)| *is_cow)
-        .map(
-            |(identity, position, last_chunk, mob_kind, is_cow, gravity, collisions, drag)| {
-                (
-                    identity.uuid,
-                    *position,
-                    *last_chunk,
-                    *mob_kind,
-                    is_cow,
-                    gravity,
-                    collisions,
-                    drag,
-                )
-            },
-        )
-        .collect();
-    assert_eq!(cows.len(), 1, "one cow should be spawned");
-    let (
-        cow_uuid,
-        cow_position,
-        cow_last_chunk,
-        cow_kind,
-        is_cow,
-        cow_gravity,
-        cow_collisions,
-        cow_drag,
-    ) = cows[0];
-    assert!(is_cow);
-    assert_eq!(cow_kind, MobKind(EntityTypeEnum::Cow));
-    assert!(cow_gravity);
-    assert!(cow_collisions);
-    assert!(cow_drag);
-    assert_eq!(cow_last_chunk.0, cow_position.chunk());
-
-    let mut bat_query = world.query::<(
-        &Identity,
-        &Position,
-        &LastChunkPos,
-        &MobKind,
-        Has<Bat>,
-        Has<HasGravity>,
-        Has<HasCollisions>,
-        Has<HasWaterDrag>,
-    )>();
-    let bats: Vec<_> = bat_query
-        .iter(&world)
-        .filter(|(_, _, _, _, is_bat, _, _, _)| *is_bat)
-        .map(
-            |(identity, position, last_chunk, mob_kind, is_bat, gravity, collisions, drag)| {
-                (
-                    identity.uuid,
-                    *position,
-                    *last_chunk,
-                    *mob_kind,
-                    is_bat,
-                    gravity,
-                    collisions,
-                    drag,
-                )
-            },
-        )
-        .collect();
-    assert_eq!(bats.len(), 1, "one bat should be spawned");
-    let (
-        bat_uuid,
-        bat_position,
-        bat_last_chunk,
-        bat_kind,
-        is_bat,
-        bat_gravity,
-        bat_collisions,
-        bat_drag,
-    ) = bats[0];
-    assert!(is_bat);
-    assert_eq!(bat_kind, MobKind(EntityTypeEnum::Bat));
-    assert!(!bat_gravity);
-    assert!(bat_collisions);
-    assert!(!bat_drag);
-    assert_eq!(bat_last_chunk.0, bat_position.chunk());
-
-    let mut axolotl_query = world.query::<(
-        &Identity,
-        &Position,
-        &LastChunkPos,
-        &MobKind,
-        Has<Axolotl>,
-        Has<HasGravity>,
-        Has<HasCollisions>,
-        Has<HasWaterDrag>,
-    )>();
-    let axolotls: Vec<_> = axolotl_query
-        .iter(&world)
-        .filter(|(_, _, _, _, is_axolotl, _, _, _)| *is_axolotl)
-        .map(
-            |(identity, position, last_chunk, mob_kind, is_axolotl, gravity, collisions, drag)| {
-                (
-                    identity.uuid,
-                    *position,
-                    *last_chunk,
-                    *mob_kind,
-                    is_axolotl,
-                    gravity,
-                    collisions,
-                    drag,
-                )
-            },
-        )
-        .collect();
-    assert_eq!(axolotls.len(), 1, "one axolotl should be spawned");
-    let (
-        axolotl_uuid,
-        axolotl_position,
-        axolotl_last_chunk,
-        axolotl_kind,
-        is_axolotl,
-        axolotl_gravity,
-        axolotl_collisions,
-        axolotl_drag,
-    ) = axolotls[0];
-    assert!(is_axolotl);
-    assert_eq!(axolotl_kind, MobKind(EntityTypeEnum::Axolotl));
-    assert!(axolotl_gravity);
-    assert!(axolotl_collisions);
-    assert!(!axolotl_drag);
-    assert_eq!(axolotl_last_chunk.0, axolotl_position.chunk());
-
-    let pig_chunk = state
-        .0
-        .world
-        .get_chunk(pig_position.chunk(), Dimension::Overworld)
-        .expect("pig chunk should be present");
-    let persisted_pig = pig_chunk
-        .entities
-        .get(&pig_uuid)
-        .expect("pig should be persisted");
-    assert_eq!(persisted_pig.value().0, EntityTypeEnum::Pig);
-
-    let fox_chunk = state
-        .0
-        .world
-        .get_chunk(fox_position.chunk(), Dimension::Overworld)
-        .expect("fox chunk should be present");
-    let persisted_fox = fox_chunk
-        .entities
-        .get(&fox_uuid)
-        .expect("fox should be persisted");
-    assert_eq!(persisted_fox.value().0, EntityTypeEnum::Fox);
-
-    let cow_chunk = state
-        .0
-        .world
-        .get_chunk(cow_position.chunk(), Dimension::Overworld)
-        .expect("cow chunk should be present");
-    let persisted_cow = cow_chunk
-        .entities
-        .get(&cow_uuid)
-        .expect("cow should be persisted");
-    assert_eq!(persisted_cow.value().0, EntityTypeEnum::Cow);
-
-    let bat_chunk = state
-        .0
-        .world
-        .get_chunk(bat_position.chunk(), Dimension::Overworld)
-        .expect("bat chunk should be present");
-    let persisted_bat = bat_chunk
-        .entities
-        .get(&bat_uuid)
-        .expect("bat should be persisted");
-    assert_eq!(persisted_bat.value().0, EntityTypeEnum::Bat);
-
-    let axolotl_chunk = state
-        .0
-        .world
-        .get_chunk(axolotl_position.chunk(), Dimension::Overworld)
-        .expect("axolotl chunk should be present");
-    let persisted_axolotl = axolotl_chunk
-        .entities
-        .get(&axolotl_uuid)
-        .expect("axolotl should be persisted");
-    assert_eq!(persisted_axolotl.value().0, EntityTypeEnum::Axolotl);
+        .find_map(|(is_pig, pathfinder)| is_pig.then_some(pathfinder))
+        .expect("pig runtime components should be present");
+    assert!(has_pathfinder);
 }
 
 #[test]

@@ -118,13 +118,25 @@ pub fn load_mob_bundles(
     state: Res<GlobalStateResource>,
     mut load_events: MessageReader<LoadChunkEntities>,
     mut spawn_events: MessageWriter<SpawnMobBundle>,
+    live_mobs: Query<&Identity, With<MobKind>>,
 ) {
+    let live_mobs = live_mobs
+        .iter()
+        .map(|identity| identity.uuid)
+        .collect::<HashSet<_>>();
+    let mut loaded_chunks = HashSet::new();
+
     for event in load_events.read() {
+        if !loaded_chunks.insert(event.0) {
+            continue;
+        }
+
         let Ok(chunk) = state.0.world.get_chunk(event.0, Dimension::Overworld) else {
             tracing::error!("Failed to load chunk {} for entity loading", event.0);
             continue;
         };
 
+        let mut stale_entries = Vec::new();
         for kv in chunk.entities.iter() {
             let (kind, data) = kv.value();
             let Some(bundle) = MobBundle::deserialize(*kind, data) else {
@@ -137,10 +149,32 @@ pub fn load_mob_bundles(
                 continue;
             };
 
+            if bundle.position().chunk() != event.0 {
+                tracing::warn!(
+                    "Removing persisted {:?} mob {:?} from chunk {}; position belongs to chunk {}",
+                    kind,
+                    kv.key(),
+                    event.0,
+                    bundle.position().chunk()
+                );
+                stale_entries.push(*kv.key());
+                continue;
+            }
+
+            if live_mobs.contains(kv.key()) {
+                continue;
+            }
+
             spawn_events.write(SpawnMobBundle {
                 bundle,
                 persist: false,
             });
+        }
+
+        for uuid in stale_entries {
+            if chunk.entities.remove(&uuid).is_some() {
+                chunk.mark_dirty();
+            }
         }
     }
 }
@@ -191,15 +225,33 @@ pub fn save_mob_bundles(
 
             let kind = bundle.kind();
             let uuid = bundle.identity().uuid;
-            let chunk = state
-                .0
-                .world
-                .get_or_generate_chunk(event.0, Dimension::Overworld)
-                .expect("Failed to get or generate chunk");
-            chunk
-                .entities
-                .insert(uuid, (kind, bundle.serialize_for_chunk()));
-            chunk.mark_dirty();
+            let data = bundle.serialize_for_chunk();
+
+            let changed = {
+                let chunk = state
+                    .0
+                    .world
+                    .get_or_generate_chunk(event.0, Dimension::Overworld)
+                    .expect("Failed to get or generate chunk");
+
+                let unchanged = chunk.entities.get(&uuid).is_some_and(|stored| {
+                    let (stored_kind, stored_data) = stored.value();
+                    *stored_kind == kind && stored_data.as_slice() == data.as_slice()
+                });
+                if unchanged {
+                    false
+                } else {
+                    chunk.entities.insert(uuid, (kind, data));
+                    chunk.mark_dirty();
+                    true
+                }
+            };
+
+            remove_stale_mob_entries(&state, uuid, event.0);
+            if !changed {
+                continue;
+            }
+
             saved_mobs += 1;
         }
 
@@ -219,6 +271,23 @@ pub fn queue_live_mob_chunk_saves(
         let chunk = position.chunk();
         if chunks.insert(chunk) {
             save_events.write(SaveChunkEntities(chunk));
+        }
+    }
+}
+
+fn remove_stale_mob_entries(
+    state: &GlobalStateResource,
+    uuid: uuid::Uuid,
+    current_chunk: temper_core::pos::ChunkPos,
+) {
+    for entry in state.0.world.get_cache() {
+        let ((chunk_pos, _), chunk) = entry.pair();
+        if *chunk_pos == current_chunk {
+            continue;
+        }
+
+        if chunk.entities.remove(&uuid).is_some() {
+            chunk.mark_dirty();
         }
     }
 }

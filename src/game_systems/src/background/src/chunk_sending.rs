@@ -2,6 +2,7 @@ use bevy_ecs::prelude::{Entity, MessageWriter, Query, Res};
 use bevy_math::{IVec2, IVec3};
 use crossbeam_queue::SegQueue;
 use std::cmp::max;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use temper_codec::encode::NetEncodeOpts;
@@ -79,6 +80,7 @@ pub fn handle(
             }
         }
 
+        let loading_chunks: HashSet<_> = needed_chunks.iter().copied().collect();
         needed_chunks.extend(dirty_chunks);
 
         if needed_chunks.is_empty() {
@@ -121,12 +123,7 @@ pub fn handle(
                 .loaded
                 .insert((coordinates.x(), coordinates.z()));
             let state = state.clone();
-            if !state
-                .0
-                .world
-                .get_cache()
-                .contains_key(&(coordinates, Dimension::Overworld))
-            {
+            if loading_chunks.contains(&(coordinates.x(), coordinates.z())) {
                 mob_load_writer.write(temper_messages::load_chunk_entities::LoadChunkEntities(
                     coordinates,
                 ));
