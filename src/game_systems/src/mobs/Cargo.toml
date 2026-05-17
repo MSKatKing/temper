@@ -17,6 +17,7 @@ temper-utils = { workspace = true }
 temper-resources = { workspace = true }
 temper-text = { workspace = true }
 tracing = { workspace = true }
+uuid = { workspace = true }
 
 [lints]
 workspace = true
