@@ -1,6 +1,5 @@
 use bevy_ecs::prelude::Component;
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicI32, Ordering};
 
 /// Identity component for entities in the game world, including players and non-player entities (mobs, items, etc.).
 #[derive(Debug, Component, Clone, Serialize, Deserialize)]

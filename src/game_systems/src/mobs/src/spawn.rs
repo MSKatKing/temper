@@ -91,15 +91,14 @@ pub fn handle_despawn_mob(
             continue;
         };
 
-        if event.remove_from_chunk {
-            if let Ok(chunk) = state
+        if event.remove_from_chunk
+            && let Ok(chunk) = state
                 .0
                 .world
                 .get_chunk(position.chunk(), Dimension::Overworld)
-                && chunk.entities.remove(&identity.uuid).is_some()
-            {
-                chunk.mark_dirty();
-            }
+            && chunk.entities.remove(&identity.uuid).is_some()
+        {
+            chunk.mark_dirty();
         }
 
         if let (Some(owner), Some(bossbar_res)) = (bossbar_owner, bossbar_res.as_ref()) {
