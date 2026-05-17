@@ -90,31 +90,19 @@ pub fn tick_pig(
 }
 
 pub fn tick_pig_particles(
-    pigs: Query<(Entity, &Position), With<Pig>>,
-    players: Query<&Position, With<PlayerMarker>>,
+    pigs: Query<&Pathfinder, With<Pig>>,
     mut msgs: MessageWriter<SendParticle>,
 ) {
-    for pos in pigs.iter() {
-        for player_pos in players.iter() {
-            let distance_sq = player_pos.as_vec3a().distance_squared(pos.1.as_vec3a());
-            if distance_sq > 16.0 * 256.0 {
-                continue;
-            }
-            let steps = temper_utils::maths::step::step_between(
-                pos.1.as_vec3a(),
-                player_pos.coords.as_vec3a(),
-                0.5,
-            );
-            for step_pos in steps.iter().take(32) {
-                let particle_message = SendParticle {
-                    particle_type: ParticleType::EndRod,
-                    position: *step_pos,
-                    offset: Vec3A::new(0.0, 0.0, 0.0),
-                    speed: 0.0,
-                    count: 1,
-                };
-                msgs.write(particle_message);
-            }
+    for path in pigs.iter() {
+        for step_pos in &path.path {
+            let particle_message = SendParticle {
+                particle_type: ParticleType::EndRod,
+                position: step_pos.pos.as_vec3a() + Vec3A::new(0.5, 0.5, 0.5),
+                offset: Vec3A::new(0.0, 0.0, 0.0),
+                speed: 0.0,
+                count: 1,
+            };
+            msgs.write(particle_message);
         }
     }
 }
