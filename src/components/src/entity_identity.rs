@@ -23,7 +23,7 @@ pub struct Identity {
 impl Identity {
     /// Creates a new entity identity with a unique ID and UUID.
     ///
-    /// The entity_id is generated from an atomic counter to ensure uniqueness.
+    /// The entity_id is generated randomly to avoid collisions with player ids.
     /// The UUID is randomly generated.
     pub fn new(name: Option<String>) -> Self {
         Self {
