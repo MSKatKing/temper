@@ -48,6 +48,7 @@ pub fn destroy_entity_system(
             query.get(event.0)
         {
             if !has_player_marker {
+                destroyed_entities.push(identity.entity_id.into());
                 if has_mob_kind {
                     despawn_mobs.write(DespawnMob {
                         entity: event.0,
@@ -71,7 +72,6 @@ pub fn destroy_entity_system(
                     );
                     chunk.mark_dirty();
                 }
-                destroyed_entities.push(identity.entity_id.into());
             } else if let Some(conn) = conn_opt
                 && let Err(err) = conn.send_packet_ref(&killed_message)
             {
