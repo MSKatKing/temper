@@ -185,7 +185,9 @@ pub fn save_mob_bundles(
 ) {
     let mut saved_chunks = HashSet::new();
 
-    for event in save_events.read() {
+    let deduped = save_events.read().collect::<HashSet<_>>();
+
+    for event in deduped {
         if !saved_chunks.insert(event.0) {
             continue;
         }
@@ -246,10 +248,10 @@ pub fn save_mob_bundles(
                 }
             };
 
-            remove_stale_mob_entries(&state, uuid, event.0);
             if !changed {
                 continue;
             }
+            remove_stale_mob_entries(&state, uuid, event.0);
 
             saved_mobs += 1;
         }
