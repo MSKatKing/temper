@@ -2,7 +2,6 @@ use bevy_ecs::prelude::*;
 use temper_codec::net_types::network_position::NetworkPosition;
 use temper_codec::net_types::var_int::VarInt;
 use temper_components::player::position::Position;
-use temper_config::server_config::get_global_config;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::BlockPos;
 use temper_messages::{BlockBrokenEvent, DoorToggledEvent};
@@ -123,7 +122,7 @@ pub fn handle_door_toggled(
 
         let block_chunk = other_pos.chunk();
         let (block_cx, block_cz) = (block_chunk.x(), block_chunk.z());
-        let render_distance = get_global_config().chunk_render_distance as i32;
+        let render_distance = state.0.config.chunk_render_distance as i32;
 
         for (conn, player_pos) in query.iter() {
             let pchunk = player_pos.chunk();

@@ -1,9 +1,11 @@
 use bevy_ecs::prelude::{Commands, MessageWriter, Res};
 use std::time::Instant;
 use temper_components::bounds::CollisionBounds;
+use temper_components::player::abilities::PlayerAbilities;
 use temper_components::player::bossbar_sender::BossbarSender;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::entity_tracker::EntityTracker;
+use temper_components::player::gamemode::GameMode;
 use temper_components::player::grounded::OnGround;
 use temper_components::player::keepalive::KeepAliveTracker;
 use temper_components::player::player_marker::PlayerMarker;
@@ -52,7 +54,13 @@ pub fn accept_new_connections(
                 None
             }
         };
-        let player_data = offline_data.unwrap_or(OfflinePlayerData::default());
+        let player_data = offline_data.unwrap_or(OfflinePlayerData {
+            gamemode: GameMode::from_string(&state.0.config.default_gamemode).unwrap(),
+            abilities: PlayerAbilities::for_game_mode(
+                GameMode::from_string(&state.0.config.default_gamemode).unwrap(),
+            ),
+            ..Default::default()
+        });
         // --- 2. Build the PlayerBundle ---
         let player_bundle = PlayerBundle {
             identity: new_connection.player_identity.clone(),

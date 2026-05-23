@@ -42,7 +42,6 @@ use axum::response::{Html, IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
 use include_dir::{include_dir, Dir};
-use temper_config::server_config::get_global_config;
 use temper_state::GlobalState;
 use tokio::sync::broadcast;
 use tracing::{debug, info, trace};
@@ -87,7 +86,7 @@ async fn start_webserver(state: GlobalState) {
     debug!("Starting temper dashboard webserver...");
 
     // Gather handshake data once at startup
-    let handshake = handshake::Handshake::gather();
+    let handshake = handshake::Handshake::gather(state.config.max_players);
     trace!("Handshake data gathered: {:?}", handshake);
 
     // Create a rx/tx (with max 100 messages buffered) for telemetry events
@@ -106,14 +105,12 @@ async fn start_webserver(state: GlobalState) {
         .route("/ws", get(ws::ws_handler))
         .with_state(ws_state);
 
-    let config = get_global_config();
-
-    if config.dashboard.serve_page {
+    if state.config.dashboard.serve_page {
         app = app
             .route("/", get(index_handler))
             .route("/{*path}", get(static_handler));
     }
-    let addr = format!("{}:{}", config.host, config.dashboard.port);
+    let addr = format!("{}:{}", state.config.host, state.config.dashboard.port);
 
     match tokio::net::TcpListener::bind(&addr).await {
         Ok(listener) => {

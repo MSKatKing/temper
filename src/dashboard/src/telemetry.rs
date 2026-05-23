@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use std::sync::atomic::Ordering::Relaxed;
 use std::time::Duration;
 use sysinfo::{Pid, ProcessesToUpdate, System};
-use temper_config::server_config::get_global_config;
 use temper_performance::memory::MemoryUnit;
 use temper_state::GlobalState;
 use tokio::sync::broadcast::Sender;
@@ -70,9 +69,8 @@ pub async fn start_telemetry_loop(tx: Sender<DashboardEvent>, state: GlobalState
             continue;
         };
 
-        let config = get_global_config();
         let mut world_path = temper_general_purpose::paths::get_root_path()
-            .join(PathBuf::from(&config.database.db_path));
+            .join(PathBuf::from(&state.config.database.db_path));
         let storage_used = if world_path.exists() {
             world_path = world_path.canonicalize().unwrap_or(world_path);
             dir_size::get_size_in_bytes(&world_path).unwrap_or(0)

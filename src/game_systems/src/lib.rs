@@ -2,10 +2,10 @@ use bevy_ecs::prelude::ApplyDeferred;
 use bevy_ecs::schedule::{ExecutorKind, IntoScheduleConfigs, Schedule, SystemSet};
 use std::time::Duration;
 use temper_commands::infrastructure::register_command_systems;
-use temper_config::server_config::get_global_config;
 use temper_scheduler::{drain_registered_schedules, MissedTickBehavior, Scheduler, TimedSchedule};
 
 pub use background::lan_pinger::LanPinger;
+use temper_state::GlobalState;
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 enum TickPhase {
@@ -153,12 +153,16 @@ fn register_keepalive_schedule_systems(schedule: &mut Schedule) {
     schedule.add_systems(player::update_player_ping::handle);
 }
 
-pub fn register_schedules(timed: &mut Scheduler, shutdown_schedule: &mut Schedule) {
+pub fn register_schedules(
+    timed: &mut Scheduler,
+    shutdown_schedule: &mut Schedule,
+    state: GlobalState,
+) {
     let build_tick = |schedule: &mut Schedule| {
         schedule.set_executor_kind(ExecutorKind::SingleThreaded);
         register_tick_systems(schedule);
     };
-    let tick_period = Duration::from_secs(1) / get_global_config().tps;
+    let tick_period = Duration::from_secs(1) / state.config.tps;
     timed.register(
         TimedSchedule::new("tick", tick_period, build_tick)
             .with_behavior(MissedTickBehavior::Burst)
