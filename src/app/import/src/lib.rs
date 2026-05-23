@@ -1,9 +1,9 @@
 use bin_cli::args::ImportArgs;
+use temper_config::ServerConfig;
 use temper_general_purpose::paths::get_root_path;
 use temper_threadpool::ThreadPool;
 use temper_world::World;
 use tracing::{error, info};
-use temper_config::ServerConfig;
 
 /// Handles importing a world from an external source.
 pub fn handle_import(import_args: ImportArgs, config: ServerConfig) {

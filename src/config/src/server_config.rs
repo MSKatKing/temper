@@ -2,9 +2,9 @@
 //!
 //! Contains the server configuration struct and its related functions.
 
-use std::env::temp_dir;
 use figment::providers::Format;
 use serde_derive::{Deserialize, Serialize};
+use std::env::temp_dir;
 use temper_general_purpose::paths::get_root_path;
 pub(crate) const DEFAULT_CONFIG: &str =
     include_str!("../../../assets/data/configs/main-config.toml");

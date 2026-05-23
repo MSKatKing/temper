@@ -8,8 +8,8 @@ use temper_components::player::rotation::Rotation;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::remove_entities::RemoveEntitiesPacket;
 use temper_protocol::outgoing::spawn_entity::SpawnEntityPacket;
-use tracing::debug;
 use temper_state::GlobalStateResource;
+use tracing::debug;
 
 /// Protocol entity type ID for player entities in the current target version.
 const PLAYER_TYPE_ID: i32 = 149;

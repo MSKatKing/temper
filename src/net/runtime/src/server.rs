@@ -1,7 +1,7 @@
+use temper_config::ServerConfig;
 use temper_protocol::errors::NetError;
 use tokio::net::TcpListener;
 use tracing::{debug, error};
-use temper_config::ServerConfig;
 
 pub async fn create_server_listener(config: &ServerConfig) -> Result<TcpListener, NetError> {
     let server_addy = format!("{}:{}", config.host, config.port);

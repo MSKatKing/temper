@@ -18,8 +18,10 @@ use temper_protocol::outgoing::{commands::CommandsPacket, registry_data::REGISTR
 use temper_state::GlobalState;
 
 use temper_components::entity_identity::Identity;
+use temper_components::player::gamemode::GameMode;
 use temper_components::player::offline_player_data::OfflinePlayerData;
 use temper_components::player::player_properties::{PlayerProperties, PlayerProperty};
+use temper_config::ServerConfig;
 use temper_protocol::ConnState;
 use temper_protocol::errors::{NetAuthenticationError, NetError, PacketError};
 use temper_protocol::incoming::ack_finish_configuration::AckFinishConfigurationPacket;
@@ -44,8 +46,6 @@ use temper_protocol::outgoing::synchronize_player_position::SynchronizePlayerPos
 use tokio::net::tcp::OwnedReadHalf;
 use tracing::{debug, error, trace};
 use uuid::Uuid;
-use temper_components::player::gamemode::GameMode;
-use temper_config::ServerConfig;
 // =================================================================================================
 // Helper Functions
 // =================================================================================================
@@ -56,11 +56,12 @@ async fn wait_for_packet<T: NetDecode>(
     compressed: bool,
     conn_state: ConnState,
     expected_packet_id: i32,
-    state: GlobalState
+    state: GlobalState,
 ) -> Result<T, NetError> {
     let expected_id = expected_packet_id as u8;
     loop {
-        let mut skel = PacketSkeleton::new(conn_read, compressed, conn_state, state.clone()).await?;
+        let mut skel =
+            PacketSkeleton::new(conn_read, compressed, conn_state, state.clone()).await?;
         if skel.id == expected_id {
             return T::decode(&mut skel.data, &NetDecodeOpts::None).map_err(NetError::from);
         } else {
@@ -80,7 +81,7 @@ async fn wait_for_packet<T: NetDecode>(
 async fn receive_login_start(
     conn_read: &mut EncryptedReader<OwnedReadHalf>,
     compressed: bool,
-    state: GlobalState
+    state: GlobalState,
 ) -> Result<LoginStartPacket, NetError> {
     let mut skel = PacketSkeleton::new(conn_read, compressed, Login, state).await?;
     let expected_id = lookup_packet!("login", "serverbound", "hello");
@@ -119,11 +120,10 @@ async fn setup_encryption_and_auth(
     conn_write: &StreamWriter,
     login_start: &LoginStartPacket,
     compressed: bool,
-    state: GlobalState
+    state: GlobalState,
 ) -> Result<Vec<PlayerProperty>, NetError> {
-    
     let config = &state.clone().config;
-    
+
     let mut player_properties = Vec::new();
 
     if !config.encryption_enabled && !config.online_mode {
@@ -201,7 +201,7 @@ async fn send_login_success(
     login_start: &LoginStartPacket,
     player_properties: &[PlayerProperty],
     compressed: bool,
-    state: GlobalState
+    state: GlobalState,
 ) -> Result<(Identity, PlayerProperties), NetError> {
     // Send Login Success
     let login_success = LoginSuccessPacket {
@@ -258,7 +258,7 @@ async fn send_login_success(
 async fn receive_client_information(
     conn_read: &mut EncryptedReader<OwnedReadHalf>,
     compressed: bool,
-    state: GlobalState
+    state: GlobalState,
 ) -> Result<ClientInformation, NetError> {
     let mut skel = PacketSkeleton::new(conn_read, compressed, Configuration, state).await?;
     let expected_id = lookup_packet!("configuration", "serverbound", "client_information");
@@ -290,7 +290,7 @@ async fn exchange_known_packs(
     conn_read: &mut EncryptedReader<OwnedReadHalf>,
     conn_write: &StreamWriter,
     compressed: bool,
-    state: GlobalState
+    state: GlobalState,
 ) -> Result<(), NetError> {
     // Send known packs
     conn_write.send_packet(ClientBoundKnownPacksPacket::new())?;
@@ -318,7 +318,7 @@ async fn finish_configuration(
     conn_read: &mut EncryptedReader<OwnedReadHalf>,
     conn_write: &StreamWriter,
     compressed: bool,
-    state: GlobalState
+    state: GlobalState,
 ) -> Result<(), NetError> {
     // Send registry data
     for packet in &*REGISTRY_PACKETS {
@@ -358,7 +358,7 @@ fn send_initial_play_packets(
     conn_write: &StreamWriter,
     player_identity: &Identity,
     offline_data: &OfflinePlayerData,
-    state: GlobalState
+    state: GlobalState,
 ) -> Result<(), NetError> {
     // Send login_play
     let game_mode = offline_data.gamemode;
@@ -366,7 +366,7 @@ fn send_initial_play_packets(
     conn_write.send_packet(LoginPlayPacket::new(
         player_identity.entity_id,
         game_mode as u8,
-        &state.config
+        &state.config,
     ))?;
 
     // Send abilities
@@ -389,7 +389,7 @@ async fn sync_player_position(
     conn_write: &StreamWriter,
     offline_player_data: &OfflinePlayerData,
     compressed: bool,
-    state: GlobalState
+    state: GlobalState,
 ) -> Result<(), NetError> {
     let teleport_id_i32: i32 = (rand::random::<u32>() & 0x3FFF_FFFF) as i32;
 
@@ -486,12 +486,17 @@ pub(super) async fn login(
     conn_write: &StreamWriter,
     state: GlobalState,
 ) -> Result<(bool, LoginResult), NetError> {
-
     // Phase 1: Initial Handshake
     let login_start = receive_login_start(conn_read, false, state.clone()).await?;
     let compressed = setup_compression(conn_write, &state.config)?;
-    let player_properties =
-        setup_encryption_and_auth(conn_read, conn_write, &login_start, compressed, state.clone()).await?;
+    let player_properties = setup_encryption_and_auth(
+        conn_read,
+        conn_write,
+        &login_start,
+        compressed,
+        state.clone(),
+    )
+    .await?;
 
     let (player_identity, player_properties) = send_login_success(
         conn_read,
@@ -499,7 +504,7 @@ pub(super) async fn login(
         &login_start,
         &player_properties,
         compressed,
-        state.clone()
+        state.clone(),
     )
     .await?;
 
@@ -524,9 +529,11 @@ pub(super) async fn login(
         })
         .unwrap_or(OfflinePlayerData {
             position: DEFAULT_SPAWN_POSITION.into(),
-            gamemode: GameMode::from_string(&*state.config.default_gamemode).unwrap_or_default(),
-            abilities: temper_components::player::abilities::PlayerAbilities::for_game_mode(GameMode::from_string(&*state.config.default_gamemode).unwrap_or_default()),
-            
+            gamemode: GameMode::from_string(&state.config.default_gamemode).unwrap_or_default(),
+            abilities: temper_components::player::abilities::PlayerAbilities::for_game_mode(
+                GameMode::from_string(&state.config.default_gamemode).unwrap_or_default(),
+            ),
+
             ..Default::default()
         });
 
@@ -534,7 +541,14 @@ pub(super) async fn login(
 
     // TODO: at some point this should be moved to the ECS
     send_initial_play_packets(conn_write, &player_identity, &offline_data, state.clone())?;
-    sync_player_position(conn_read, conn_write, &offline_data, compressed, state.clone()).await?;
+    sync_player_position(
+        conn_read,
+        conn_write,
+        &offline_data,
+        compressed,
+        state.clone(),
+    )
+    .await?;
     send_player_info(conn_write, &player_identity, &player_properties)?;
     send_inventory_contents(conn_write, &offline_data)?;
     send_command_graph(conn_write)?;

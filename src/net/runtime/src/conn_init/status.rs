@@ -44,8 +44,13 @@ pub(super) async fn status(
     // ---- Phase 1: Receive and validate Status Request packet ----
 
     // Read next incoming packet in "status" connection state
-    let mut skel =
-        PacketSkeleton::new(&mut conn_read, false, temper_protocol::ConnState::Status, state.clone()).await?;
+    let mut skel = PacketSkeleton::new(
+        &mut conn_read,
+        false,
+        temper_protocol::ConnState::Status,
+        state.clone(),
+    )
+    .await?;
 
     // Expected packet ID for a status request
     let expected_id = lookup_packet!("status", "serverbound", "status_request");
@@ -75,8 +80,13 @@ pub(super) async fn status(
 
     // ---- Phase 3: Wait for Ping Request ----
 
-    let mut skel =
-        PacketSkeleton::new(&mut conn_read, false, temper_protocol::ConnState::Status, state).await?;
+    let mut skel = PacketSkeleton::new(
+        &mut conn_read,
+        false,
+        temper_protocol::ConnState::Status,
+        state,
+    )
+    .await?;
 
     let expected_id = lookup_packet!("status", "serverbound", "ping_request");
 
@@ -202,7 +212,8 @@ fn get_server_status(state: &GlobalState) -> String {
 
     // Randomly choose a MOTD line from the configured list
     const DEFAULT_MOTD: &str = "A temper Server";
-    let motd: &str = state.config
+    let motd: &str = state
+        .config
         .motd
         .choose(&mut rand::rng())
         .map(|s| s.as_str())

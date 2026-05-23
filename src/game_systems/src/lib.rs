@@ -153,7 +153,11 @@ fn register_keepalive_schedule_systems(schedule: &mut Schedule) {
     schedule.add_systems(player::update_player_ping::handle);
 }
 
-pub fn register_schedules(timed: &mut Scheduler, shutdown_schedule: &mut Schedule, state: GlobalState) {
+pub fn register_schedules(
+    timed: &mut Scheduler,
+    shutdown_schedule: &mut Schedule,
+    state: GlobalState,
+) {
     let build_tick = |schedule: &mut Schedule| {
         schedule.set_executor_kind(ExecutorKind::SingleThreaded);
         register_tick_systems(schedule);

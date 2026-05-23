@@ -57,9 +57,7 @@ impl Handshake {
             os,
         };
 
-        let config = ConfigData {
-            max_players,
-        };
+        let config = ConfigData { max_players };
 
         Self { system, config }
     }

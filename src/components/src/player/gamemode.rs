@@ -17,7 +17,6 @@ pub enum GameMode {
 }
 
 impl GameMode {
-    
     pub fn from_string(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "survival" => Some(GameMode::Survival),
@@ -27,7 +26,7 @@ impl GameMode {
             _ => None,
         }
     }
-    
+
     /// Updates a 'PlayerAbilities' component to match the rules of a gamemode
     pub fn update_abilities(&self, abilities: &mut PlayerAbilities) {
         match self {

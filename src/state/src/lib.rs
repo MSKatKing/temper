@@ -7,11 +7,11 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use temper_config::server_config::{create_config, create_dummy_config};
+use temper_config::ServerConfig;
 use temper_performance::ServerPerformance;
 use temper_threadpool::ThreadPool;
 use temper_world::World;
 use tempfile::TempDir;
-use temper_config::ServerConfig;
 
 pub struct ServerState {
     pub world: World,
@@ -33,7 +33,7 @@ pub struct GlobalStateResource(pub GlobalState);
 pub fn create_test_state() -> (GlobalStateResource, TempDir) {
     let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
     let db_path = temp_dir.path().to_path_buf();
-    
+
     let config = create_dummy_config();
 
     let server_state = ServerState {

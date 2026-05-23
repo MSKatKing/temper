@@ -105,7 +105,6 @@ async fn start_webserver(state: GlobalState) {
         .route("/ws", get(ws::ws_handler))
         .with_state(ws_state);
 
-
     if state.config.dashboard.serve_page {
         app = app
             .route("/", get(index_handler))

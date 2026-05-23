@@ -44,8 +44,7 @@ pub enum PacketError {
 
 #[derive(Debug, Error)]
 pub enum CompressionError {
-    #[error("Compressed packet smaller than threshold. 'data_length' = {0}, but threshold is {1}"
-    )]
+    #[error("Compressed packet smaller than threshold. 'data_length' = {0}, but threshold is {1}")]
     CompressedPacketTooSmall(usize, usize),
 
     #[error("Checksum mismatch: expected {expected:02X}, got {received:02X}")]

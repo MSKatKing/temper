@@ -6,6 +6,7 @@ use dashmap::DashMap;
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 use std::process::exit;
+use temper_config::ServerConfig;
 pub use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
 use temper_general_purpose::paths::get_root_path;
@@ -17,7 +18,6 @@ pub use world_db::*;
 pub use world_gen;
 use world_gen::WorldGenerator;
 use wyhash::WyHasherBuilder;
-use temper_config::ServerConfig;
 
 #[derive(Clone)]
 pub struct World {
@@ -33,7 +33,7 @@ impl World {
     /// You'd probably want to call this at the start of your program. And then use the returned
     /// in a state struct or something.
     pub fn new(backend_path: impl Into<PathBuf>, seed: u64, config: &ServerConfig) -> Self {
-        if let Err(e) = check_config_validity(&config) {
+        if let Err(e) = check_config_validity(config) {
             error!("Fatal error in database config: {}", e);
             exit(1);
         }
@@ -162,15 +162,19 @@ fn check_config_validity(config: &ServerConfig) -> Result<(), WorldError> {
 
 #[cfg(test)]
 mod tests {
-    use temper_config::server_config::create_dummy_config;
     use crate::World;
+    use temper_config::server_config::create_dummy_config;
     use temper_core::dimension::Dimension;
     use temper_core::pos::ChunkPos;
 
     #[test]
     #[ignore]
     fn dump_chunk() {
-        let world = World::new(std::env::current_dir().unwrap().join("../../../world"), 0, &create_dummy_config());
+        let world = World::new(
+            std::env::current_dir().unwrap().join("../../../world"),
+            0,
+            &create_dummy_config(),
+        );
         let chunk = world
             .get_chunk(ChunkPos::new(1, 1), Dimension::Overworld)
             .expect(

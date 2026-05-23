@@ -7,11 +7,11 @@ use std::fmt::Debug;
 use std::io::Cursor;
 use temper_codec::net_types::var_int::VarInt;
 use temper_macros::lookup_packet;
+use temper_state::GlobalState;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt;
 use tracing::{debug, error, trace};
 use yazi::{Format, decompress};
-use temper_state::GlobalState;
 
 /// Represents a minimal parsed network packet (frame) read from the client.
 ///
@@ -59,7 +59,7 @@ impl PacketSkeleton {
         reader: &mut R,
         compressed: bool,
         conn_state: ConnState,
-        state: GlobalState
+        state: GlobalState,
     ) -> Result<Self, PacketError> {
         let pak = if compressed {
             Self::read_compressed(reader, conn_state, state).await
@@ -159,7 +159,7 @@ impl PacketSkeleton {
     async fn read_compressed<R: AsyncRead + Unpin>(
         reader: &mut R,
         conn_state: ConnState,
-        state: GlobalState
+        state: GlobalState,
     ) -> Result<Self, PacketError> {
         loop {
             // Total length of this packet frame
@@ -218,7 +218,7 @@ impl PacketSkeleton {
             if data_length < compression_threshold {
                 return Err(PacketError::CompressionError(CompressedPacketTooSmall(
                     data_length as usize,
-                    state.config.max_players as usize
+                    state.config.max_players as usize,
                 )));
             }
 

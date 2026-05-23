@@ -1,8 +1,8 @@
 use rand::prelude::IndexedRandom;
 use std::net::{Ipv4Addr, SocketAddrV4};
+use temper_config::ServerConfig;
 use tokio::net::UdpSocket;
 use tracing::error;
-use temper_config::ServerConfig;
 
 pub struct LanPinger {
     socket: UdpSocket,

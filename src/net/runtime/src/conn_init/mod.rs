@@ -77,7 +77,7 @@ pub async fn handle_handshake(
         &mut conn_read,
         conn_write.compress.load(Ordering::Relaxed),
         temper_protocol::ConnState::Handshake,
-        state.clone()
+        state.clone(),
     )
     .await?;
 

@@ -2,8 +2,8 @@ use clap::Parser;
 use std::time::Instant;
 use temper_app::bin_cli::args::{CLIArgs, Command};
 use temper_app::{bin_cli, bin_import, bin_runtime};
-use tracing::{error, info};
 use temper_config::server_config::create_config;
+use tracing::{error, info};
 
 #[cfg(feature = "dhat")]
 #[global_allocator]
