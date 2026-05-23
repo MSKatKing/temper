@@ -6,12 +6,12 @@ use crate::errors::PacketError;
 use std::fmt::Debug;
 use std::io::Cursor;
 use temper_codec::net_types::var_int::VarInt;
-use temper_config::server_config::get_global_config;
 use temper_macros::lookup_packet;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt;
 use tracing::{debug, error, trace};
 use yazi::{Format, decompress};
+use temper_state::GlobalState;
 
 /// Represents a minimal parsed network packet (frame) read from the client.
 ///
@@ -58,12 +58,13 @@ impl PacketSkeleton {
     pub async fn new<R: AsyncRead + Unpin>(
         reader: &mut R,
         compressed: bool,
-        state: ConnState,
+        conn_state: ConnState,
+        state: GlobalState
     ) -> Result<Self, PacketError> {
         let pak = if compressed {
-            Self::read_compressed(reader, state).await
+            Self::read_compressed(reader, conn_state, state).await
         } else {
-            Self::read_uncompressed(reader, state).await
+            Self::read_uncompressed(reader, conn_state).await
         };
         match pak {
             Ok(p) => {
@@ -157,7 +158,8 @@ impl PacketSkeleton {
     /// - Plugin messages (0x14) are ignored here as well.
     async fn read_compressed<R: AsyncRead + Unpin>(
         reader: &mut R,
-        state: ConnState,
+        conn_state: ConnState,
+        state: GlobalState
     ) -> Result<Self, PacketError> {
         loop {
             // Total length of this packet frame
@@ -195,9 +197,9 @@ impl PacketSkeleton {
 
                 // Ignore plugin messages
                 if (id.0 == lookup_packet!("play", "serverbound", "custom_payload")
-                    && state == ConnState::Play)
+                    && conn_state == ConnState::Play)
                     || (id.0 == lookup_packet!("configuration", "serverbound", "custom_payload")
-                        && state == ConnState::Configuration)
+                        && conn_state == ConnState::Configuration)
                 {
                     trace!("Ignored uncompressed serverbound plugin message (0x14)");
                     continue;
@@ -212,10 +214,11 @@ impl PacketSkeleton {
 
             // Case 2: Compressed packet
             // Verify compression threshold to prevent trivial small packets from being compressed
-            let compression_threshold = get_global_config().network_compression_threshold;
+            let compression_threshold = state.config.network_compression_threshold;
             if data_length < compression_threshold {
                 return Err(PacketError::CompressionError(CompressedPacketTooSmall(
                     data_length as usize,
+                    state.config.max_players as usize
                 )));
             }
 
@@ -231,7 +234,7 @@ impl PacketSkeleton {
                 })?;
 
             // Verify checksum if server has verification enabled
-            if get_global_config().verify_decompressed_packets {
+            if state.config.verify_decompressed_packets {
                 let Some(actual_checksum) = checksum else {
                     error!("Missing checksum on decompressed packet");
                     return Err(PacketError::CompressionError(MissingChecksum));
@@ -268,9 +271,9 @@ impl PacketSkeleton {
             let id = VarInt::read_async(&mut cursor).await?;
 
             // Ignore plugin messages
-            if (state == ConnState::Play
+            if (conn_state == ConnState::Play
                 && id.0 == lookup_packet!("play", "serverbound", "custom_payload"))
-                || (state == ConnState::Configuration
+                || (conn_state == ConnState::Configuration
                     && id.0 == lookup_packet!("configuration", "serverbound", "custom_payload"))
             {
                 trace!("Ignored compressed serverbound plugin message (0x14)");

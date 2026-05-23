@@ -5,7 +5,6 @@ use std::sync::Arc;
 use temper_codec::decode::errors::NetDecodeError;
 use temper_codec::encode::errors::NetEncodeError;
 use temper_codec::net_types::NetTypesError;
-use temper_config::server_config::get_global_config;
 use temper_world_format::errors::WorldError;
 use thiserror::Error;
 
@@ -45,9 +44,9 @@ pub enum PacketError {
 
 #[derive(Debug, Error)]
 pub enum CompressionError {
-    #[error("Compressed packet smaller than threshold. 'data_length' = {0}, but threshold is {threshold}", threshold = get_global_config().network_compression_threshold
+    #[error("Compressed packet smaller than threshold. 'data_length' = {0}, but threshold is {1}"
     )]
-    CompressedPacketTooSmall(usize),
+    CompressedPacketTooSmall(usize, usize),
 
     #[error("Checksum mismatch: expected {expected:02X}, got {received:02X}")]
     ChecksumMismatch { expected: u32, received: u32 },

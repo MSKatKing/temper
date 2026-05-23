@@ -4,31 +4,30 @@ use bitcode_derive::{Decode, Encode};
 use std::io::Write;
 use temper_codec::encode::errors::NetEncodeError;
 use temper_codec::encode::{NetEncode, NetEncodeOpts};
-use temper_config::server_config::get_global_config;
 use type_hash::TypeHash;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Decode, Encode, TypeHash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Decode, Encode, TypeHash, Default)]
 #[repr(u8)]
 pub enum GameMode {
+    #[default]
     Survival = 0,
     Creative = 1,
     Adventure = 2,
     Spectator = 3,
 }
 
-impl Default for GameMode {
-    fn default() -> Self {
-        match get_global_config().default_gamemode.to_lowercase().as_str() {
-            "survival" => GameMode::Survival,
-            "creative" => GameMode::Creative,
-            "adventure" => GameMode::Adventure,
-            "spectator" => GameMode::Spectator,
-            _ => GameMode::Survival,
+impl GameMode {
+    
+    pub fn from_string(s: &str) -> Option<Self> {
+        match s.to_lowercase().as_str() {
+            "survival" => Some(GameMode::Survival),
+            "creative" => Some(GameMode::Creative),
+            "adventure" => Some(GameMode::Adventure),
+            "spectator" => Some(GameMode::Spectator),
+            _ => None,
         }
     }
-}
-
-impl GameMode {
+    
     /// Updates a 'PlayerAbilities' component to match the rules of a gamemode
     pub fn update_abilities(&self, abilities: &mut PlayerAbilities) {
         match self {

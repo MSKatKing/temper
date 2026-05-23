@@ -1,8 +1,7 @@
 use std::hash::{Hash, Hasher};
-use temper_config::server_config::get_global_config;
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
-use temper_storage::lmdb::LmdbBackend;
+use temper_storage::lmdb::StorageBackend;
 use temper_world_format::Chunk;
 use temper_world_format::errors::WorldError;
 use temper_world_format::errors::WorldError::CorruptedChunkData;
@@ -10,7 +9,7 @@ use tracing::warn;
 use yazi::CompressionLevel;
 
 pub fn save_chunk_internal(
-    storage: &LmdbBackend,
+    storage: &StorageBackend,
     pos: ChunkPos,
     dimension: Dimension,
     chunk: &Chunk,
@@ -29,15 +28,16 @@ pub fn save_chunk_internal(
 }
 
 pub fn load_chunk_internal(
-    storage: &LmdbBackend,
+    storage: &StorageBackend,
     pos: ChunkPos,
     dimension: Dimension,
+    verify: bool,
 ) -> Result<Chunk, WorldError> {
     let digest = create_key(dimension, pos);
     match storage.get("chunks".to_string(), digest)? {
         Some(compressed) => {
             let (data, checksum) = yazi::decompress(compressed.as_slice(), yazi::Format::Zlib)?;
-            if get_global_config().database.verify_chunk_data {
+            if verify {
                 if let Some(expected_checksum) = checksum {
                     let real_checksum = yazi::Adler32::from_buf(data.as_slice()).finish();
                     if real_checksum != expected_checksum {
@@ -56,7 +56,7 @@ pub fn load_chunk_internal(
 }
 
 pub fn chunk_exists_internal(
-    storage: &LmdbBackend,
+    storage: &StorageBackend,
     pos: ChunkPos,
     dimension: Dimension,
 ) -> Result<bool, WorldError> {
@@ -68,7 +68,7 @@ pub fn chunk_exists_internal(
 }
 
 pub fn delete_chunk_internal(
-    storage: &LmdbBackend,
+    storage: &StorageBackend,
     pos: ChunkPos,
     dimension: Dimension,
 ) -> Result<(), WorldError> {
@@ -77,7 +77,7 @@ pub fn delete_chunk_internal(
     Ok(())
 }
 
-pub fn sync_internal(storage: &LmdbBackend) -> Result<(), WorldError> {
+pub fn sync_internal(storage: &StorageBackend) -> Result<(), WorldError> {
     storage.flush()?;
     Ok(())
 }

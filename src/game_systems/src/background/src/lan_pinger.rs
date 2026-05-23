@@ -1,8 +1,8 @@
 use rand::prelude::IndexedRandom;
 use std::net::{Ipv4Addr, SocketAddrV4};
-use temper_config::server_config::get_global_config;
 use tokio::net::UdpSocket;
 use tracing::error;
+use temper_config::ServerConfig;
 
 pub struct LanPinger {
     socket: UdpSocket,
@@ -20,16 +20,15 @@ impl LanPinger {
         })
     }
 
-    pub fn announcement(&self) -> String {
-        let cfg = get_global_config();
-        let motd = cfg.motd.choose(&mut rand::rng()).unwrap();
-        let port = cfg.port;
+    pub fn announcement(&self, config: &ServerConfig) -> String {
+        let motd = config.motd.choose(&mut rand::rng()).unwrap();
+        let port = config.port;
 
         format!("[MOTD]{motd}[/MOTD][AD]{port}[/AD]")
     }
 
-    pub async fn send(&mut self) {
-        let announcement = self.announcement();
+    pub async fn send(&mut self, config: &ServerConfig) {
+        let announcement = self.announcement(config);
 
         if let Err(err) = self
             .socket

@@ -6,11 +6,10 @@ use dashmap::DashMap;
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 use std::process::exit;
-use temper_config::server_config::get_global_config;
 pub use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
 use temper_general_purpose::paths::get_root_path;
-use temper_storage::lmdb::LmdbBackend;
+use temper_storage::lmdb::StorageBackend;
 pub use temper_world_format::errors::WorldError;
 use temper_world_format::Chunk;
 use tracing::{error, warn};
@@ -18,12 +17,14 @@ pub use world_db::*;
 pub use world_gen;
 use world_gen::WorldGenerator;
 use wyhash::WyHasherBuilder;
+use temper_config::ServerConfig;
 
 #[derive(Clone)]
 pub struct World {
-    pub storage_backend: LmdbBackend,
+    pub storage_backend: StorageBackend,
     cache: ChunkCache,
     pub world_generator: WorldGenerator,
+    verify: bool,
 }
 
 impl World {
@@ -31,8 +32,8 @@ impl World {
     ///
     /// You'd probably want to call this at the start of your program. And then use the returned
     /// in a state struct or something.
-    pub fn new(backend_path: impl Into<PathBuf>, seed: u64) -> Self {
-        if let Err(e) = check_config_validity() {
+    pub fn new(backend_path: impl Into<PathBuf>, seed: u64, config: &ServerConfig) -> Self {
+        if let Err(e) = check_config_validity(&config) {
             error!("Fatal error in database config: {}", e);
             exit(1);
         }
@@ -42,8 +43,8 @@ impl World {
             backend_path = get_root_path().join(backend_path);
         }
         // Convert the map size from GB to bytes and round it to the nearest page size.
-        let map_size = get_global_config().database.map_size as usize * 1024 * 1024 * 1024;
-        let storage_backend = LmdbBackend::initialize(Some(backend_path), map_size)
+        let map_size = config.database.map_size as usize * 1024 * 1024 * 1024;
+        let storage_backend = StorageBackend::initialize(Some(backend_path), map_size)
             .expect("Failed to initialize database");
 
         let rand_seed = rand::random();
@@ -55,6 +56,7 @@ impl World {
             storage_backend,
             cache,
             world_generator,
+            verify: config.database.verify_chunk_data,
         }
     }
 
@@ -98,7 +100,7 @@ impl World {
                 .world_generator
                 .generate_chunk(chunk_pos)
                 .map_err(|err| {
-                    temper_world_format::errors::WorldError::WorldGenerationError(format!(
+                    WorldError::WorldGenerationError(format!(
                         "Failed to generate chunk at {:?}: {}",
                         chunk_pos, err
                     ))
@@ -113,12 +115,11 @@ type ChunkCache = DashMap<(ChunkPos, Dimension), Chunk, WyHasherBuilder>;
 pub type MutChunk<'a> = dashmap::mapref::one::RefMut<'a, (ChunkPos, Dimension), Chunk>;
 pub type RefChunk<'a> = dashmap::mapref::one::Ref<'a, (ChunkPos, Dimension), Chunk>;
 
-fn check_config_validity() -> Result<(), WorldError> {
+fn check_config_validity(config: &ServerConfig) -> Result<(), WorldError> {
     // We don't actually check if the import path is valid here since that would brick a server
     // if the world is imported then deleted after the server starts. Those checks are handled in
     // the importing logic.
 
-    let config = get_global_config();
     let db_path = get_root_path().join(&config.database.db_path);
 
     if config.database.map_size == 0 {
@@ -161,6 +162,7 @@ fn check_config_validity() -> Result<(), WorldError> {
 
 #[cfg(test)]
 mod tests {
+    use temper_config::server_config::create_dummy_config;
     use crate::World;
     use temper_core::dimension::Dimension;
     use temper_core::pos::ChunkPos;
@@ -168,7 +170,7 @@ mod tests {
     #[test]
     #[ignore]
     fn dump_chunk() {
-        let world = World::new(std::env::current_dir().unwrap().join("../../../world"), 0);
+        let world = World::new(std::env::current_dir().unwrap().join("../../../world"), 0, &create_dummy_config());
         let chunk = world
             .get_chunk(ChunkPos::new(1, 1), Dimension::Overworld)
             .expect(

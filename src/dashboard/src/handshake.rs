@@ -1,6 +1,5 @@
 use serde::Serialize;
 use sysinfo::System;
-use temper_config::server_config::get_global_config;
 
 /// Hardware/system information
 #[derive(Clone, Debug, Serialize)]
@@ -32,7 +31,7 @@ pub struct Handshake {
 
 impl Handshake {
     /// Gathers handshake data. Should be called once at startup.
-    pub fn gather() -> Self {
+    pub fn gather(max_players: u32) -> Self {
         let sys = System::new_all();
 
         let cpu_model = sys
@@ -59,7 +58,7 @@ impl Handshake {
         };
 
         let config = ConfigData {
-            max_players: get_global_config().max_players,
+            max_players,
         };
 
         Self { system, config }
