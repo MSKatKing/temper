@@ -124,6 +124,7 @@ mod tests {
     use temper_codec::net_types::var_int::VarInt;
     use temper_protocol::errors::PacketError;
     use temper_protocol::incoming::packet_skeleton::PacketSkeleton;
+    use temper_state::create_test_state;
 
     struct TestPacket {
         test_vi: VarInt,
@@ -186,7 +187,13 @@ mod tests {
 
         let mut async_reader = Cursor::new(compressed);
 
-        let skel = PacketSkeleton::new(&mut async_reader, true, ConnState::Play).await;
+        let skel = PacketSkeleton::new(
+            &mut async_reader,
+            true,
+            ConnState::Play,
+            create_test_state().0.0,
+        )
+        .await;
         assert!(
             skel.is_ok(),
             "Failed to read packet skeleton: {:?}",
@@ -234,7 +241,13 @@ mod tests {
 
         let mut async_reader = Cursor::new(compressed);
 
-        let skel = PacketSkeleton::new(&mut async_reader, true, ConnState::Play).await;
+        let skel = PacketSkeleton::new(
+            &mut async_reader,
+            true,
+            ConnState::Play,
+            create_test_state().0.0,
+        )
+        .await;
         assert!(
             skel.is_ok(),
             "Failed to read packet skeleton: {:?}",
@@ -279,7 +292,13 @@ mod tests {
 
         let mut async_reader = Cursor::new(compressed);
 
-        let skel = PacketSkeleton::new(&mut async_reader, true, ConnState::Play).await;
+        let skel = PacketSkeleton::new(
+            &mut async_reader,
+            true,
+            ConnState::Play,
+            create_test_state().0.0,
+        )
+        .await;
         assert!(
             skel.is_err(),
             "Expected error reading uncompressed packet skeleton, got: {:?}",
@@ -297,7 +316,13 @@ mod tests {
         let bad_data = vec![0x00, 0x01, 0x02, 0x03]; // Not a valid VarInt or packet structure
         let mut async_reader = Cursor::new(bad_data);
 
-        let skel = PacketSkeleton::new(&mut async_reader, true, ConnState::Play).await;
+        let skel = PacketSkeleton::new(
+            &mut async_reader,
+            true,
+            ConnState::Play,
+            create_test_state().0.0,
+        )
+        .await;
         assert!(
             skel.is_err(),
             "Expected error reading bad packet data, got: {:?}",
@@ -310,7 +335,13 @@ mod tests {
         // Test with empty data, which should fail to read a packet skeleton
         let empty_data = vec![];
         let mut async_reader = Cursor::new(empty_data);
-        let skel = PacketSkeleton::new(&mut async_reader, true, ConnState::Play).await;
+        let skel = PacketSkeleton::new(
+            &mut async_reader,
+            true,
+            ConnState::Play,
+            create_test_state().0.0,
+        )
+        .await;
         assert!(
             skel.is_err(),
             "Expected error reading empty packet data, got: {:?}",

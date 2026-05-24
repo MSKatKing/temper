@@ -10,7 +10,6 @@ use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::client_information::ClientInformationComponent;
 use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::position::Position;
-use temper_config::server_config::get_global_config;
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
 use temper_net_runtime::compression::compress_packet;
@@ -40,10 +39,10 @@ pub fn handle(
             continue; // Skip if the player is not connected
         }
 
-        let chunk_per_tick = match get_global_config().performance.chunks_per_tick {
+        let chunk_per_tick = match state.0.config.performance.chunks_per_tick {
             0 => max(
                 chunk_receiver.loading.len() / 3,
-                get_global_config().performance.chunks_per_tick_min as usize,
+                state.0.config.performance.chunks_per_tick_min as usize,
             ),
             -1 => usize::MAX,
             hard_limit => hard_limit as usize,
@@ -113,7 +112,7 @@ pub fn handle(
                 let distance = chunk_pos.distance_squared(player_chunk_pos);
                 let view_distance = max(
                     u32::from(client_info.view_distance),
-                    get_global_config().chunk_render_distance,
+                    state.0.config.chunk_render_distance,
                 );
                 distance <= (view_distance * view_distance) as i32
             })
@@ -146,7 +145,7 @@ pub fn handle(
                         &packet,
                         is_compressed,
                         &NetEncodeOpts::WithLength,
-                        get_global_config().network_compression_threshold as usize,
+                        state.0.config.network_compression_threshold as usize,
                     )
                     .expect("Failed to compress ChunkAndLightData packet")
                 }

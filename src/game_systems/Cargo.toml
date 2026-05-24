@@ -18,6 +18,7 @@ bevy_ecs = { workspace = true }
 temper-commands = { workspace = true }
 temper-config = { workspace = true }
 temper-scheduler = { workspace = true }
+temper-state = { workspace = true }
 
 [dev-dependencies]
 bevy_math = { workspace = true }

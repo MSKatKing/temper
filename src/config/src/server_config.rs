@@ -3,25 +3,11 @@
 //! Contains the server configuration struct and its related functions.
 
 use figment::providers::Format;
-use once_cell::sync::OnceCell;
 use serde_derive::{Deserialize, Serialize};
+use std::env::temp_dir;
 use temper_general_purpose::paths::get_root_path;
-
-static STATIC_CONFIG: OnceCell<ServerConfig> = OnceCell::new();
 pub(crate) const DEFAULT_CONFIG: &str =
     include_str!("../../../assets/data/configs/main-config.toml");
-pub fn get_global_config() -> &'static ServerConfig {
-    STATIC_CONFIG.get_or_init(create_config)
-}
-
-/// Sets the global server configuration.
-/// You really only want to use this for unit tests, otherwise just use `get_global_config()`
-/// to set the config with the default values or the values from the config file.
-pub fn set_global_config(config: ServerConfig) {
-    if STATIC_CONFIG.set(config).is_err() {
-        eprintln!("Failed to set global server configuration, it has already been initialized.");
-    }
-}
 
 /// The server configuration struct.
 ///
@@ -93,7 +79,7 @@ pub struct PerformanceConfig {
     pub chunks_per_tick: i32,
 }
 
-fn create_config() -> ServerConfig {
+pub fn create_config() -> ServerConfig {
     let config_location = get_root_path().join("configs");
     let main_config_file = config_location.join("config.toml");
     match figment::Figment::new()
@@ -108,5 +94,40 @@ fn create_config() -> ServerConfig {
             eprintln!("Failed to load server configuration: {e}");
             std::process::exit(1);
         }
+    }
+}
+
+pub fn create_dummy_config() -> ServerConfig {
+    let db_path = temp_dir();
+    ServerConfig {
+        host: "0.0.0.0".to_string(),
+        port: 25565,
+        motd: vec!["A Temper Server".to_string()],
+        max_players: 100,
+        tps: 20,
+        database: DatabaseConfig {
+            db_path: db_path.to_string_lossy().to_string(),
+            verify_chunk_data: true,
+            map_size: 1024,
+        },
+        world: "world".to_string(),
+        network_compression_threshold: 256,
+        verify_decompressed_packets: true,
+        encryption_enabled: false,
+        online_mode: false,
+        whitelist: false,
+        chunk_render_distance: 8,
+        default_gamemode: "survival".to_string(),
+        block_scanner_ips: true,
+        dashboard: DashboardConfig {
+            serve_dashboard: false,
+            serve_page: false,
+            port: 8080,
+            secret: "not very secret".to_string(),
+        },
+        performance: PerformanceConfig {
+            chunks_per_tick_min: 5,
+            chunks_per_tick: 10,
+        },
     }
 }

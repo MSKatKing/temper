@@ -28,6 +28,7 @@ indexmap = { workspace = true }
 temper-encryption = { path = "../encryption" }
 bevy_math = { workspace = true }
 tokio = { workspace = true }
+temper-state = { workspace = true }
 
 [dev-dependencies]
 indexmap = { workspace = true }

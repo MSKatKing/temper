@@ -386,7 +386,7 @@ pub async fn handle_connection(
         // Read next packet
         let mut packet_skele;
         tokio::select! {
-            packet_result = PacketSkeleton::new(&mut tcp_reader, login_result.compression, Play) => {
+            packet_result = PacketSkeleton::new(&mut tcp_reader, login_result.compression, Play, state.clone()) => {
                 match packet_result {
                     Ok(packet) => {
                         packet_skele = packet;

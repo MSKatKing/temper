@@ -4,7 +4,6 @@ use crate::errors::BinaryError;
 use crate::setup::setup_block_and_item_mapping;
 use std::sync::Arc;
 use std::time::Instant;
-use temper_config::server_config::get_global_config;
 use temper_config::whitelist::create_whitelist;
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
@@ -39,7 +38,7 @@ pub fn entry(start_time: Instant, no_tui: bool) -> Result<(), BinaryError> {
         .expect("Error setting Ctrl-C handler");
     }
 
-    if get_global_config().dashboard.serve_dashboard {
+    if global_state.config.dashboard.serve_dashboard {
         temper_dashboard::start_dashboard(global_state.clone());
     }
 
