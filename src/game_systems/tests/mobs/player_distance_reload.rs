@@ -1,6 +1,8 @@
 use background::{chunk_unloader, entity_unloader};
 use bevy_ecs::prelude::*;
-use mobs::ground::{load_fox, save_fox};
+use mobs::spawn::{
+    handle_despawn_mob, handle_spawn_mob_bundle, load_mob_bundles, save_mob_bundles,
+};
 use player::chunk_calculator;
 use temper_components::entity_identity::Identity;
 use temper_components::last_chunk_pos::LastChunkPos;
@@ -11,9 +13,11 @@ use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
+use temper_entities::entity_types::EntityTypeEnum;
 use temper_entities::markers::entity_types::Fox;
 use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
 use temper_entities::FoxBundle;
+use temper_entities::MobKind;
 use temper_messages::chunk_calc::ChunkCalc;
 use temper_messages::load_chunk_entities::LoadChunkEntities;
 use temper_state::create_test_state;
@@ -78,6 +82,7 @@ fn player_can_unload_entities_by_moving_away_and_reload_them_after_returning() {
     world.spawn((
         fox_bundle,
         Fox,
+        MobKind(EntityTypeEnum::Fox),
         HasGravity,
         HasCollisions,
         HasWaterDrag,
@@ -107,8 +112,15 @@ fn player_can_unload_entities_by_moving_away_and_reload_them_after_returning() {
     chunk_calc_schedule.run(&mut world);
 
     let mut unload_schedule = Schedule::default();
-    unload_schedule
-        .add_systems((entity_unloader::handle, save_fox, chunk_unloader::handle).chain());
+    unload_schedule.add_systems(
+        (
+            entity_unloader::handle,
+            save_mob_bundles,
+            chunk_unloader::handle,
+            handle_despawn_mob,
+        )
+            .chain(),
+    );
     unload_schedule.run(&mut world);
 
     let mut fox_query = world.query::<EntityRef<'_>>();
@@ -176,7 +188,14 @@ fn player_can_unload_entities_by_moving_away_and_reload_them_after_returning() {
     }
 
     let mut load_schedule = Schedule::default();
-    load_schedule.add_systems((emit_load_messages_for_known_chunks, load_fox).chain());
+    load_schedule.add_systems(
+        (
+            emit_load_messages_for_known_chunks,
+            load_mob_bundles,
+            handle_spawn_mob_bundle,
+        )
+            .chain(),
+    );
     load_schedule.run(&mut world);
 
     let mut fox_query = world.query::<(

@@ -35,6 +35,11 @@ impl BossBarResource {
         uuid
     }
 
+    pub fn register_bar_with_id(&mut self, uuid: Uuid, data: BossBarData) {
+        self.boss_bars.insert(uuid, data.clone());
+        self.update_queue.push((uuid, UpdateBBKind::Add { data }));
+    }
+
     pub fn remove_bar(&self, uuid: Uuid) {
         self.update_queue.push((uuid, UpdateBBKind::Remove));
     }

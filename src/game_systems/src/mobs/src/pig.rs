@@ -1,6 +1,7 @@
 use bevy_ecs::prelude::*;
 use bevy_math::{Vec2, Vec3A};
 use pathfinding::{Pathfinder, pos_to_block};
+use temper_components::mob_ai::PigAI;
 use temper_components::player::grounded::OnGround;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
@@ -18,12 +19,6 @@ const JUMP_IMPULSE: f32 = 0.42;
 /// How often to update the pathfinding target (ticks).
 const REPATH_INTERVAL: u32 = 40;
 
-/// Per-pig AI state.
-#[derive(Component, Default)]
-pub struct PigAI {
-    repath_cooldown: u32,
-}
-
 type PigQuery<'a> = (
     &'a Position,
     &'a mut Velocity,
@@ -31,16 +26,6 @@ type PigQuery<'a> = (
     &'a mut PigAI,
     &'a mut Pathfinder,
 );
-
-pub fn init_pig(mut commands: Commands, pigs: Query<Entity, (With<Pig>, Without<PigAI>)>) {
-    for entity in &pigs {
-        commands.entity(entity).insert((
-            PigAI::default(),
-            Pathfinder::default(),
-            pathfinding::PathfinderSearch::default(),
-        ));
-    }
-}
 
 pub fn tick_pig(
     mut pigs: Query<PigQuery, With<Pig>>,
@@ -105,31 +90,19 @@ pub fn tick_pig(
 }
 
 pub fn tick_pig_particles(
-    pigs: Query<(Entity, &Position), With<Pig>>,
-    players: Query<&Position, With<PlayerMarker>>,
+    pigs: Query<&Pathfinder, With<Pig>>,
     mut msgs: MessageWriter<SendParticle>,
 ) {
-    for pos in pigs.iter() {
-        for player_pos in players.iter() {
-            let distance_sq = player_pos.as_vec3a().distance_squared(pos.1.as_vec3a());
-            if distance_sq > 16.0 * 256.0 {
-                continue;
-            }
-            let steps = temper_utils::maths::step::step_between(
-                pos.1.as_vec3a(),
-                player_pos.coords.as_vec3a(),
-                0.5,
-            );
-            for step_pos in steps.iter().take(32) {
-                let particle_message = SendParticle {
-                    particle_type: ParticleType::EndRod,
-                    position: *step_pos,
-                    offset: Vec3A::new(0.0, 0.0, 0.0),
-                    speed: 0.0,
-                    count: 1,
-                };
-                msgs.write(particle_message);
-            }
+    for path in pigs.iter() {
+        for step_pos in &path.path {
+            let particle_message = SendParticle {
+                particle_type: ParticleType::EndRod,
+                position: step_pos.pos.as_vec3a() + Vec3A::new(0.5, 0.5, 0.5),
+                offset: Vec3A::new(0.0, 0.0, 0.0),
+                speed: 0.0,
+                count: 1,
+            };
+            msgs.write(particle_message);
         }
     }
 }

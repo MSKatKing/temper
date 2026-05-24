@@ -16,13 +16,7 @@ temper-particles = { workspace = true }
 temper-utils = { workspace = true }
 temper-resources = { workspace = true }
 temper-text = { workspace = true }
-bitcode = { workspace = true }
 tracing = { workspace = true }
-temper-protocol = { workspace = true }
-temper-net-runtime = { workspace = true }
-temper-macros = { workspace = true }
-temper-config = { workspace = true }
-paste = { workspace = true }
 uuid = { workspace = true }
 
 [lints]

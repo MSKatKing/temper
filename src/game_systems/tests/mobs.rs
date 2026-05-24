@@ -6,3 +6,5 @@ mod cross_chunk_persistence;
 mod entity_persistence;
 #[path = "mobs/player_distance_reload.rs"]
 mod player_distance_reload;
+#[path = "mobs/spawn_mob_bundle.rs"]
+mod spawn_mob_bundle;
