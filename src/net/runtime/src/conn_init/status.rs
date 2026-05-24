@@ -3,7 +3,6 @@ use crate::connection::StreamWriter;
 use rand::prelude::IndexedRandom;
 use temper_codec::decode::{NetDecode, NetDecodeOpts};
 use temper_config::favicon::get_favicon_base64;
-use temper_config::server_config::get_global_config;
 use temper_encryption::read::EncryptedReader;
 use temper_macros::lookup_packet;
 use temper_protocol::errors::NetError;
@@ -15,6 +14,7 @@ use temper_protocol::outgoing::ping_response::PongPacket;
 use temper_protocol::outgoing::status_response::StatusResponse;
 use temper_state::GlobalState;
 use tokio::net::tcp::OwnedReadHalf;
+use tokio::task::spawn_blocking;
 use tracing::warn;
 
 /// Handles the Minecraft server "status" state of the handshake.
@@ -44,8 +44,13 @@ pub(super) async fn status(
     // ---- Phase 1: Receive and validate Status Request packet ----
 
     // Read next incoming packet in "status" connection state
-    let mut skel =
-        PacketSkeleton::new(&mut conn_read, false, temper_protocol::ConnState::Status).await?;
+    let mut skel = PacketSkeleton::new(
+        &mut conn_read,
+        false,
+        temper_protocol::ConnState::Status,
+        state.clone(),
+    )
+    .await?;
 
     // Expected packet ID for a status request
     let expected_id = lookup_packet!("status", "serverbound", "status_request");
@@ -60,7 +65,9 @@ pub(super) async fn status(
 
     // Parse the incoming status request (no fields, acts as a trigger)
     let _status_req =
-        StatusRequestPacket::decode_async(&mut skel.data, &NetDecodeOpts::None).await?;
+        spawn_blocking(move || StatusRequestPacket::decode(&mut skel.data, &NetDecodeOpts::None))
+            .await
+            .expect("Could not spawn task")?;
 
     // ---- Phase 2: Send Status Response ----
 
@@ -73,8 +80,13 @@ pub(super) async fn status(
 
     // ---- Phase 3: Wait for Ping Request ----
 
-    let mut skel =
-        PacketSkeleton::new(&mut conn_read, false, temper_protocol::ConnState::Status).await?;
+    let mut skel = PacketSkeleton::new(
+        &mut conn_read,
+        false,
+        temper_protocol::ConnState::Status,
+        state,
+    )
+    .await?;
 
     let expected_id = lookup_packet!("status", "serverbound", "ping_request");
 
@@ -87,7 +99,9 @@ pub(super) async fn status(
     }
 
     // Parse ping request containing a payload (usually current timestamp)
-    let ping_req = PingPacket::decode_async(&mut skel.data, &NetDecodeOpts::None).await?;
+    let ping_req = spawn_blocking(move || PingPacket::decode(&mut skel.data, &NetDecodeOpts::None))
+        .await
+        .expect("Failed to decode PingPacket")?;
 
     // Respond with Pong containing the same payload (echo test)
     let pong_packet = PongPacket {
@@ -162,8 +176,6 @@ fn get_server_status(state: &GlobalState) -> String {
         }
     }
 
-    let config = get_global_config();
-
     // Protocol info
     let version = structs::Version {
         name: "1.21.8",
@@ -193,14 +205,15 @@ fn get_server_status(state: &GlobalState) -> String {
 
     // Player counts and sample
     let players = structs::Players {
-        max: config.max_players,
+        max: state.config.max_players,
         online: online_players_sample.len() as u16,
         sample: online_players_sample,
     };
 
     // Randomly choose a MOTD line from the configured list
     const DEFAULT_MOTD: &str = "A temper Server";
-    let motd: &str = config
+    let motd: &str = state
+        .config
         .motd
         .choose(&mut rand::rng())
         .map(|s| s.as_str())

@@ -7,7 +7,6 @@ use temper_codec::decode::{NetDecode, NetDecodeOpts};
 use temper_codec::encode::errors::NetEncodeError;
 use temper_codec::encode::{NetEncode, NetEncodeOpts};
 use temper_codec::net_types::var_int::VarInt;
-use tokio::io::{AsyncRead, AsyncWrite};
 use type_hash::TypeHash;
 
 #[derive(Debug, Clone, Hash, Default, PartialEq, Decode, Encode, TypeHash)]
@@ -85,13 +84,6 @@ impl NetDecode for InventorySlot {
             })
         }
     }
-
-    async fn decode_async<R: AsyncRead + Unpin>(
-        _reader: &mut R,
-        _opts: &NetDecodeOpts,
-    ) -> Result<Self, NetDecodeError> {
-        todo!()
-    }
 }
 
 impl NetEncode for InventorySlot {
@@ -147,14 +139,6 @@ impl NetEncode for InventorySlot {
         }
 
         Ok(())
-    }
-
-    async fn encode_async<W: AsyncWrite + Unpin>(
-        &self,
-        _writer: &mut W,
-        _opts: &NetEncodeOpts,
-    ) -> Result<(), NetEncodeError> {
-        todo!()
     }
 }
 

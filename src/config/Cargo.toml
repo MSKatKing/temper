@@ -21,9 +21,5 @@ once_cell = { workspace = true }
 figment = { workspace = true }
 rand = { workspace = true }
 
-[features]
-# Whether the dashboard options are enabled
-dashboard = []
-
 [lints]
 workspace = true

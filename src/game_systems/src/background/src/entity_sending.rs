@@ -1,14 +1,14 @@
-use bevy_ecs::prelude::{Entity, Has, Query};
+use bevy_ecs::prelude::{Entity, Has, Query, Res};
 use temper_components::entity_identity::Identity;
 use temper_components::player::client_information::ClientInformationComponent;
 use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
-use temper_config::server_config::get_global_config;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::remove_entities::RemoveEntitiesPacket;
 use temper_protocol::outgoing::spawn_entity::SpawnEntityPacket;
+use temper_state::GlobalStateResource;
 use tracing::debug;
 
 /// Protocol entity type ID for player entities in the current target version.
@@ -39,6 +39,7 @@ pub fn send_new_entities(
         &ClientInformationComponent,
     )>,
     entity_query: Query<(Entity, &Identity, &Position, &Rotation, Has<PlayerMarker>)>,
+    state: Res<GlobalStateResource>,
 ) {
     for (conn, mut entity_tracker, player_pos, client_info) in player_query.iter_mut() {
         let mut unresolved = Vec::new();
@@ -60,7 +61,7 @@ pub fn send_new_entities(
 
                 let render_distance = client_info
                     .view_distance
-                    .min(get_global_config().chunk_render_distance as u8);
+                    .min(state.0.config.chunk_render_distance as u8);
                 if player_pos.distance(**entity_pos) > (f64::from(render_distance) * 16.0) {
                     continue; // Skip entities outside of render distance
                 }

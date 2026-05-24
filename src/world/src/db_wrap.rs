@@ -37,7 +37,7 @@ impl World {
         if let Some(chunk) = self.cache.get(&(pos, dimension)) {
             return Ok(chunk);
         }
-        let chunk = load_chunk_internal(&self.storage_backend, pos, dimension);
+        let chunk = load_chunk_internal(&self.storage_backend, pos, dimension, self.verify);
         match chunk {
             Ok(c) => {
                 self.cache.insert((pos, dimension), c);
@@ -61,7 +61,7 @@ impl World {
         if let Some(chunk) = self.cache.get_mut(&(pos, dimension)) {
             return Ok(chunk);
         }
-        let chunk = load_chunk_internal(&self.storage_backend, pos, dimension);
+        let chunk = load_chunk_internal(&self.storage_backend, pos, dimension, self.verify);
         match chunk {
             Ok(c) => {
                 self.cache.insert((pos, dimension), c);

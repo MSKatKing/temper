@@ -2,7 +2,7 @@
     <img src="https://img.shields.io/github/license/temper-mc/temper?style=for-the-badge&color=4A0D67" alt="License">
     <img src="https://img.shields.io/github/languages/code-size/temper-mc/temper?style=for-the-badge&color=8332AC" alt="Code Size">
     <img src="https://www.aschey.tech/tokei/github.com/temper-mc/temper?style=for-the-badge&color=caa8f5" alt="Lines of Code">
-    <img src="https://img.shields.io/github/last-commit/temper-mc/temper?style=for-the-badge&color=07BEB8" alt="Last Commit">
+    <img src="https://img.shields.io/github/last-commit/temper-mc/temper/dev?style=for-the-badge&color=07BEB8" alt="Last Commit">
     <a  href="https://discord.gg/6QPZgUy4sA">
     <img alt="Discord" src="https://img.shields.io/discord/1469329170055037087?style=for-the-badge&logo=discord&logoColor=73EEDC&color=73EEDC&link=https%3A%2F%2Fdiscord.gg%2F6QPZgUy4sA">
     </a>
@@ -12,8 +12,7 @@
 
 Temper is a Minecraft server implementation written in Rust, with the goals of being extremely fast and memory
 efficient, while also being easy to use and set up. With a focus on community, extensibility, and performance, we hope
-to
-create a server that can be used by everyone from casual players to large server owners.
+to create a server that can be used by everyone from casual players to large server owners.
 
 Originally a fork of the FerrumC project, Temper aims to supersede its predecessor by providing a more polished and
 user-friendly experience, while still maintaining the same high standards for performance and efficiency. We are
@@ -44,8 +43,7 @@ committed to building a strong community around Temper and welcome contributions
   standard of quality in our codebase.
 - **Maintainable Codebase**: We want to maintain a clean and well-organized codebase that is easy to understand and
   contribute to. We will follow the best practices for code organization and documentation, and we will strive to make
-  our
-  code as readable and maintainable as possible. We will also prioritize code reviews and testing to ensure that our
+  our code as readable and maintainable as possible. We will also prioritize code reviews and testing to ensure that our
   codebase remains healthy and maintainable over time.
 
 ## Getting Started
@@ -55,18 +53,18 @@ committed to building a strong community around Temper and welcome contributions
 While it is recommended to compile from source for the best performance and latest features, we understand that not
 everyone may be comfortable with that process. Therefore, we provide pre-compiled binaries for Windows, Linux, and macOS
 on our GitHub Actions.
-At a later date we hope to make this easier by providing downloads on the Releases page, but for now you can follow the
-instructions below to download the latest pre-compiled binary.
 
-[//]: # (#### Option 1: Download pre-compiled binary &#40;Maybe outdated!&#41;)
+#### Option 1: Download our latest release
 
-[//]: # ()
+1. Go to the [Releases](https://github.com/temper-mc/temper/releases) page
 
-[//]: # (1. Go to the [Releases]&#40;https://github.com/temper-mc/temper/releases&#41; page)
+2. Download the latest version for your operating system
 
-[//]: # (2. Download the latest version for your operating system)
+3. Extract the archive to your desired location
 
-[//]: # (3. Extract the archive to your desired location)
+4. Run the extracted binary and follow the instructions in the `Usage` section
+
+#### Option 2: Download the latest build from GitHub Actions
 
 1. Go to the [Actions](https://github.com/temper-mc/temper/actions) tab
 2. Click on the latest build
@@ -99,6 +97,7 @@ setup   Sets up the config
 import  Import the world data
 run     Start the server (default, if no command is given)
 help    Print this message or the help of the given subcommand(s)
+validate Checks the stored world for any errors
 
 Options:
 --log <LOG>  [default: debug] [possible values: trace, debug, info, warn, error]

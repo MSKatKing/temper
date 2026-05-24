@@ -2,6 +2,7 @@ use clap::Parser;
 use std::time::Instant;
 use temper_app::bin_cli::args::{CLIArgs, Command};
 use temper_app::{bin_cli, bin_import, bin_runtime};
+use temper_config::server_config::create_config;
 use tracing::{error, info};
 
 #[cfg(feature = "dhat")]
@@ -37,7 +38,8 @@ fn main() {
         Some(Command::Import(import_args)) => {
             temper_logging::init_logging(cli_args.log.into(), true);
             info!("Starting import...");
-            bin_import::handle_import(import_args);
+            let config = create_config();
+            bin_import::handle_import(import_args, config);
         }
 
         Some(Command::Clear(clear_args)) => {

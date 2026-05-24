@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
-pub struct LmdbBackend {
+pub struct StorageBackend {
     pub env: Arc<Mutex<Env<WithoutTls>>>,
 }
 
@@ -23,7 +23,7 @@ impl From<heed::Error> for StorageError {
     }
 }
 
-impl LmdbBackend {
+impl StorageBackend {
     pub fn initialize(store_path: Option<PathBuf>, map_size: usize) -> Result<Self, StorageError>
     where
         Self: Sized,
@@ -37,7 +37,7 @@ impl LmdbBackend {
         let rounded_map_size = ((map_size as f64 / page_size::get() as f64).round()
             * page_size::get() as f64) as usize;
         unsafe {
-            let backend = LmdbBackend {
+            let backend = StorageBackend {
                 env: Arc::new(Mutex::new(
                     EnvOpenOptions::new()
                         .read_txn_without_tls()
@@ -182,7 +182,7 @@ mod tests {
         let path = tempdir().unwrap().keep();
         {
             let backend =
-                LmdbBackend::initialize(Some(path.clone()), 10 * 1024 * 1024 * 1024).unwrap();
+                StorageBackend::initialize(Some(path.clone()), 10 * 1024 * 1024 * 1024).unwrap();
             backend.create_table("test_table".to_string()).unwrap();
             let key = 12345678901234567890u128;
             let value = vec![1, 2, 3, 4, 5];
@@ -200,7 +200,7 @@ mod tests {
         let path = tempdir().unwrap().keep();
         {
             let backend =
-                LmdbBackend::initialize(Some(path.clone()), 10 * 1024 * 1024 * 1024).unwrap();
+                StorageBackend::initialize(Some(path.clone()), 10 * 1024 * 1024 * 1024).unwrap();
             backend.create_table("test_table".to_string()).unwrap();
             let mut threads = vec![];
             for thread_iter in 0..10 {
@@ -230,7 +230,7 @@ mod tests {
         let path = tempdir().unwrap().keep();
         {
             let backend =
-                LmdbBackend::initialize(Some(path.clone()), 10 * 1024 * 1024 * 1024).unwrap();
+                StorageBackend::initialize(Some(path.clone()), 10 * 1024 * 1024 * 1024).unwrap();
             backend.create_table("test_table".to_string()).unwrap();
             for thread_iter in 0..10 {
                 for iter in 0..100 {

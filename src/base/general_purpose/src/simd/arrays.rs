@@ -61,7 +61,7 @@ unsafe fn u8_slice_to_u32_be_simd(input: &[u8]) -> Vec<u32> {
     }
 
     let input = input.remainder();
-    let input = input.chunks_exact(8);
+    let input = input.chunks_exact(4);
 
     for chunk in input {
         let bytes: [u8; 4] = chunk.try_into().unwrap();
@@ -230,4 +230,34 @@ unsafe fn u64_slice_to_u8_be_simd(input: &[u64]) -> Vec<u8> {
     }
 
     output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn u8_slice_to_u32_be_handles_non_32_aligned_lengths() {
+        // A 10-element u32 sequence (40 bytes): 32-byte SIMD block consumes 8,
+        // remainder is 8 bytes and must yield 2 more u32s.
+        let values: Vec<u32> = (0..10).collect();
+        let bytes: Vec<u8> = values.iter().flat_map(|v| v.to_be_bytes()).collect();
+        assert_eq!(u8_slice_to_u32_be(&bytes), values);
+    }
+
+    #[test]
+    fn u8_slice_to_u32_be_handles_4_byte_remainder() {
+        // 32 + 4 = 36 bytes -> 9 u32s. The tail is a single 4-byte chunk.
+        let values: Vec<u32> = (0..9).collect();
+        let bytes: Vec<u8> = values.iter().flat_map(|v| v.to_be_bytes()).collect();
+        assert_eq!(u8_slice_to_u32_be(&bytes), values);
+    }
+
+    #[test]
+    fn u8_slice_to_u32_be_handles_aligned_input() {
+        // 64 bytes -> 16 u32s; exercises only the SIMD-block path with no remainder.
+        let values: Vec<u32> = (0..16).collect();
+        let bytes: Vec<u8> = values.iter().flat_map(|v| v.to_be_bytes()).collect();
+        assert_eq!(u8_slice_to_u32_be(&bytes), values);
+    }
 }

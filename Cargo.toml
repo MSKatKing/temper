@@ -64,7 +64,7 @@ members = [
 
 [workspace.package]
 edition = "2021"
-version = "0.1.0"
+version = "0.1.1"
 
 #================== Lints ==================#
 [workspace.lints.rust]
@@ -90,6 +90,7 @@ wildcard_dependencies = "deny"
 redundant_type_annotations = "deny"
 infinite_loop = "deny"
 type_complexity = "allow"
+too_many_arguments = "allow"
 
 #================= Profile =================#
 [profile.profiling]
@@ -99,6 +100,7 @@ debug = true
 [profile.release]
 debug = true
 
+# This profile is used for release builds
 [profile.hyper]
 inherits = "release"
 strip = "symbols"
@@ -107,7 +109,6 @@ opt-level = 3
 debug = false
 debug-assertions = false
 overflow-checks = false
-panic = "abort"
 codegen-units = 1
 
 [profile.bench]
@@ -156,7 +157,7 @@ interactions = { path = "src/game_systems/src/interactions" }
 temper-permissions = { path = "src/permissions" }
 
 # Asynchronous
-tokio = { version = "1.52.1", features = [
+tokio = { version = "1.52.3", features = [
     "macros",
     "net",
     "rt",
@@ -237,11 +238,13 @@ type_hash = "0.3.0"
 
 # Magic
 dhat = "0.3.3"
-ctor = "0.11.1"
+ctor = "1.0.6"
 
 # Compression/Decompression
 yazi = "0.2.1"
 flate2 = "1.1.9"
+zip = { version = "9.0.0-pre2", default-features = false, features = ["deflate"] }
+
 
 # Database
 heed = "0.22.1"
@@ -289,7 +292,7 @@ phf_codegen = { version = "0.13.1" }
 axum = { version = "0.8.9", features = ["tokio", "ws"] }
 
 # Stats
-sysinfo = { version = "0.38.4", default-features = false, features = ["system"] }
+sysinfo = { version = "0.39.2", default-features = false, features = ["system"] }
 dir-size = "0.1.1"
 
 # Compression is a real bottleneck that we can do little about, so compiling it with optimizations is needed in dev mode.

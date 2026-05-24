@@ -1,7 +1,6 @@
 use super::gamemode::GameMode;
 use bevy_ecs::prelude::Component;
 use bitcode_derive::{Decode, Encode};
-use temper_config::server_config::get_global_config;
 use type_hash::TypeHash;
 
 #[derive(Component, Debug, Clone, Copy, Encode, Decode, TypeHash)]
@@ -17,16 +16,10 @@ pub struct PlayerAbilities {
 
 impl Default for PlayerAbilities {
     fn default() -> Self {
-        let default_gamemode = match get_global_config().default_gamemode.to_lowercase().as_str() {
-            "survival" => GameMode::Survival,
-            "creative" => GameMode::Creative,
-            "adventure" => GameMode::Adventure,
-            "spectator" => GameMode::Spectator,
-            _ => GameMode::Survival,
-        };
-        Self::for_game_mode(default_gamemode)
+        Self::for_game_mode(GameMode::default())
     }
 }
+
 impl PlayerAbilities {
     pub fn for_game_mode(game_mode: GameMode) -> Self {
         match game_mode {

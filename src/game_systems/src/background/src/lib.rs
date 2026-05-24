@@ -1,3 +1,4 @@
+pub mod bossbar_update;
 pub mod chunk_sending;
 pub mod chunk_unloader;
 pub mod connection_killer;

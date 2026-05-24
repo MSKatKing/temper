@@ -7,7 +7,7 @@ use temper_commands::{
 };
 use temper_entities::entity_types::EntityTypeEnum;
 use temper_macros::command;
-use temper_messages::SpawnEntityCommand;
+use temper_messages::SpawnMobCommand;
 use temper_text::TextComponent;
 
 /// Wrapper type for EntityType that implements CommandArgument
@@ -144,12 +144,12 @@ impl CommandArgument for EntityTypeArg {
 fn spawn_command(
     #[sender] sender: Sender,
     #[arg] entity_type: EntityTypeArg,
-    mut spawn_commands: MessageWriter<SpawnEntityCommand>,
+    mut spawn_commands: MessageWriter<SpawnMobCommand>,
 ) {
     match sender {
         Sender::Player(entity) => {
             // Write spawn command message - will be processed by spawn_command_processor system
-            spawn_commands.write(SpawnEntityCommand {
+            spawn_commands.write(SpawnMobCommand {
                 entity_type: entity_type.0,
                 player_entity: entity,
             });

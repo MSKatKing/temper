@@ -8,7 +8,6 @@ edition = "2024"
 
 
 [dependencies]
-temper-dashboard = { workspace = true, optional = true }
 dhat = { workspace = true, optional = true }
 temper-config = { workspace = true }
 temper-logging = { workspace = true }
@@ -21,17 +20,7 @@ temper-registry = { workspace = true }
 
 [features]
 dhat = ["dep:dhat"]
-dashboard = [
-    "dep:temper-dashboard",
-    "temper-config/dashboard"
-]
-default = [
-    "dashboard"
-]
 tracy = ["temper-logging/tracy", "dep:tracy-client"]
-
-[dev-dependencies]
-tempfile = { workspace = true }
 
 [[bin]]
 name = "temper"
