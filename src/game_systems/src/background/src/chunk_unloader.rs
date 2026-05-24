@@ -3,7 +3,6 @@ use std::collections::{HashMap, HashSet};
 use temper_components::last_chunk_pos::LastChunkPos;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::player_marker::PlayerMarker;
-use temper_core::dimension::Dimension;
 use temper_core::dimension::Dimension::Overworld;
 use temper_core::pos::ChunkPos;
 use temper_entities::MobKind;
@@ -21,7 +20,7 @@ pub fn handle(
     // If there are no connected players, unload all cached chunks
     if query.count() == 0 {
         let mut removed = 0;
-        let chunk_mapped_entities: HashMap<ChunkPos, Vec<Entity>> = entity_query
+        let chunk_mapped_entities: HashMap<ChunkPos , Vec<Entity>> = entity_query
             .iter()
             .filter(|(_, _, is_player, _)| !is_player)
             .map(|(entity, last_chunk, _, _)| (last_chunk.0, entity))
@@ -37,15 +36,11 @@ pub fn handle(
                 .get(&(pos, Overworld))
                 .expect("Chunk position from entity last chunk pos should exist in cache.");
             removed += 1;
-            for (entity, last_chunk, is_player, is_mob) in entities.iter().map(|entity| {
+            for (entity, _last_chunk, _is_player, is_mob) in entities.iter().map(|entity| {
                 entity_query
                     .get(*entity)
                     .expect("Entity from chunk mapped entities should exist in entity query.")
             }) {
-                if is_player || last_chunk.0 != pos {
-                    continue;
-                }
-
                 trace!(
                     "Unloading live entity {:?} from chunk {:?} as no players are connected.",
                     entity, pos
@@ -62,11 +57,12 @@ pub fn handle(
 
             // Write chunks back to the world storage
             if chunk.is_dirty() {
-                state
-                    .0
-                    .world
-                    .insert_chunk(pos, Overworld, chunk.clone())
-                    .expect("Failed to re-insert chunk after unloading from cache.");
+                if let Err(err) = state.0.world.insert_chunk(pos, Overworld, chunk.clone()) {
+                    error!(
+                        "Failed to write chunk at position {:?} back to world storage: {:?}",
+                        pos, err
+                    );
+                }
                 continue;
             }
         }
@@ -99,11 +95,7 @@ pub fn handle(
     let mut written_chunks = 0;
     // The difference is the set of chunks that are in the cache but not visible to any player
     for chunk_pos in all_chunks.difference(&visible_chunks) {
-        let removed_chunk = state
-            .0
-            .world
-            .get_cache()
-            .remove(&(*chunk_pos, Dimension::Overworld));
+        let removed_chunk = state.0.world.get_cache().remove(&(*chunk_pos, Overworld));
         match removed_chunk {
             Some(((pos, dim), chunk)) => {
                 for (entity, last_chunk, is_player, is_mob) in entity_query.iter() {
