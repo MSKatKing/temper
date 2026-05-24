@@ -20,7 +20,7 @@ pub fn handle(
     // If there are no connected players, unload all cached chunks
     if query.count() == 0 {
         let mut removed = 0;
-        let chunk_mapped_entities: HashMap<ChunkPos , Vec<Entity>> = entity_query
+        let chunk_mapped_entities: HashMap<ChunkPos, Vec<Entity>> = entity_query
             .iter()
             .filter(|(_, _, is_player, _)| !is_player)
             .map(|(entity, last_chunk, _, _)| (last_chunk.0, entity))
