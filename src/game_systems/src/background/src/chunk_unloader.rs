@@ -1,9 +1,10 @@
 use bevy_ecs::prelude::{Commands, Entity, Has, MessageWriter, Query, Res};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use temper_components::last_chunk_pos::LastChunkPos;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_core::dimension::Dimension;
+use temper_core::dimension::Dimension::Overworld;
 use temper_core::pos::ChunkPos;
 use temper_entities::MobKind;
 use temper_messages::DespawnMob;
@@ -20,11 +21,28 @@ pub fn handle(
     // If there are no connected players, unload all cached chunks
     if query.count() == 0 {
         let mut removed = 0;
-        for chunk_candidate in state.0.world.get_cache() {
-            let ((pos, dim), chunk) = chunk_candidate.pair();
+        let chunk_mapped_entities: HashMap<ChunkPos, Vec<Entity>> = entity_query
+            .iter()
+            .filter(|(_, _, is_player, _)| !is_player)
+            .map(|(entity, last_chunk, _, _)| (last_chunk.0, entity))
+            .fold(HashMap::new(), |mut acc, (chunk_pos, entity)| {
+                acc.entry(chunk_pos).or_insert_with(Vec::new).push(entity);
+                acc
+            });
+        for (pos, entities) in chunk_mapped_entities {
+            let chunk = state
+                .0
+                .world
+                .get_cache()
+                .get(&(pos, Overworld))
+                .expect("Chunk position from entity last chunk pos should exist in cache.");
             removed += 1;
-            for (entity, last_chunk, is_player, is_mob) in entity_query.iter() {
-                if is_player || last_chunk.0 != *pos {
+            for (entity, last_chunk, is_player, is_mob) in entities.iter().map(|entity| {
+                entity_query
+                    .get(*entity)
+                    .expect("Entity from chunk mapped entities should exist in entity query.")
+            }) {
+                if is_player || last_chunk.0 != pos {
                     continue;
                 }
 
@@ -47,7 +65,7 @@ pub fn handle(
                 state
                     .0
                     .world
-                    .insert_chunk(*pos, *dim, chunk.clone())
+                    .insert_chunk(pos, Overworld, chunk.clone())
                     .expect("Failed to re-insert chunk after unloading from cache.");
                 continue;
             }
