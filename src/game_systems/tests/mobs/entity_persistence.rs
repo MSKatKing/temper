@@ -146,7 +146,8 @@ fn load_cows_into_replacement_ecs(
 fn run_registered_shutdown_schedule(world: &mut World) {
     let mut timed = Scheduler::new();
     let mut shutdown_schedule = Schedule::default();
-    temper_game_systems::register_schedules(&mut timed, &mut shutdown_schedule);
+    let state = create_test_state();
+    temper_game_systems::register_schedules(&mut timed, &mut shutdown_schedule, state.0.0);
     shutdown_schedule.run(world);
 }
 
