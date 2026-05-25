@@ -15,12 +15,10 @@ use temper_state::GlobalStateResource;
 use tracing::{debug, error, trace};
 
 use bevy_math::DVec3;
-use block_placing::PlacedBlocks;
-use std::collections::HashMap;
 use temper_components::player::rotation::Rotation;
 use temper_core::dimension::Dimension;
 use temper_core::mq;
-use temper_entities::{MobBundle, entity_types::EntityTypeEnum};
+use temper_entities::MobBundle;
 use temper_inventories::hotbar::Hotbar;
 use temper_inventories::inventory::Inventory;
 use temper_messages::{SpawnMobBundle, world_change::WorldChange};
@@ -122,34 +120,6 @@ pub fn handle(
                             _ => (0, 0, 0),
                         };
 
-                    if let Some(item_name) = item_id.to_name()
-                        && item_name.ends_with("_spawn_egg")
-                    {
-                        let raw_name = item_name.strip_prefix("minecraft:").unwrap_or(&item_name);
-                        if let Some(entity_name) = raw_name.strip_suffix("_spawn_egg")
-                            && let Some(entity_type) = EntityTypeEnum::from_snake_case(entity_name)
-                        {
-                            let spawn_pos_vec = Position::new(
-                                f64::from(offset_pos.pos.x) + 0.5,
-                                f64::from(offset_pos.pos.y),
-                                f64::from(offset_pos.pos.z) + 0.5,
-                            );
-                            mob_bundle_events.write(SpawnMobBundle {
-                                bundle: MobBundle::new(entity_type, spawn_pos_vec),
-                                persist: true,
-                            });
-
-                            let ack_packet = BlockChangeAck {
-                                sequence: event.sequence,
-                            };
-
-                            if let Err(err) = conn.send_packet_ref(&ack_packet) {
-                                error!("Failed to send block change ack packet: {:?}", err);
-                            }
-                            continue 'ev_loop;
-                        }
-                    }
-
                     let block_clicked = {
                         let chunk = state
                             .0
@@ -195,7 +165,7 @@ pub fn handle(
                         chunk.get_block(offset_pos.chunk_block_pos())
                     };
 
-                    let placed_blocks = block_placing::place_item(
+                    let place_result = block_placing::place_item(
                         state.0.clone(),
                         block_placing::BlockPlaceContext {
                             block_clicked,
@@ -221,43 +191,55 @@ pub fn handle(
                             player_rotation: *rot,
                             item_used: item_id,
                         },
-                    )
-                    .unwrap_or_else(|err| {
-                        error!("Block placement failed: {:?}", err);
-                        PlacedBlocks {
-                            blocks: HashMap::new(),
-                            take_item: false,
+                    );
+
+                    match place_result {
+                        Ok(block_placing::PlaceResult::SpawnMob(entity_type)) => {
+                            let spawn_pos_vec = Position::new(
+                                f64::from(offset_pos.pos.x) + 0.5,
+                                f64::from(offset_pos.pos.y),
+                                f64::from(offset_pos.pos.z) + 0.5,
+                            );
+                            mob_bundle_events.write(SpawnMobBundle {
+                                bundle: MobBundle::new(entity_type, spawn_pos_vec),
+                                persist: true,
+                            });
                         }
-                    });
+                        Ok(block_placing::PlaceResult::Placed(placed_blocks)) => {
+                            for (block_pos, block_state) in placed_blocks.blocks {
+                                let block_chunk = block_pos.chunk();
+                                world_change.write(WorldChange {
+                                    chunk: Some(block_chunk),
+                                });
 
-                    for (block_pos, block_state) in placed_blocks.blocks {
-                        let block_chunk = block_pos.chunk();
-                        world_change.write(WorldChange {
-                            chunk: Some(block_chunk),
-                        });
+                                let chunk_packet = BlockUpdate {
+                                    location: NetworkPosition {
+                                        x: block_pos.pos.x,
+                                        y: block_pos.pos.y as i16,
+                                        z: block_pos.pos.z,
+                                    },
+                                    block_state_id: block_state.to_varint(),
+                                };
 
-                        let chunk_packet = BlockUpdate {
-                            location: NetworkPosition {
-                                x: block_pos.pos.x,
-                                y: block_pos.pos.y as i16,
-                                z: block_pos.pos.z,
-                            },
-                            block_state_id: block_state.to_varint(),
-                        };
+                                let (block_chunk_x, block_chunk_z) =
+                                    (block_chunk.x(), block_chunk.z());
+                                let render_distance = state.0.config.chunk_render_distance as i32;
+                                for (_, conn, _, _, pos, _, _) in query.iter() {
+                                    let chunk = pos.chunk();
+                                    let (chunk_x, chunk_z) = (chunk.x(), chunk.z());
 
-                        let (block_chunk_x, block_chunk_z) = (block_chunk.x(), block_chunk.z());
-                        let render_distance = state.0.config.chunk_render_distance as i32;
-                        for (_, conn, _, _, pos, _, _) in query.iter() {
-                            let chunk = pos.chunk();
-                            let (chunk_x, chunk_z) = (chunk.x(), chunk.z());
-
-                            // Only send block update if the player is within the render distance of the block being updated
-                            if (block_chunk_x - chunk_x).abs() <= render_distance
-                                && (block_chunk_z - chunk_z).abs() <= render_distance
-                                && let Err(err) = conn.send_packet_ref(&chunk_packet)
-                            {
-                                error!("Failed to send block update packet: {:?}", err);
+                                    // Only send block update if the player is within the render distance of the block being updated
+                                    if (block_chunk_x - chunk_x).abs() <= render_distance
+                                        && (block_chunk_z - chunk_z).abs() <= render_distance
+                                        && let Err(err) = conn.send_packet_ref(&chunk_packet)
+                                    {
+                                        error!("Failed to send block update packet: {:?}", err);
+                                    }
+                                }
                             }
+                        }
+                        Err(err) => {
+                            error!("Block placement failed: {:?}", err);
                         }
                     }
                 }
