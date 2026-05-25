@@ -70,14 +70,11 @@ pub fn place_item(
     };
     let item_name = item_name.strip_prefix("minecraft:").unwrap_or(&item_name);
 
-    if item_name.ends_with("_spawn_egg") {
-        if let Some(entity_name) = item_name.strip_suffix("_spawn_egg") {
-            if let Some(entity_type) =
-                temper_entities::entity_types::EntityTypeEnum::from_snake_case(entity_name)
-            {
-                return Ok(PlaceResult::SpawnMob(entity_type));
-            }
-        }
+    if let Some(entity_type) = item_name
+        .strip_suffix("_spawn_egg")
+        .and_then(temper_entities::entity_types::EntityTypeEnum::from_snake_case)
+    {
+        return Ok(PlaceResult::SpawnMob(entity_type));
     }
 
     if item_name == "torch" {
