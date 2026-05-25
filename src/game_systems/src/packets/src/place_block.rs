@@ -122,34 +122,31 @@ pub fn handle(
                             _ => (0, 0, 0),
                         };
 
-                    if let Some(item_name) = item_id.to_name() {
-                        if item_name.ends_with("_spawn_egg") {
-                            let raw_name =
-                                item_name.strip_prefix("minecraft:").unwrap_or(&item_name);
-                            if let Some(entity_name) = raw_name.strip_suffix("_spawn_egg") {
-                                if let Some(entity_type) =
-                                    EntityTypeEnum::from_snake_case(entity_name)
-                                {
-                                    let spawn_pos_vec = Position::new(
-                                        f64::from(offset_pos.pos.x) + 0.5,
-                                        f64::from(offset_pos.pos.y),
-                                        f64::from(offset_pos.pos.z) + 0.5,
-                                    );
-                                    mob_bundle_events.write(SpawnMobBundle {
-                                        bundle: MobBundle::new(entity_type, spawn_pos_vec),
-                                        persist: true,
-                                    });
+                    if let Some(item_name) = item_id.to_name()
+                        && item_name.ends_with("_spawn_egg")
+                    {
+                        let raw_name = item_name.strip_prefix("minecraft:").unwrap_or(&item_name);
+                        if let Some(entity_name) = raw_name.strip_suffix("_spawn_egg")
+                            && let Some(entity_type) = EntityTypeEnum::from_snake_case(entity_name)
+                        {
+                            let spawn_pos_vec = Position::new(
+                                f64::from(offset_pos.pos.x) + 0.5,
+                                f64::from(offset_pos.pos.y),
+                                f64::from(offset_pos.pos.z) + 0.5,
+                            );
+                            mob_bundle_events.write(SpawnMobBundle {
+                                bundle: MobBundle::new(entity_type, spawn_pos_vec),
+                                persist: true,
+                            });
 
-                                    let ack_packet = BlockChangeAck {
-                                        sequence: event.sequence,
-                                    };
+                            let ack_packet = BlockChangeAck {
+                                sequence: event.sequence,
+                            };
 
-                                    if let Err(err) = conn.send_packet_ref(&ack_packet) {
-                                        error!("Failed to send block change ack packet: {:?}", err);
-                                    }
-                                    continue 'ev_loop;
-                                }
+                            if let Err(err) = conn.send_packet_ref(&ack_packet) {
+                                error!("Failed to send block change ack packet: {:?}", err);
                             }
+                            continue 'ev_loop;
                         }
                     }
 
