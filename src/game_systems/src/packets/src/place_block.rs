@@ -20,12 +20,11 @@ use std::collections::HashMap;
 use temper_components::player::rotation::Rotation;
 use temper_core::dimension::Dimension;
 use temper_core::mq;
+use temper_entities::{MobBundle, entity_types::EntityTypeEnum};
 use temper_inventories::hotbar::Hotbar;
 use temper_inventories::inventory::Inventory;
-use temper_messages::{world_change::WorldChange, SpawnMobBundle};
-use temper_entities::{MobBundle, entity_types::EntityTypeEnum};
+use temper_messages::{SpawnMobBundle, world_change::WorldChange};
 use temper_text::{Color, NamedColor, TextComponentBuilder};
-
 
 pub fn handle(
     receiver: Res<PlaceBlockReceiver>,
@@ -125,9 +124,12 @@ pub fn handle(
 
                     if let Some(item_name) = item_id.to_name() {
                         if item_name.ends_with("_spawn_egg") {
-                            let raw_name = item_name.strip_prefix("minecraft:").unwrap_or(&item_name);
+                            let raw_name =
+                                item_name.strip_prefix("minecraft:").unwrap_or(&item_name);
                             if let Some(entity_name) = raw_name.strip_suffix("_spawn_egg") {
-                                if let Some(entity_type) = EntityTypeEnum::from_snake_case(entity_name) {
+                                if let Some(entity_type) =
+                                    EntityTypeEnum::from_snake_case(entity_name)
+                                {
                                     let spawn_pos_vec = Position::new(
                                         f64::from(offset_pos.pos.x) + 0.5,
                                         f64::from(offset_pos.pos.y),
