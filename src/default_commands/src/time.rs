@@ -30,11 +30,13 @@ fn parse_time_value(s: &str) -> Result<u32, &'static str> {
     }
 
     let last_char = s.chars().last().unwrap();
-    if last_char == 'd' || last_char == 's' || last_char == 't' {
+    if last_char == 's' || last_char == 't'
+    /* || last_char == 'd' */
+    {
         let number_part = &s[..s.len() - 1];
         let val = number_part.parse::<u32>().map_err(|_| "invalid number")?;
         match last_char {
-            'd' => Ok(val * 24000),
+            /* 'd' => Ok(val * 24000), */
             's' => Ok(val * 20),
             't' => Ok(val),
             _ => unreachable!(),
@@ -83,7 +85,7 @@ impl CommandArgument for TimeSetArg {
 
         if !input.is_empty() && input.chars().all(|c| c.is_ascii_digit()) {
             return vec![
-                Suggestion::of(format!("{}d", input)),
+                // Suggestion::of(format!("{}d", input)),
                 Suggestion::of(format!("{}s", input)),
                 Suggestion::of(format!("{}t", input)),
             ];
