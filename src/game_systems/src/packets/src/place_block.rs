@@ -22,8 +22,96 @@ use temper_core::dimension::Dimension;
 use temper_core::mq;
 use temper_inventories::hotbar::Hotbar;
 use temper_inventories::inventory::Inventory;
-use temper_messages::world_change::WorldChange;
+use temper_messages::{world_change::WorldChange, SpawnMobBundle};
+use temper_entities::{MobBundle, entity_types::EntityTypeEnum};
 use temper_text::{Color, NamedColor, TextComponentBuilder};
+
+fn from_spawn_egg_name(name: &str) -> Option<EntityTypeEnum> {
+    let name = name.strip_prefix("minecraft:").unwrap_or(name);
+    let name = name.strip_suffix("_spawn_egg")?;
+    match name {
+        "allay" => Some(EntityTypeEnum::Allay),
+        "armadillo" => Some(EntityTypeEnum::Armadillo),
+        "axolotl" => Some(EntityTypeEnum::Axolotl),
+        "bat" => Some(EntityTypeEnum::Bat),
+        "bee" => Some(EntityTypeEnum::Bee),
+        "camel" => Some(EntityTypeEnum::Camel),
+        "cat" => Some(EntityTypeEnum::Cat),
+        "cave_spider" => Some(EntityTypeEnum::CaveSpider),
+        "chicken" => Some(EntityTypeEnum::Chicken),
+        "cod" => Some(EntityTypeEnum::Cod),
+        "cow" => Some(EntityTypeEnum::Cow),
+        "dolphin" => Some(EntityTypeEnum::Dolphin),
+        "donkey" => Some(EntityTypeEnum::Donkey),
+        "drowned" => Some(EntityTypeEnum::Drowned),
+        "enderman" => Some(EntityTypeEnum::Enderman),
+        "fox" => Some(EntityTypeEnum::Fox),
+        "frog" => Some(EntityTypeEnum::Frog),
+        "goat" => Some(EntityTypeEnum::Goat),
+        "horse" => Some(EntityTypeEnum::Horse),
+        "iron_golem" => Some(EntityTypeEnum::IronGolem),
+        "llama" => Some(EntityTypeEnum::Llama),
+        "mooshroom" => Some(EntityTypeEnum::Mooshroom),
+        "ocelot" => Some(EntityTypeEnum::Ocelot),
+        "panda" => Some(EntityTypeEnum::Panda),
+        "parrot" => Some(EntityTypeEnum::Parrot),
+        "pig" => Some(EntityTypeEnum::Pig),
+        "piglin" => Some(EntityTypeEnum::Piglin),
+        "polar_bear" => Some(EntityTypeEnum::PolarBear),
+        "pufferfish" => Some(EntityTypeEnum::Pufferfish),
+        "rabbit" => Some(EntityTypeEnum::Rabbit),
+        "salmon" => Some(EntityTypeEnum::Salmon),
+        "sheep" => Some(EntityTypeEnum::Sheep),
+        "skeleton_horse" => Some(EntityTypeEnum::SkeletonHorse),
+        "sniffer" => Some(EntityTypeEnum::Sniffer),
+        "snow_golem" => Some(EntityTypeEnum::SnowGolem),
+        "spider" => Some(EntityTypeEnum::Spider),
+        "squid" => Some(EntityTypeEnum::Squid),
+        "strider" => Some(EntityTypeEnum::Strider),
+        "tadpole" => Some(EntityTypeEnum::Tadpole),
+        "trader_llama" => Some(EntityTypeEnum::TraderLlama),
+        "tropical_fish" => Some(EntityTypeEnum::TropicalFish),
+        "turtle" => Some(EntityTypeEnum::Turtle),
+        "villager" => Some(EntityTypeEnum::Villager),
+        "wandering_trader" => Some(EntityTypeEnum::WanderingTrader),
+        "wolf" => Some(EntityTypeEnum::Wolf),
+        "zombie_horse" => Some(EntityTypeEnum::ZombieHorse),
+        "zombified_piglin" => Some(EntityTypeEnum::ZombifiedPiglin),
+        "glow_squid" => Some(EntityTypeEnum::GlowSquid),
+        "mule" => Some(EntityTypeEnum::Mule),
+        "blaze" => Some(EntityTypeEnum::Blaze),
+        "bogged" => Some(EntityTypeEnum::Bogged),
+        "breeze" => Some(EntityTypeEnum::Breeze),
+        "creaking" => Some(EntityTypeEnum::Creaking),
+        "creeper" => Some(EntityTypeEnum::Creeper),
+        "elder_guardian" => Some(EntityTypeEnum::ElderGuardian),
+        "endermite" => Some(EntityTypeEnum::Endermite),
+        "evoker" => Some(EntityTypeEnum::Evoker),
+        "ghast" => Some(EntityTypeEnum::Ghast),
+        "guardian" => Some(EntityTypeEnum::Guardian),
+        "hoglin" => Some(EntityTypeEnum::Hoglin),
+        "husk" => Some(EntityTypeEnum::Husk),
+        "magma_cube" => Some(EntityTypeEnum::MagmaCube),
+        "phantom" => Some(EntityTypeEnum::Phantom),
+        "piglin_brute" => Some(EntityTypeEnum::PiglinBrute),
+        "pillager" => Some(EntityTypeEnum::Pillager),
+        "ravager" => Some(EntityTypeEnum::Ravager),
+        "shulker" => Some(EntityTypeEnum::Shulker),
+        "silverfish" => Some(EntityTypeEnum::Silverfish),
+        "skeleton" => Some(EntityTypeEnum::Skeleton),
+        "slime" => Some(EntityTypeEnum::Slime),
+        "stray" => Some(EntityTypeEnum::Stray),
+        "vex" => Some(EntityTypeEnum::Vex),
+        "vindicator" => Some(EntityTypeEnum::Vindicator),
+        "warden" => Some(EntityTypeEnum::Warden),
+        "witch" => Some(EntityTypeEnum::Witch),
+        "wither_skeleton" => Some(EntityTypeEnum::WitherSkeleton),
+        "zoglin" => Some(EntityTypeEnum::Zoglin),
+        "zombie" => Some(EntityTypeEnum::Zombie),
+        "zombie_villager" => Some(EntityTypeEnum::ZombieVillager),
+        _ => None,
+    }
+}
 
 pub fn handle(
     receiver: Res<PlaceBlockReceiver>,
@@ -40,6 +128,7 @@ pub fn handle(
     pos_q: Query<(&Position, &CollisionBounds)>,
     mut world_change: MessageWriter<WorldChange>,
     mut block_interact: MessageWriter<BlockInteractMessage>,
+    mut mob_bundle_events: MessageWriter<SpawnMobBundle>,
 ) {
     'ev_loop: for (event, eid) in receiver.0.try_iter() {
         let Ok((entity, conn, inventory, hotbar, pos, rot, sneak)) = query.get(eid) else {
@@ -119,6 +208,31 @@ pub fn handle(
                             5 => (1, 0, 0),
                             _ => (0, 0, 0),
                         };
+
+                    if let Some(item_name) = item_id.to_name() {
+                        if item_name.ends_with("_spawn_egg") {
+                            if let Some(entity_type) = from_spawn_egg_name(&item_name) {
+                                let spawn_pos_vec = Position::new(
+                                    f64::from(offset_pos.pos.x) + 0.5,
+                                    f64::from(offset_pos.pos.y),
+                                    f64::from(offset_pos.pos.z) + 0.5,
+                                );
+                                mob_bundle_events.write(SpawnMobBundle {
+                                    bundle: MobBundle::new(entity_type, spawn_pos_vec),
+                                    persist: true,
+                                });
+
+                                let ack_packet = BlockChangeAck {
+                                    sequence: event.sequence,
+                                };
+
+                                if let Err(err) = conn.send_packet_ref(&ack_packet) {
+                                    error!("Failed to send block change ack packet: {:?}", err);
+                                }
+                                continue 'ev_loop;
+                            }
+                        }
+                    }
 
                     let block_clicked = {
                         let chunk = state
