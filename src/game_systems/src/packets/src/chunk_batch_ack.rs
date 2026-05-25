@@ -25,11 +25,12 @@ pub fn handle(
             continue;
         }
         let min_chunks = state.0.config.performance.chunks_per_tick_min as f32;
-        let chunks_per_tick = if event.chunks_per_tick.is_nan() || event.chunks_per_tick < min_chunks {
-            min_chunks
-        } else {
-            event.chunks_per_tick
-        };
+        let chunks_per_tick =
+            if event.chunks_per_tick.is_nan() || event.chunks_per_tick < min_chunks {
+                min_chunks
+            } else {
+                event.chunks_per_tick
+            };
         chunk_recv.chunks_per_tick = chunks_per_tick;
     }
 }
