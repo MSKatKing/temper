@@ -122,7 +122,11 @@ pub fn handle(
                 matches: LengthPrefixedVec::new(
                     suggestions
                         .into_iter()
-                        .filter(|sug| sug.content.starts_with(current_token))
+                        .filter(|sug| {
+                            sug.content
+                                .to_lowercase()
+                                .starts_with(&current_token.to_lowercase())
+                        })
                         .map(|sug| Match {
                             content: sug.content,
                             tooltip: PrefixedOptional::new(sug.tooltip),
