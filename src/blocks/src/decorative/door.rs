@@ -70,11 +70,17 @@ impl BlockBehavior for DoorBlock {
         }
     }
 
-    fn try_break(&self, _world: &World, pos: BlockPos) -> BrokenBlocks {
+    fn try_break(&self, world: &World, pos: BlockPos) -> BrokenBlocks {
+        let pos = match self.half {
+            DoubleBlockHalf::Upper => pos.below(),
+            DoubleBlockHalf::Lower => pos.above(),
+        };
+        
         BrokenBlocks {
-            blocks: match self.half {
-                DoubleBlockHalf::Upper => vec![pos.below()],
-                DoubleBlockHalf::Lower => vec![pos.above()],
+            blocks: if world.block_is::<DoorBlock>(pos) {
+                vec![pos]
+            } else {
+                vec![]
             }
         }
     }

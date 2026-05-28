@@ -16,6 +16,7 @@ use temper_protocol::outgoing::block_update::BlockUpdate;
 use temper_state::GlobalStateResource;
 use tracing::{error, warn};
 use temper_blocks::BlockDispatch;
+use temper_macros::block;
 
 pub fn handle(
     receiver: Res<PlayerActionReceiver>,
@@ -56,10 +57,23 @@ pub fn handle(
                     chunk: Some(pos.chunk()),
                 });
 
-                let id = state.0.world.get_chunk(pos.chunk(), Dimension::Overworld).map(|chunk| chunk.get_block(pos.chunk_block_pos())).unwrap();
-                let broken_blocks = id.try_break(&state.0.world, pos);
-                let mut broken_positions = broken_blocks.blocks;
+                let Ok(id) = state.0.world.get_block(pos, Dimension::Overworld) else {
+                    error!("Couldn't get block at pos {}", pos);
+                    continue;
+                };
+                
+                let mut broken_positions = id.try_break(&state.0.world, pos).blocks;
                 broken_positions.push(pos);
+                
+                for pos in &broken_positions {
+                    block_break_events.write(BlockBrokenEvent {
+                        position: pos.clone(),
+                    });
+
+                    if let Err(world_error) = state.0.world.set_block(*pos, Dimension::Overworld, block!("air")) {
+                        error!("Failed to break block at {}: {}", pos, world_error)
+                    }
+                }
 
                 // Broadcast the change
                 for (eid, conn) in &broadcast_query {

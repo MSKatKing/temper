@@ -17,6 +17,7 @@ use temper_protocol::outgoing::{block_change_ack::BlockChangeAck, block_update::
 use temper_state::GlobalStateResource;
 use tracing::{debug, error, warn};
 use temper_blocks::BlockDispatch;
+use temper_macros::block;
 
 // A query for just the components needed to acknowledge a dig packet
 type DiggingPlayerQuery<'a> = (Entity, &'a StreamWriter, Option<&'a PlayerDigging>);
@@ -293,14 +294,27 @@ fn break_block(
 ) {
     let pos: BlockPos = position.clone().into();
 
-    let id = state.0.world.get_chunk(pos.chunk(), Dimension::Overworld).map(|chunk| chunk.get_block(pos.chunk_block_pos())).unwrap();
-    let broken_blocks = id.try_break(&state.0.world, pos);
-    let mut broken_positions = broken_blocks.blocks;
+    let Ok(id) = state.0.world.get_block(pos, Dimension::Overworld) else {
+        error!("Failed to get block at {}", pos);
+        return;
+    };
+
+    let mut broken_positions = id.try_break(&state.0.world, pos).blocks;
     broken_positions.push(pos);
 
     world_change.write(WorldChange {
         chunk: Some(pos.chunk()),
     });
+
+    for pos in &broken_positions {
+        block_break_writer.write(temper_messages::BlockBrokenEvent {
+            position: pos.clone()
+        });
+
+        if let Err(world_error) = state.0.world.set_block(*pos, Dimension::Overworld, block!("air")) {
+            error!("Failed to break block at {}: {}", pos, world_error)
+        }
+    }
 
     // Broadcast the block break to all players
     let block_update_packet = BlockUpdate {
