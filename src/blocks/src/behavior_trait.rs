@@ -1,3 +1,4 @@
+use temper_block_data::PlacedBlocks;
 use crate::{PlacementContext, BLOCK_MAPPINGS};
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::BlockPos;
@@ -151,7 +152,7 @@ macro_rules! block_behavior_trait {
 //
 // This is the only place where the `block_behavior_trait!` macro should be used.
 block_behavior_trait!(
-    fn get_placement_state(mut; _context: PlacementContext),
+    fn get_placement_state(mut; _context: PlacementContext) -> PlacedBlocks; PlacedBlocks::default(),
     fn can_be_replaced(; _context: PlacementContext) -> bool; false,
     fn update(mut; _world: &World, _pos: BlockPos),
 );

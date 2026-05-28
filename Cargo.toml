@@ -24,6 +24,7 @@ members = [
     "src/blocks/crates/property",
     "src/blocks/crates/generated",
     "src/blocks/crates/build",
+    "src/blocks/crates/data",
     "src/bin",
     "src/commands",
     "src/components",
@@ -124,6 +125,7 @@ temper-app = { path = "src/app" }
 temper-anvil = { path = "src/adapters/anvil" }
 temper-blocks = { path = "src/blocks" }
 temper-block-properties = { path = "src/blocks/crates/property" }
+temper-block-data = { path = "src/blocks/crates/data" }
 temper-config = { path = "src/config" }
 temper-core = { path = "src/core" }
 temper-default-commands = { path = "src/default_commands" }

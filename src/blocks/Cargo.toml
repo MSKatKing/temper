@@ -7,6 +7,7 @@ version = "0.0.1"
 temper-world = { workspace = true }
 temper-block-properties = { workspace = true }
 temper-blocks-generated = { path = "crates/generated" }
+temper-block-data = { workspace = true }
 temper-core = { workspace = true }
 temper-macros = { workspace = true }
 bevy_math = { workspace = true }

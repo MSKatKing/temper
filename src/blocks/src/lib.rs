@@ -26,6 +26,7 @@ mod waterloggable_block;
 use crate::behavior_trait::BlockBehaviorTable;
 
 pub use crate::behavior_trait::{BlockBehavior, BlockDispatch, StateBehaviorTable};
+pub use temper_block_data::*;
 
 pub const BLOCK_MAPPINGS: &[StateBehaviorTable] =
     include!(concat!(env!("OUT_DIR"), "/mappings.rs"));

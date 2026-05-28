@@ -28,6 +28,8 @@ As a side note, the `temper-blocks-generated` crate contains the glue code to us
 the build crate. The build crate outputs to the build directory and this crate imports those files back in.
 Additionally, the `temper-block-properties` crate is where block state property structs and enums can be found.
 
+Any data types used exclusively by this crate (for example, the `PlacedBlocks` struct) should be placed in the `temper-block-data` crate.
+
 ## Tips and Notes
 
 - If the build script is emitting a warning about an unknown block, see the **Adding / Modifying Block Structs** section for more information.
