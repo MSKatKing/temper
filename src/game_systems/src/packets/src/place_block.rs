@@ -42,7 +42,7 @@ pub fn handle(
     mut block_interact: MessageWriter<BlockInteractMessage>,
 ) {
     'ev_loop: for (event, eid) in receiver.0.try_iter() {
-        let Ok((entity, conn, inventory, hotbar, _pos, _rot, sneak)) = query.get(eid) else {
+        let Ok((entity, conn, inventory, hotbar, _pos, rot, sneak)) = query.get(eid) else {
             debug!("Could not get connection for entity {:?}", eid);
             continue;
         };
@@ -174,6 +174,7 @@ pub fn handle(
                         block_pos: offset_pos,
                         level: &state.0.world,
                         dimension: Dimension::Overworld,
+                        player_rotation: rot
                     });
 
                     let placed_blocks = vec![(offset_pos, block_state)];

@@ -1,5 +1,5 @@
-use temper_block_data::PlacedBlocks;
-use crate::{PlacementContext, BLOCK_MAPPINGS};
+use temper_block_data::{PlacedBlocks, PlacementContext};
+use crate::BLOCK_MAPPINGS;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::BlockPos;
 use temper_world::World;

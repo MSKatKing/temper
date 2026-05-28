@@ -1,4 +1,5 @@
-use crate::{BlockBehavior, BlockDispatch, PlacementContext};
+use temper_block_data::{PlacedBlocks, PlacementContext};
+use crate::{BlockBehavior, BlockDispatch};
 use temper_block_properties::SlabType;
 use temper_blocks_generated::SlabBlock;
 use temper_core::block_face::BlockFace;
@@ -6,7 +7,7 @@ use temper_core::block_state_id::BlockStateId;
 use temper_macros::match_block;
 
 impl BlockBehavior for SlabBlock {
-    fn get_placement_state(&mut self, context: PlacementContext) {
+    fn get_placement_state(&mut self, context: PlacementContext) -> PlacedBlocks {
         let block = context
             .level
             .get_chunk(context.block_pos.chunk(), context.dimension)
@@ -30,6 +31,8 @@ impl BlockBehavior for SlabBlock {
         };
 
         self.waterlogged = match_block!("water", block);
+        
+        PlacedBlocks::default()
     }
 
     fn can_be_replaced(&self, _context: PlacementContext) -> bool {
