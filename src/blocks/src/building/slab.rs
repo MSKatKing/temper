@@ -6,7 +6,6 @@ use temper_core::block_state_id::BlockStateId;
 use temper_macros::match_block;
 
 impl BlockBehavior for SlabBlock {
-    #[inline(always)]
     fn get_placement_state(&mut self, context: PlacementContext) {
         let block = context
             .level
@@ -33,7 +32,6 @@ impl BlockBehavior for SlabBlock {
         self.waterlogged = match_block!("water", block);
     }
 
-    #[inline(always)]
     fn can_be_replaced(&self, _context: PlacementContext) -> bool {
         true
     }
