@@ -3,20 +3,19 @@ use temper_components::player::abilities::PlayerAbilities;
 use temper_messages::BlockBrokenEvent;
 use temper_messages::player_digging::*;
 
-use interactions::door_interaction::break_block_with_door_half;
+use temper_blocks::BlockDispatch;
 use temper_codec::net_types::network_position::NetworkPosition;
 use temper_codec::net_types::var_int::VarInt;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::dimension::Dimension;
 use temper_core::pos::BlockPos;
+use temper_macros::block;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::PlayerActionReceiver;
 use temper_protocol::outgoing::block_change_ack::BlockChangeAck;
 use temper_protocol::outgoing::block_update::BlockUpdate;
 use temper_state::GlobalStateResource;
 use tracing::{error, warn};
-use temper_blocks::BlockDispatch;
-use temper_macros::block;
 
 pub fn handle(
     receiver: Res<PlayerActionReceiver>,
@@ -61,16 +60,19 @@ pub fn handle(
                     error!("Couldn't get block at pos {}", pos);
                     continue;
                 };
-                
+
                 let mut broken_positions = id.try_break(&state.0.world, pos).blocks;
                 broken_positions.push(pos);
-                
-                for pos in &broken_positions {
-                    block_break_events.write(BlockBrokenEvent {
-                        position: pos.clone(),
-                    });
 
-                    if let Err(world_error) = state.0.world.set_block(*pos, Dimension::Overworld, block!("air")) {
+                for pos in &broken_positions {
+                    block_break_events.write(BlockBrokenEvent { position: *pos });
+
+                    if let Err(world_error) =
+                        state
+                            .0
+                            .world
+                            .set_block(*pos, Dimension::Overworld, block!("air"))
+                    {
                         error!("Failed to break block at {}: {}", pos, world_error)
                     }
                 }

@@ -7,6 +7,7 @@ use temper_core::dimension::Dimension;
 use temper_core::pos::BlockPos;
 use temper_world::World;
 
+#[derive(Clone)]
 pub struct PlacementContext<'a> {
     pub face: BlockFace,
     pub cursor: DVec3,

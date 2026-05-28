@@ -158,7 +158,9 @@ block_behavior_trait!(
     fn get_placement_state(mut; _context: PlacementContext) -> PlacedBlocks; PlacedBlocks::default(),
     fn interact(mut; _world: &World, _pos: BlockPos) -> BlockUpdates; BlockUpdates::default(),
     fn try_break(; _world: &World, _pos: BlockPos) -> BrokenBlocks; BrokenBlocks::default(),
-    
+
+    fn is_interactable(;) -> bool; false,
+
     fn can_be_replaced(; _context: PlacementContext) -> bool; false,
     fn update(mut; _world: &World, _pos: BlockPos),
 );

@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 use std::time::{Duration, Instant};
 
-use interactions::door_interaction::break_block_with_door_half;
+use temper_blocks::BlockDispatch;
 use temper_codec::net_types::network_position::NetworkPosition;
 use temper_codec::net_types::var_int::VarInt;
 use temper_components::player::abilities::PlayerAbilities;
@@ -10,14 +10,13 @@ use temper_core::block_state_id::BlockStateId;
 use temper_core::dimension::Dimension;
 use temper_core::pos::BlockPos;
 use temper_data::blocks::types::Block;
+use temper_macros::block;
 use temper_messages::player_digging::*;
 use temper_messages::world_change::WorldChange;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::{block_change_ack::BlockChangeAck, block_update::BlockUpdate};
 use temper_state::GlobalStateResource;
 use tracing::{debug, error, warn};
-use temper_blocks::BlockDispatch;
-use temper_macros::block;
 
 // A query for just the components needed to acknowledge a dig packet
 type DiggingPlayerQuery<'a> = (Entity, &'a StreamWriter, Option<&'a PlayerDigging>);
@@ -307,11 +306,13 @@ fn break_block(
     });
 
     for pos in &broken_positions {
-        block_break_writer.write(temper_messages::BlockBrokenEvent {
-            position: pos.clone()
-        });
+        block_break_writer.write(temper_messages::BlockBrokenEvent { position: *pos });
 
-        if let Err(world_error) = state.0.world.set_block(*pos, Dimension::Overworld, block!("air")) {
+        if let Err(world_error) = state
+            .0
+            .world
+            .set_block(*pos, Dimension::Overworld, block!("air"))
+        {
             error!("Failed to break block at {}: {}", pos, world_error)
         }
     }

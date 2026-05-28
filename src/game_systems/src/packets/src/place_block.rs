@@ -1,6 +1,5 @@
 use bevy_ecs::message::MessageWriter;
 use bevy_ecs::prelude::{Entity, Query, Res};
-use interactions::block_interactions::is_interactive;
 use temper_codec::net_types::network_position::NetworkPosition;
 use temper_components::player::position::Position;
 use temper_components::{bounds::CollisionBounds, player::sneak::SneakState};
@@ -59,7 +58,7 @@ pub fn handle(
                 .get_or_generate_chunk(clicked_pos.chunk(), Dimension::Overworld)
                 .expect("Failed to load chunk for interaction check");
             let clicked_block = chunk.get_block(clicked_pos.chunk_block_pos());
-            if !sneak.is_sneaking && is_interactive(clicked_block) {
+            if !sneak.is_sneaking && clicked_block.is_interactable() {
                 block_interact.write(BlockInteractMessage {
                     player: entity,
                     position: clicked_pos,
@@ -144,6 +143,34 @@ pub fn handle(
                         continue 'ev_loop;
                     }
 
+                    let placement_context = temper_blocks::PlacementContext {
+                        face: event.face,
+                        cursor: DVec3::new(
+                            f64::from(event.cursor_x),
+                            f64::from(event.cursor_y),
+                            f64::from(event.cursor_z),
+                        ),
+                        block_clicked: block_pos,
+                        block_pos: offset_pos,
+                        level: &state.0.world,
+                        dimension: Dimension::Overworld,
+                        player_rotation: rot,
+                    };
+
+                    let Ok(can_replace) = state
+                        .0
+                        .world
+                        .get_block(offset_pos, Dimension::Overworld)
+                        .map(|block| block.can_be_replaced(placement_context.clone()))
+                    else {
+                        error!("Can't get block at {}", offset_pos);
+                        continue 'ev_loop;
+                    };
+
+                    if !can_replace {
+                        continue 'ev_loop;
+                    }
+
                     let mut block_state = ITEM_TO_BLOCK_MAPPING
                         .get()
                         .unwrap()
@@ -151,20 +178,7 @@ pub fn handle(
                         .copied()
                         .unwrap();
 
-                    let mut placed_blocks =
-                        block_state.get_placement_state(temper_blocks::PlacementContext {
-                            face: event.face,
-                            cursor: DVec3::new(
-                                f64::from(event.cursor_x),
-                                f64::from(event.cursor_y),
-                                f64::from(event.cursor_z),
-                            ),
-                            block_clicked: block_pos,
-                            block_pos: offset_pos,
-                            level: &state.0.world,
-                            dimension: Dimension::Overworld,
-                            player_rotation: rot,
-                        });
+                    let mut placed_blocks = block_state.get_placement_state(placement_context);
 
                     placed_blocks.blocks.insert(offset_pos, block_state);
 
@@ -172,13 +186,8 @@ pub fn handle(
                         state
                             .0
                             .world
-                            .get_chunk_mut(block_pos.chunk(), Dimension::Overworld)
-                            .map(|mut chunk| {
-                                chunk.set_block(block_pos.chunk_block_pos(), *block_state)
-                            })
-                            .unwrap_or_else(|_| {
-                                error!("Failed to update chunk {}", block_pos.chunk())
-                            });
+                            .set_block(*block_pos, Dimension::Overworld, *block_state)
+                            .unwrap_or_else(|_| error!("Failed to update block {}", block_pos));
 
                         let block_chunk = block_pos.chunk();
                         world_change.write(WorldChange {

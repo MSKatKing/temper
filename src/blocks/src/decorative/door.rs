@@ -1,15 +1,14 @@
+use crate::world_extensions::WorldBlockUpdates;
+use crate::BlockBehavior;
 use std::collections::HashMap;
-use bevy_math::IVec3;
-use tracing::error;
 use temper_block_data::{BlockUpdates, BrokenBlocks, PlacedBlocks, PlacementContext};
 use temper_block_properties::{Direction, DoorHingeSide, DoubleBlockHalf};
-use crate::BlockBehavior;
 use temper_blocks_generated::DoorBlock;
 use temper_core::block_face::BlockFace;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::BlockPos;
 use temper_world::World;
-use crate::world_extensions::WorldBlockUpdates;
+use tracing::error;
 
 impl BlockBehavior for DoorBlock {
     fn get_placement_state(&mut self, context: PlacementContext) -> PlacedBlocks {
@@ -27,7 +26,7 @@ impl BlockBehavior for DoorBlock {
                     225.0..315.0 => Direction::West,
                     _ => Direction::North,
                 }
-            },
+            }
             _ => {
                 error!("Invalid block face clicked");
                 return PlacedBlocks::default(); // TODO: should return None or Err in the future
@@ -43,9 +42,10 @@ impl BlockBehavior for DoorBlock {
         top_half.half = DoubleBlockHalf::Upper;
 
         let mut placed_blocks = PlacedBlocks::default();
-        placed_blocks
-            .blocks
-            .insert(context.block_pos.above(), BlockStateId::new(top_half.try_into().unwrap()));
+        placed_blocks.blocks.insert(
+            context.block_pos.above(),
+            BlockStateId::new(top_half.try_into().unwrap()),
+        );
 
         placed_blocks
     }
@@ -59,15 +59,18 @@ impl BlockBehavior for DoorBlock {
             DoubleBlockHalf::Lower => pos.above(),
         };
 
-        if let Ok(other_state) = world.update_block_cast::<DoorBlock>(other_pos, |block| block.open = self.open) {
+        if let Ok(other_state) =
+            world.update_block_cast::<DoorBlock>(other_pos, |block| block.open = self.open)
+        {
             blocks.insert(other_pos, other_state);
         } else {
-            error!("Expected door block at {}, but did not find one!", other_pos);
+            error!(
+                "Expected door block at {}, but did not find one!",
+                other_pos
+            );
         }
 
-        BlockUpdates {
-            blocks
-        }
+        BlockUpdates { blocks }
     }
 
     fn try_break(&self, world: &World, pos: BlockPos) -> BrokenBlocks {
@@ -75,13 +78,17 @@ impl BlockBehavior for DoorBlock {
             DoubleBlockHalf::Upper => pos.below(),
             DoubleBlockHalf::Lower => pos.above(),
         };
-        
+
         BrokenBlocks {
             blocks: if world.block_is::<DoorBlock>(pos) {
                 vec![pos]
             } else {
                 vec![]
-            }
+            },
         }
+    }
+
+    fn is_interactable(&self) -> bool {
+        true
     }
 }
