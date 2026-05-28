@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use temper_storage::lmdb::LmdbBackend;
+use temper_storage::lmdb::StorageBackend;
 
 fn generate_random_data(size: usize) -> Vec<u8> {
     (0..size).map(|_| rand::random::<u8>()).collect()
@@ -26,7 +26,7 @@ pub(crate) fn db_benches(c: &mut criterion::Criterion) {
     let mut used_keys = HashSet::new();
     let tempdir = tempfile::TempDir::new().unwrap().keep();
 
-    let db = LmdbBackend::initialize(Some(tempdir), 100 * 1024 * 1024 * 1024).unwrap();
+    let db = StorageBackend::initialize(Some(tempdir), 100 * 1024 * 1024 * 1024).unwrap();
 
     db.create_table("insert_test".to_string()).unwrap();
 

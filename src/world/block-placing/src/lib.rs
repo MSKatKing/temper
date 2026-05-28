@@ -19,6 +19,11 @@ pub struct PlacedBlocks {
     pub take_item: bool,
 }
 
+pub enum PlaceResult {
+    Placed(PlacedBlocks),
+    SpawnMob(temper_entities::entity_types::EntityTypeEnum),
+}
+
 pub trait PlacableBlock {
     fn place(
         context: BlockPlaceContext,
@@ -36,6 +41,16 @@ pub enum BlockFace {
     East,
 }
 
+impl BlockFace {
+    pub fn is_vertical(&self) -> bool {
+        matches!(self, Self::Top | Self::Bottom)
+    }
+
+    pub fn is_horizontal(&self) -> bool {
+        matches!(self, Self::North | Self::South | Self::West | Self::East)
+    }
+}
+
 pub struct BlockPlaceContext {
     pub block_clicked: BlockStateId,
     pub block_position: BlockPos,
@@ -49,21 +64,29 @@ pub struct BlockPlaceContext {
 pub fn place_item(
     state: GlobalState,
     context: BlockPlaceContext,
-) -> Result<PlacedBlocks, BlockPlaceError> {
+) -> Result<PlaceResult, BlockPlaceError> {
     let Some(item_name) = context.item_used.to_name() else {
         return Err(BlockPlaceError::ItemIdHasNoNameMapping(context.item_used));
     };
     let item_name = item_name.strip_prefix("minecraft:").unwrap_or(&item_name);
+
+    if let Some(entity_type) = item_name
+        .strip_suffix("_spawn_egg")
+        .and_then(temper_entities::entity_types::EntityTypeEnum::from_snake_case)
+    {
+        return Ok(PlaceResult::SpawnMob(entity_type));
+    }
+
     if item_name == "torch" {
-        blocks::torch::PlaceableTorch::place(context, state)
+        blocks::torch::PlaceableTorch::place(context, state).map(PlaceResult::Placed)
     } else if item_name.ends_with("_slab") {
-        blocks::slab::PlaceableSlab::place(context, state)
+        blocks::slab::PlaceableSlab::place(context, state).map(PlaceResult::Placed)
     } else if item_name.ends_with("_door") {
-        blocks::door::PlaceableDoor::place(context, state)
+        blocks::door::PlaceableDoor::place(context, state).map(PlaceResult::Placed)
     } else if item_name.ends_with("_log") {
-        blocks::logs::PlacableLog::place(context, state)
+        blocks::logs::PlacableLog::place(context, state).map(PlaceResult::Placed)
     } else if item_name.ends_with("_fence") {
-        blocks::fence::PlaceableFence::place(context, state)
+        blocks::fence::PlaceableFence::place(context, state).map(PlaceResult::Placed)
     } else {
         let block_opt = ITEM_TO_BLOCK_MAPPING
             .get_or_init(create_item_to_block_mapping)
@@ -75,10 +98,10 @@ pub fn place_item(
             {
                 Ok(mut chunk) => {
                     chunk.set_block(context.block_position.chunk_block_pos(), *block);
-                    Ok(PlacedBlocks {
+                    Ok(PlaceResult::Placed(PlacedBlocks {
                         blocks: HashMap::from([(context.block_position, *block)]),
                         take_item: true,
-                    })
+                    }))
                 }
                 Err(e) => Err(e.into()),
             }

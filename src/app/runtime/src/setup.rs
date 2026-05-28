@@ -3,7 +3,6 @@
 use crate::errors::BinaryError;
 use std::time::Instant;
 use temper_components::player::offline_player_data::OfflinePlayerData;
-use temper_config::server_config::get_global_config;
 use temper_core::block_state_id::{
     BLOCK2ID, ID2BLOCK, ITEM_TO_BLOCK_MAPPING, create_block_mappings, create_item_to_block_mapping,
 };
@@ -20,7 +19,7 @@ pub fn generate_spawn_chunks(state: GlobalState) -> Result<(), BinaryError> {
     info!("No overworld spawn chunk found, generating spawn chunks...");
 
     let start = Instant::now();
-    let radius = get_global_config().chunk_render_distance as i32;
+    let radius = state.config.chunk_render_distance as i32;
 
     // Collect all chunk coordinates to generate
     let chunks: Vec<(i32, i32)> = (-radius..=radius)

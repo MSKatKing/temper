@@ -124,6 +124,7 @@ mod tests {
     use temper_codec::net_types::var_int::VarInt;
     use temper_protocol::errors::PacketError;
     use temper_protocol::incoming::packet_skeleton::PacketSkeleton;
+    use temper_state::create_test_state;
 
     struct TestPacket {
         test_vi: VarInt,
@@ -148,27 +149,6 @@ mod tests {
             VarInt::new(inner.len() as i32).encode(writer, &NetEncodeOpts::None)?;
             // Write the actual data
             writer.write_all(&inner)?;
-            Ok(())
-        }
-
-        async fn encode_async<W: tokio::io::AsyncWrite + Unpin>(
-            &self,
-            writer: &mut W,
-            _opts: &NetEncodeOpts,
-        ) -> Result<(), NetEncodeError> {
-            use tokio::io::AsyncWriteExt;
-            // Normally packet id is provided by the macro, but here we manually encode it
-            let mut buffer = Cursor::new(Vec::new());
-            VarInt(99).encode(&mut buffer, &NetEncodeOpts::None)?;
-            self.test_vi.encode(&mut buffer, &NetEncodeOpts::None)?;
-            buffer.write_all(&self.body).await?;
-            let inner = buffer.into_inner();
-            // Write the length prefix
-            VarInt::new(inner.len() as i32)
-                .encode_async(writer, &NetEncodeOpts::None)
-                .await?;
-            // Write the actual data
-            writer.write_all(&inner).await?;
             Ok(())
         }
     }
@@ -207,7 +187,13 @@ mod tests {
 
         let mut async_reader = Cursor::new(compressed);
 
-        let skel = PacketSkeleton::new(&mut async_reader, true, ConnState::Play).await;
+        let skel = PacketSkeleton::new(
+            &mut async_reader,
+            true,
+            ConnState::Play,
+            create_test_state().0.0,
+        )
+        .await;
         assert!(
             skel.is_ok(),
             "Failed to read packet skeleton: {:?}",
@@ -255,7 +241,13 @@ mod tests {
 
         let mut async_reader = Cursor::new(compressed);
 
-        let skel = PacketSkeleton::new(&mut async_reader, true, ConnState::Play).await;
+        let skel = PacketSkeleton::new(
+            &mut async_reader,
+            true,
+            ConnState::Play,
+            create_test_state().0.0,
+        )
+        .await;
         assert!(
             skel.is_ok(),
             "Failed to read packet skeleton: {:?}",
@@ -300,7 +292,13 @@ mod tests {
 
         let mut async_reader = Cursor::new(compressed);
 
-        let skel = PacketSkeleton::new(&mut async_reader, true, ConnState::Play).await;
+        let skel = PacketSkeleton::new(
+            &mut async_reader,
+            true,
+            ConnState::Play,
+            create_test_state().0.0,
+        )
+        .await;
         assert!(
             skel.is_err(),
             "Expected error reading uncompressed packet skeleton, got: {:?}",
@@ -318,7 +316,13 @@ mod tests {
         let bad_data = vec![0x00, 0x01, 0x02, 0x03]; // Not a valid VarInt or packet structure
         let mut async_reader = Cursor::new(bad_data);
 
-        let skel = PacketSkeleton::new(&mut async_reader, true, ConnState::Play).await;
+        let skel = PacketSkeleton::new(
+            &mut async_reader,
+            true,
+            ConnState::Play,
+            create_test_state().0.0,
+        )
+        .await;
         assert!(
             skel.is_err(),
             "Expected error reading bad packet data, got: {:?}",
@@ -331,7 +335,13 @@ mod tests {
         // Test with empty data, which should fail to read a packet skeleton
         let empty_data = vec![];
         let mut async_reader = Cursor::new(empty_data);
-        let skel = PacketSkeleton::new(&mut async_reader, true, ConnState::Play).await;
+        let skel = PacketSkeleton::new(
+            &mut async_reader,
+            true,
+            ConnState::Play,
+            create_test_state().0.0,
+        )
+        .await;
         assert!(
             skel.is_err(),
             "Expected error reading empty packet data, got: {:?}",

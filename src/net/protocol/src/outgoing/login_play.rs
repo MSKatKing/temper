@@ -1,6 +1,6 @@
 use temper_codec::net_types::net_array::NetworkArray;
 use temper_codec::net_types::var_int::VarInt;
-use temper_config::server_config::get_global_config;
+use temper_config::ServerConfig;
 use temper_macros::{NetEncode, packet};
 
 #[derive(NetEncode)]
@@ -32,15 +32,15 @@ pub struct LoginPlayPacket<'a> {
 }
 
 impl LoginPlayPacket<'_> {
-    pub fn new(conn_id: i32, gamemode: u8) -> Self {
+    pub fn new(conn_id: i32, gamemode: u8, config: &ServerConfig) -> Self {
         Self {
             entity_id: conn_id,
             is_hardcore: false,
             dimension_length: VarInt::from(1),
             dimension_names: NetworkArray::new_borrowed(&["minecraft:overworld"]),
-            max_players: VarInt::from(get_global_config().max_players as i32),
-            view_distance: VarInt::from(get_global_config().chunk_render_distance as i32),
-            simulation_distance: VarInt::from(get_global_config().chunk_render_distance as i32),
+            max_players: VarInt::from(config.max_players as i32),
+            view_distance: VarInt::from(config.chunk_render_distance as i32),
+            simulation_distance: VarInt::from(config.chunk_render_distance as i32),
             reduced_debug_info: false,
             enable_respawn_screen: true,
             do_limited_crafting: false,

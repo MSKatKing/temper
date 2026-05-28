@@ -67,6 +67,7 @@ impl CommandArgument for EntityArgument {
     }
 
     fn suggest(ctx: &mut CommandContext) -> Vec<Suggestion> {
+        ctx.input.read_string();
         let mut suggestions = vec![
             Suggestion {
                 content: "@e".to_string(),
@@ -231,6 +232,27 @@ mod tests {
             arg,
             EntityArgument::Uuid(Uuid::parse_str(uuid_str).unwrap())
         );
+    }
+
+    #[test]
+    fn test_suggest_entity_argument() {
+        let mut ctx = CommandContext {
+            input: CommandInput {
+                input: "a".to_string(),
+                cursor: 0,
+            },
+            command: Arc::new(Command {
+                name: "",
+                args: vec![],
+            }),
+            sender: Sender::Server,
+            state: create_test_state().0.0,
+        };
+        let suggestions = EntityArgument::suggest(&mut ctx);
+        assert!(!ctx.input.has_remaining_input());
+        assert!(suggestions.iter().any(|s| s.content == "@a"));
+        assert!(suggestions.iter().any(|s| s.content == "@e"));
+        assert!(suggestions.iter().any(|s| s.content == "@r"));
     }
 
     #[test]

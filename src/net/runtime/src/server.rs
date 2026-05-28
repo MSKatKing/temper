@@ -1,10 +1,9 @@
-use temper_config::server_config::get_global_config;
+use temper_config::ServerConfig;
 use temper_protocol::errors::NetError;
 use tokio::net::TcpListener;
 use tracing::{debug, error};
 
-pub async fn create_server_listener() -> Result<TcpListener, NetError> {
-    let config = get_global_config();
+pub async fn create_server_listener(config: &ServerConfig) -> Result<TcpListener, NetError> {
     let server_addy = format!("{}:{}", config.host, config.port);
     let server_addy = server_addy.as_str();
 

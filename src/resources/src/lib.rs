@@ -1,3 +1,4 @@
+use crate::bossbar::BossBarResource;
 use crate::new_conn::NewConnectionRecv;
 use crate::server_command_rx::ServerCommandReceiver;
 use crate::time::WorldTime;
@@ -8,6 +9,7 @@ use temper_entities::PhysicalRegistry;
 use temper_net_runtime::connection::NewConnection;
 use temper_state::GlobalStateResource;
 
+pub mod bossbar;
 pub mod new_conn;
 pub mod server_command_rx;
 pub mod time;
@@ -27,4 +29,6 @@ pub fn register_resources(
     world.insert_resource(WorldTime::default());
     world.insert_resource(ServerCommandReceiver(server_command_recv));
     world.insert_resource(PhysicalRegistry::new());
+
+    world.insert_resource(BossBarResource::new());
 }

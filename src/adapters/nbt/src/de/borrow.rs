@@ -4,7 +4,6 @@ use std::io::Write;
 use temper_codec::encode::errors::NetEncodeError;
 use temper_codec::encode::{NetEncode, NetEncodeOpts};
 use temper_general_purpose::simd::arrays;
-use tokio::io::AsyncWrite;
 
 #[repr(u8)]
 #[derive(Debug, PartialEq, Clone)]
@@ -612,17 +611,6 @@ impl NetEncode for NbtTape<'_> {
     ) -> Result<(), NetEncodeError> {
         let data = self.data;
         writer.write_all(data)?;
-        Ok(())
-    }
-
-    async fn encode_async<W: AsyncWrite + Unpin>(
-        &self,
-        writer: &mut W,
-        _opts: &NetEncodeOpts,
-    ) -> Result<(), NetEncodeError> {
-        use tokio::io::AsyncWriteExt;
-        let data = self.data;
-        writer.write_all(data).await?;
         Ok(())
     }
 }

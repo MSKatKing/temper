@@ -245,7 +245,7 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        #[ctor::ctor]
+        #[ctor::ctor(unsafe)]
         #[doc(hidden)]
         fn #ctor_fn_name() {
             temper_commands::infrastructure::add_system(#system_name);

@@ -2,14 +2,15 @@ use bevy_ecs::prelude::ApplyDeferred;
 use bevy_ecs::schedule::{ExecutorKind, IntoScheduleConfigs, Schedule, SystemSet};
 use std::time::Duration;
 use temper_commands::infrastructure::register_command_systems;
-use temper_config::server_config::get_global_config;
 use temper_scheduler::{drain_registered_schedules, MissedTickBehavior, Scheduler, TimedSchedule};
 
 pub use background::lan_pinger::LanPinger;
+use temper_state::GlobalState;
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 enum TickPhase {
     ChunkSending,
+    MobSpawning,
     VisibleTracking,
 }
 
@@ -32,6 +33,7 @@ fn register_tick_systems(schedule: &mut Schedule) {
         (
             TickPhase::ChunkSending,
             mobs::MobLoadSystems,
+            TickPhase::MobSpawning,
             TickPhase::VisibleTracking,
         )
             .chain(),
@@ -66,8 +68,13 @@ fn register_tick_systems(schedule: &mut Schedule) {
     schedule.add_systems(player::digging_system::handle_finish_digging);
     schedule.add_systems(player::digging_system::handle_start_digging);
     schedule.add_systems(player::digging_system::handle_cancel_digging);
-    schedule.add_systems(player::entity_spawn::handle_spawn_entity);
-    schedule.add_systems(player::entity_spawn::spawn_command_processor);
+    schedule
+        .add_systems(player::entity_spawn::spawn_command_processor.in_set(TickPhase::MobSpawning));
+    schedule.add_systems(
+        mobs::spawn::handle_spawn_mob_bundle
+            .after(player::entity_spawn::spawn_command_processor)
+            .in_set(TickPhase::MobSpawning),
+    );
     schedule.add_systems(player::gamemode_change::handle);
     schedule.add_systems(player::movement_broadcast::handle_player_move);
 
@@ -106,7 +113,13 @@ fn register_tick_systems(schedule: &mut Schedule) {
     schedule.add_systems(background::day_cycle::tick_daylight_cycle);
     schedule.add_systems(background::mq::process);
     schedule.add_systems(background::server_command::handle);
-    schedule.add_systems(background::destroy_entity::destroy_entity_system);
+    schedule.add_systems(
+        (
+            background::destroy_entity::destroy_entity_system,
+            mobs::spawn::handle_despawn_mob,
+        )
+            .chain(),
+    );
 
     schedule.add_systems(
         (
@@ -123,6 +136,10 @@ fn register_tick_systems(schedule: &mut Schedule) {
     mobs::register_tick_systems(schedule);
 
     schedule.add_systems(world::particles::handle);
+
+    schedule.add_systems(background::bossbar_update::handle);
+
+    schedule.add_systems(bevy_ecs::message::message_update_system);
 }
 
 fn register_world_sync_schedule_systems(schedule: &mut Schedule) {
@@ -139,9 +156,23 @@ fn register_chunk_gc_schedule_systems(schedule: &mut Schedule) {
         )
             .chain(),
     );
-    schedule.add_systems(background::entity_unloader::handle.in_set(ChunkGcPhase::MarkForSave));
+    schedule.add_systems(
+        (
+            background::entity_unloader::handle,
+            mobs::spawn::queue_live_mob_chunk_saves,
+        )
+            .chain()
+            .in_set(ChunkGcPhase::MarkForSave),
+    );
     mobs::register_save_systems(schedule);
-    schedule.add_systems(background::chunk_unloader::handle.in_set(ChunkGcPhase::UnloadChunks));
+    schedule.add_systems(
+        (
+            background::chunk_unloader::handle,
+            mobs::spawn::handle_despawn_mob,
+        )
+            .chain()
+            .in_set(ChunkGcPhase::UnloadChunks),
+    );
 }
 
 fn register_keepalive_schedule_systems(schedule: &mut Schedule) {
@@ -149,12 +180,16 @@ fn register_keepalive_schedule_systems(schedule: &mut Schedule) {
     schedule.add_systems(player::update_player_ping::handle);
 }
 
-pub fn register_schedules(timed: &mut Scheduler, shutdown_schedule: &mut Schedule) {
+pub fn register_schedules(
+    timed: &mut Scheduler,
+    shutdown_schedule: &mut Schedule,
+    state: GlobalState,
+) {
     let build_tick = |schedule: &mut Schedule| {
         schedule.set_executor_kind(ExecutorKind::SingleThreaded);
         register_tick_systems(schedule);
     };
-    let tick_period = Duration::from_secs(1) / get_global_config().tps;
+    let tick_period = Duration::from_secs(1) / state.config.tps;
     timed.register(
         TimedSchedule::new("tick", tick_period, build_tick)
             .with_behavior(MissedTickBehavior::Burst)
@@ -202,7 +237,12 @@ pub fn register_schedules(timed: &mut Scheduler, shutdown_schedule: &mut Schedul
             .chain(),
     );
     shutdown_schedule.add_systems(
-        shutdown::send_save_message::send_save_message.in_set(ShutdownPhase::EmitSaveMessages),
+        (
+            shutdown::send_save_message::send_save_message,
+            mobs::spawn::queue_live_mob_chunk_saves,
+        )
+            .chain()
+            .in_set(ShutdownPhase::EmitSaveMessages),
     );
     mobs::register_save_systems(shutdown_schedule);
     shutdown_schedule

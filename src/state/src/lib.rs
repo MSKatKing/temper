@@ -6,7 +6,8 @@ use dashmap::DashSet;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use temper_config::server_config::get_global_config;
+use temper_config::server_config::{create_config, create_dummy_config};
+use temper_config::ServerConfig;
 use temper_performance::ServerPerformance;
 use temper_threadpool::ThreadPool;
 use temper_world::World;
@@ -20,6 +21,7 @@ pub struct ServerState {
     pub start_time: Instant,
     pub performance: Mutex<ServerPerformance>,
     pub blocked_ips: DashSet<String>,
+    pub config: ServerConfig,
 }
 
 pub type GlobalState = Arc<ServerState>;
@@ -32,14 +34,17 @@ pub fn create_test_state() -> (GlobalStateResource, TempDir) {
     let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
     let db_path = temp_dir.path().to_path_buf();
 
+    let config = create_dummy_config();
+
     let server_state = ServerState {
-        world: World::new(&db_path, 0),
+        world: World::new(&db_path, 0, &config),
         shut_down: false.into(),
         players: PlayerList::default(),
         thread_pool: ThreadPool::new(),
         start_time: Instant::now(),
         performance: ServerPerformance::new(20).into(),
         blocked_ips: DashSet::new(),
+        config,
     };
 
     let global_state = Arc::new(server_state);
@@ -50,14 +55,16 @@ pub fn create_test_state() -> (GlobalStateResource, TempDir) {
 pub fn create_state(start_time: Instant) -> ServerState {
     // Fixed seed for world generation. This seed ensures you spawn above land at the default spawn point.
     const SEED: u64 = 380;
+    let config = create_config();
     ServerState {
-        world: World::new(&get_global_config().database.db_path, SEED),
+        world: World::new(&config.database.db_path, SEED, &config),
         shut_down: false.into(),
         players: PlayerList::default(),
         thread_pool: ThreadPool::new(),
         start_time,
-        performance: ServerPerformance::new(get_global_config().tps).into(),
+        performance: ServerPerformance::new(config.tps).into(),
         // This is later filled by the blocklist function at src/app/runtime/src/blocklist.rs
         blocked_ips: DashSet::new(),
+        config,
     }
 }

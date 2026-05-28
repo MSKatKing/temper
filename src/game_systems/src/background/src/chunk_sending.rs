@@ -2,6 +2,7 @@ use bevy_ecs::prelude::{Entity, MessageWriter, Query, Res};
 use bevy_math::{IVec2, IVec3};
 use crossbeam_queue::SegQueue;
 use std::cmp::max;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use temper_codec::encode::NetEncodeOpts;
@@ -9,7 +10,6 @@ use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::client_information::ClientInformationComponent;
 use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::position::Position;
-use temper_config::server_config::get_global_config;
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
 use temper_net_runtime::compression::compress_packet;
@@ -39,10 +39,10 @@ pub fn handle(
             continue; // Skip if the player is not connected
         }
 
-        let chunk_per_tick = match get_global_config().performance.chunks_per_tick {
+        let chunk_per_tick = match state.0.config.performance.chunks_per_tick {
             0 => max(
                 chunk_receiver.loading.len() / 3,
-                get_global_config().performance.chunks_per_tick_min as usize,
+                state.0.config.performance.chunks_per_tick_min as usize,
             ),
             -1 => usize::MAX,
             hard_limit => hard_limit as usize,
@@ -79,6 +79,7 @@ pub fn handle(
             }
         }
 
+        let loading_chunks: HashSet<_> = needed_chunks.iter().copied().collect();
         needed_chunks.extend(dirty_chunks);
 
         if needed_chunks.is_empty() {
@@ -111,7 +112,7 @@ pub fn handle(
                 let distance = chunk_pos.distance_squared(player_chunk_pos);
                 let view_distance = max(
                     u32::from(client_info.view_distance),
-                    get_global_config().chunk_render_distance,
+                    state.0.config.chunk_render_distance,
                 );
                 distance <= (view_distance * view_distance) as i32
             })
@@ -121,12 +122,7 @@ pub fn handle(
                 .loaded
                 .insert((coordinates.x(), coordinates.z()));
             let state = state.clone();
-            if !state
-                .0
-                .world
-                .get_cache()
-                .contains_key(&(coordinates, Dimension::Overworld))
-            {
+            if loading_chunks.contains(&(coordinates.x(), coordinates.z())) {
                 mob_load_writer.write(temper_messages::load_chunk_entities::LoadChunkEntities(
                     coordinates,
                 ));
@@ -149,7 +145,7 @@ pub fn handle(
                         &packet,
                         is_compressed,
                         &NetEncodeOpts::WithLength,
-                        get_global_config().network_compression_threshold as usize,
+                        state.0.config.network_compression_threshold as usize,
                     )
                     .expect("Failed to compress ChunkAndLightData packet")
                 }

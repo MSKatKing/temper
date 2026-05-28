@@ -38,8 +38,9 @@ pub fn entry(start_time: Instant, no_tui: bool) -> Result<(), BinaryError> {
         .expect("Error setting Ctrl-C handler");
     }
 
-    #[cfg(feature = "dashboard")]
-    temper_dashboard::start_dashboard(global_state.clone());
+    if global_state.config.dashboard.serve_dashboard {
+        temper_dashboard::start_dashboard(global_state.clone());
+    }
 
     setup_block_and_item_mapping();
 

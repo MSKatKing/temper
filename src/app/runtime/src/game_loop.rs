@@ -15,7 +15,6 @@ use crossbeam_channel::Sender;
 use std::sync::Arc;
 use std::sync::atomic::Ordering::Relaxed;
 use std::time::{Duration, Instant};
-use temper_config::server_config::get_global_config;
 use temper_game_systems::{LanPinger, register_schedules};
 use temper_messages::register_messages;
 use temper_net_runtime::connection::{NewConnection, handle_connection};
@@ -91,7 +90,7 @@ pub fn start_game_loop(global_state: GlobalState, no_tui: bool) -> Result<(), Bi
 
     // Build the timed scheduler with all periodic schedules and shutdown systems.
     let mut timed = Scheduler::new();
-    register_schedules(&mut timed, &mut shutdown_schedule);
+    register_schedules(&mut timed, &mut shutdown_schedule, global_state.clone());
 
     // =========================================================================
     // PHASE 4: Start Network Thread
@@ -245,7 +244,7 @@ async fn spawn_lan_pinger(state: GlobalState) {
     };
 
     while !state.shut_down.load(Relaxed) {
-        pinger.send().await;
+        pinger.send(&state.config).await;
         tokio::time::sleep(Duration::from_millis(1500)).await;
     }
 }
@@ -290,7 +289,7 @@ fn tcp_conn_acceptor(
             // Spawn LAN broadcast pinger (for local network server discovery)
             async_runtime.spawn(spawn_lan_pinger(state.clone()));
 
-            if get_global_config().block_scanner_ips {
+            if state.config.block_scanner_ips {
                 async_runtime.spawn(blocklist(state.clone()));
             }
 
@@ -299,7 +298,7 @@ fn tcp_conn_acceptor(
                 let state = Arc::clone(&state);
                 async move {
                     // Create the TCP listener on the configured address/port
-                    let Ok(listener) = create_server_listener().await else {
+                    let Ok(listener) = create_server_listener(&state.config).await else {
                         error!("Failed to create TCP listener");
                         return Err::<(), BinaryError>(BinaryError::Custom(
                             "Failed to create TCP listener".to_string(),
