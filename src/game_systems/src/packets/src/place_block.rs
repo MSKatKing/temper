@@ -111,15 +111,6 @@ pub fn handle(
                     }
                     let offset_pos = block_pos + event.face.get_normal().into();
 
-                    let _block_clicked = {
-                        let chunk = state
-                            .0
-                            .world
-                            .get_or_generate_chunk(block_pos.chunk(), Dimension::Overworld)
-                            .expect("Failed to load or generate chunk");
-                        chunk.get_block(block_pos.chunk_block_pos())
-                    };
-
                     // Check if the block collides with any entities
                     let does_collide = {
                         pos_q.into_iter().any(|(pos, bounds)| {
@@ -147,15 +138,6 @@ pub fn handle(
                         continue 'ev_loop;
                     }
 
-                    let _block_at_pos = {
-                        let chunk = state
-                            .0
-                            .world
-                            .get_or_generate_chunk(offset_pos.chunk(), Dimension::Overworld)
-                            .expect("Failed to load or generate chunk");
-                        chunk.get_block(offset_pos.chunk_block_pos())
-                    };
-
                     let mut block_state = ITEM_TO_BLOCK_MAPPING
                         .get()
                         .unwrap()
@@ -163,7 +145,7 @@ pub fn handle(
                         .copied()
                         .unwrap();
 
-                    block_state.get_placement_state(temper_blocks::PlacementContext {
+                    let mut placed_blocks = block_state.get_placement_state(temper_blocks::PlacementContext {
                         face: event.face,
                         cursor: DVec3::new(
                             f64::from(event.cursor_x),
@@ -177,44 +159,11 @@ pub fn handle(
                         player_rotation: rot
                     });
 
-                    let placed_blocks = vec![(offset_pos, block_state)];
+                    placed_blocks
+                        .blocks
+                        .insert(offset_pos, block_state);
 
-                    // let placed_blocks = block_placing::place_item(
-                    //     state.0.clone(),
-                    //     block_placing::BlockPlaceContext {
-                    //         block_clicked,
-                    //         block_position: offset_pos,
-                    //         face_clicked: match event.face.0 {
-                    //             0 => block_placing::BlockFace::Bottom,
-                    //             1 => block_placing::BlockFace::Top,
-                    //             2 => block_placing::BlockFace::North,
-                    //             3 => block_placing::BlockFace::South,
-                    //             4 => block_placing::BlockFace::West,
-                    //             5 => block_placing::BlockFace::East,
-                    //             _ => {
-                    //                 debug!("Invalid block face");
-                    //                 continue 'ev_loop;
-                    //             }
-                    //         },
-                    //         click_position: DVec3::new(
-                    //             event.cursor_x as f64,
-                    //             event.cursor_y as f64,
-                    //             event.cursor_z as f64,
-                    //         ),
-                    //         player_position: *pos,
-                    //         player_rotation: *rot,
-                    //         item_used: item_id,
-                    //     },
-                    // )
-                    // .unwrap_or_else(|err| {
-                    //     error!("Block placement failed: {:?}", err);
-                    //     PlacedBlocks {
-                    //         blocks: HashMap::new(),
-                    //         take_item: false,
-                    //     }
-                    // });
-
-                    for (block_pos, block_state) in placed_blocks {
+                    for (block_pos, block_state) in placed_blocks.blocks.iter() {
                         let block_chunk = block_pos.chunk();
                         world_change.write(WorldChange {
                             chunk: Some(block_chunk),

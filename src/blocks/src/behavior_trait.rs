@@ -15,6 +15,9 @@ use temper_world::World;
 /// - `arguments`: Any additional arguments to the method
 /// - `return type`: Optional, what the function returns
 /// - `default return value`: Optional, required if return type is set, the default expression to use for blocks that do not implement this method.
+/// 
+/// TODO: Later on, add support for methods like BlockStateId::<function_name>(base_id) -> (BlockStateId, <other args>). Would be useful for methods like
+///     get_placement_state().
 macro_rules! block_behavior_trait {
     ($(fn $name:ident($($mut_meta:ident)?; $($argument:ident: $ty:ty),*) $(-> $ret:ty; $default:expr)?),* $(,)?) => {
         macro_rules! ptr_ret_ty {
