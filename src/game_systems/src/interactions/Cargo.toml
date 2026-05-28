@@ -15,6 +15,7 @@ temper-protocol = { workspace = true }
 temper-state = { workspace = true }
 temper-world = { workspace = true }
 tracing = { workspace = true }
+temper-blocks = { workspace = true }
 
 [dev-dependencies]
 temper-macros = { workspace = true }

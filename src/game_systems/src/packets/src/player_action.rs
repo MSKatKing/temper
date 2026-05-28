@@ -15,6 +15,7 @@ use temper_protocol::outgoing::block_change_ack::BlockChangeAck;
 use temper_protocol::outgoing::block_update::BlockUpdate;
 use temper_state::GlobalStateResource;
 use tracing::{error, warn};
+use temper_blocks::BlockDispatch;
 
 pub fn handle(
     receiver: Res<PlayerActionReceiver>,
@@ -51,18 +52,14 @@ pub fn handle(
             // --- CREATIVE MODE LOGIC ---
             // Only instabreak (status 0) is relevant in creative.
             if event.status.0 == 0 {
-                let mut chunk = state
-                    .0
-                    .world
-                    .get_or_generate_mut(pos.chunk(), Dimension::Overworld)
-                    .expect("Failed to load or generate chunk");
-
                 world_change.write(temper_messages::world_change::WorldChange {
                     chunk: Some(pos.chunk()),
                 });
 
-                let broken_positions =
-                    break_block_with_door_half(&mut chunk, pos, &mut block_break_events);
+                let id = state.0.world.get_chunk(pos.chunk(), Dimension::Overworld).map(|chunk| chunk.get_block(pos.chunk_block_pos())).unwrap();
+                let broken_blocks = id.try_break(&state.0.world, pos);
+                let mut broken_positions = broken_blocks.blocks;
+                broken_positions.push(pos);
 
                 // Broadcast the change
                 for (eid, conn) in &broadcast_query {

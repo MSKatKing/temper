@@ -13,9 +13,8 @@ use temper_protocol::outgoing::block_update::BlockUpdate;
 use temper_state::GlobalStateResource;
 use temper_world::Dimension;
 use tracing::{debug, error};
-
-use crate::block_interactions::{InteractionResult, try_interact};
-use crate::door_interaction::{door_other_half_y_offset, is_open};
+use temper_blocks::BlockDispatch;
+use crate::door_interaction::is_open;
 
 pub fn handle_block_interact(
     mut events: MessageReader<BlockInteractMessage>,
@@ -48,57 +47,47 @@ pub fn handle_block_interact(
         cooldowns.insert(pos, Instant::now());
 
         // Load the chunk and get current block state
-        let mut chunk = match temper_world::World::get_or_generate_mut(
-            &state.0.world,
-            pos.chunk(),
-            Dimension::Overworld,
-        ) {
-            Ok(c) => c,
-            Err(e) => {
-                error!("Failed to load chunk for block interaction: {:?}", e);
-                continue;
-            }
-        };
+        let mut block_state = state.0.world.get_chunk(pos.chunk(), Dimension::Overworld).map(|chunk| chunk.get_block(pos.chunk_block_pos())).unwrap();
+        let original = block_state.clone();
 
-        let (updates, is_active, new_state) = {
-            let block_state = chunk.get_block(pos.chunk_block_pos());
+        let (updates, is_active) = {
+            let updates = block_state.interact(&state.0.world, pos);
+            let mut updates = updates.blocks;
+            updates.insert(pos, block_state);
 
-            // Try to interact (toggle) the block
-            let new_state = match try_interact(block_state) {
-                InteractionResult::Toggled(new) => new,
-                _ => continue,
-            };
-
-            chunk.set_block(pos.chunk_block_pos(), new_state);
             debug!(
                 "Block interact: toggled ({}, {}, {}) from {} to {}",
                 pos.pos.x,
                 pos.pos.y,
                 pos.pos.z,
-                block_state.raw(),
-                new_state.raw()
+                original.raw(),
+                block_state.raw()
             );
 
-            let updates = vec![BlockUpdate {
-                location: NetworkPosition {
-                    x: pos.pos.x,
-                    y: pos.pos.y as i16,
-                    z: pos.pos.z,
-                },
-                block_state_id: VarInt::from(new_state),
-            }];
+            for (pos, block_state) in &updates {
+                if !state.0.world
+                    .get_chunk_mut(pos.chunk(), Dimension::Overworld)
+                    .map(|mut chunk| chunk.set_block(pos.chunk_block_pos(), *block_state))
+                    .is_ok() {
+                    error!("Attempted to update block at {} to {} but failed. (interaction failure)", pos, block_state.raw());
+                }
+            }
 
-            let is_active = is_open(new_state).unwrap_or(false);
-            (updates, is_active, new_state)
+            let updates = updates
+                .into_iter()
+                .map(|(pos, state)| BlockUpdate {
+                    location: NetworkPosition {
+                        x: pos.pos.x,
+                        y: pos.pos.y as i16,
+                        z: pos.pos.z,
+                    },
+                    block_state_id: VarInt::from(state),
+                })
+                .collect::<Vec<_>>();
+
+            let is_active = is_open(block_state).unwrap_or(false);
+            (updates, is_active)
         }; // chunk lock released here
-
-        // If it's a door, let the door handler toggle the other half
-        if door_other_half_y_offset(new_state).is_some() {
-            door_toggled_writer.write(DoorToggledEvent {
-                position: pos,
-                new_state,
-            });
-        }
 
         // Emit BlockToggledEvent for other systems to react
         toggled_writer.write(BlockToggledEvent {

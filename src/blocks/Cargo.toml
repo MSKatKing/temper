@@ -10,6 +10,8 @@ temper-blocks-generated = { path = "crates/generated" }
 temper-block-data = { workspace = true }
 temper-core = { workspace = true }
 temper-macros = { workspace = true }
+bevy_math = { workspace = true }
+tracing = { workspace = true }
 
 [build-dependencies]
 temper-blocks-build = { path = "crates/build" }

@@ -26,6 +26,20 @@ pub struct PlacedBlocks {
     pub take_item: bool,
 }
 
+/// Result of the try_break function
+#[derive(Default)]
+pub struct BrokenBlocks {
+    /// Any extra blocks broken by the function
+    pub blocks: Vec<BlockPos>,
+}
+
+/// Result of the interact function
+#[derive(Default)]
+pub struct BlockUpdates {
+    /// Any other blocks that are updated by the function
+    pub blocks: HashMap<BlockPos, BlockStateId>,
+}
+
 impl Default for PlacedBlocks {
     fn default() -> Self {
         Self {

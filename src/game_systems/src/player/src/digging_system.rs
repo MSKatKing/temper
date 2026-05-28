@@ -16,6 +16,7 @@ use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::{block_change_ack::BlockChangeAck, block_update::BlockUpdate};
 use temper_state::GlobalStateResource;
 use tracing::{debug, error, warn};
+use temper_blocks::BlockDispatch;
 
 // A query for just the components needed to acknowledge a dig packet
 type DiggingPlayerQuery<'a> = (Entity, &'a StreamWriter, Option<&'a PlayerDigging>);
@@ -291,15 +292,12 @@ fn break_block(
     world_change: &mut MessageWriter<WorldChange>,
 ) {
     let pos: BlockPos = position.clone().into();
-    let mut chunk = state
-        .0
-        .world
-        .get_or_generate_mut(pos.chunk(), Dimension::Overworld)
-        .expect("Failed to load or generate chunk");
 
-    debug!("Sending BlockBrokenEvent for block at {:?}", pos.pos);
+    let id = state.0.world.get_chunk(pos.chunk(), Dimension::Overworld).map(|chunk| chunk.get_block(pos.chunk_block_pos())).unwrap();
+    let broken_blocks = id.try_break(&state.0.world, pos);
+    let mut broken_positions = broken_blocks.blocks;
+    broken_positions.push(pos);
 
-    let broken_positions = break_block_with_door_half(&mut chunk, pos, block_break_writer);
     world_change.write(WorldChange {
         chunk: Some(pos.chunk()),
     });

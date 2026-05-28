@@ -60,6 +60,26 @@ impl BlockPos {
             ),
         }
     }
+
+    pub fn above(&self) -> BlockPos {
+        BlockPos {
+            pos: IVec3::new(
+                self.pos.x,
+                self.pos.y + 1,
+                self.pos.z,
+            )
+        }
+    }
+
+    pub fn below(&self) -> BlockPos {
+        BlockPos {
+            pos: IVec3::new(
+                self.pos.x,
+                self.pos.y - 1,
+                self.pos.z,
+            )
+        }
+    }
 }
 
 impl From<NetworkPosition> for BlockPos {
