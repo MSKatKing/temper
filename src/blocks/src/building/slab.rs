@@ -1,5 +1,5 @@
-use temper_block_data::{PlacedBlocks, PlacementContext};
 use crate::{BlockBehavior, BlockDispatch};
+use temper_block_data::{PlacedBlocks, PlacementContext};
 use temper_block_properties::SlabType;
 use temper_blocks_generated::SlabBlock;
 use temper_core::block_face::BlockFace;
@@ -14,8 +14,14 @@ impl BlockBehavior for SlabBlock {
             .map(|c| c.get_block(context.block_pos.chunk_block_pos()))
             .unwrap_or(BlockStateId::new(0));
 
-        self.ty = if block.try_cast::<SlabBlock>().is_some() {
-            SlabType::Double
+        self.ty = if let Some(block) = block.try_cast::<SlabBlock>() {
+            if block.block_type == self.block_type {
+                SlabType::Double
+            } else {
+                // This will cause a bug where if you place a slab onto a slab of a different type it will replace the block with the one you're placing,
+                // but this can't really be fixed until BlockBehavior is updated
+                return PlacedBlocks::default(); // TODO: When BlockBehavior is updated with a return value for Option<Self>, return None here
+            }
         } else {
             match context.face {
                 BlockFace::Top => SlabType::Bottom,
@@ -31,7 +37,7 @@ impl BlockBehavior for SlabBlock {
         };
 
         self.waterlogged = match_block!("water", block);
-        
+
         PlacedBlocks::default()
     }
 

@@ -37,7 +37,7 @@ pub fn generate_simple_block_enum(
     (
         quote! {
             #[repr(usize)]
-            #[derive(Clone, Debug)]
+            #[derive(Clone, Debug, Eq, PartialEq)]
             pub enum SimpleBlock {
                 #(#enum_variants),*
             }

@@ -7,7 +7,7 @@ use temper_components::{bounds::CollisionBounds, player::sneak::SneakState};
 use temper_core::pos::BlockPos;
 use temper_messages::BlockInteractMessage;
 
-use bevy_math::DVec3;
+use bevy_math::{DVec3, IVec3};
 use temper_blocks::BlockDispatch;
 use temper_components::player::rotation::Rotation;
 use temper_config::server_config::get_global_config;
@@ -109,7 +109,14 @@ pub fn handle(
                         trace!("Block placement out of bounds: {}", block_pos);
                         continue 'ev_loop;
                     }
-                    let offset_pos = block_pos + event.face.get_normal().into();
+
+                    let offset_pos = block_pos
+                        + IVec3::new(
+                            (event.cursor_x * 2.0 - 1.0) as i32,
+                            (event.cursor_y * 2.0 - 1.0) as i32,
+                            (event.cursor_z * 2.0 - 1.0) as i32,
+                        )
+                        .into();
 
                     // Check if the block collides with any entities
                     let does_collide = {
@@ -145,25 +152,35 @@ pub fn handle(
                         .copied()
                         .unwrap();
 
-                    let mut placed_blocks = block_state.get_placement_state(temper_blocks::PlacementContext {
-                        face: event.face,
-                        cursor: DVec3::new(
-                            f64::from(event.cursor_x),
-                            f64::from(event.cursor_y),
-                            f64::from(event.cursor_z),
-                        ),
-                        block_clicked: block_pos,
-                        block_pos: offset_pos,
-                        level: &state.0.world,
-                        dimension: Dimension::Overworld,
-                        player_rotation: rot
-                    });
+                    let mut placed_blocks =
+                        block_state.get_placement_state(temper_blocks::PlacementContext {
+                            face: event.face,
+                            cursor: DVec3::new(
+                                f64::from(event.cursor_x),
+                                f64::from(event.cursor_y),
+                                f64::from(event.cursor_z),
+                            ),
+                            block_clicked: block_pos,
+                            block_pos: offset_pos,
+                            level: &state.0.world,
+                            dimension: Dimension::Overworld,
+                            player_rotation: rot,
+                        });
 
-                    placed_blocks
-                        .blocks
-                        .insert(offset_pos, block_state);
+                    placed_blocks.blocks.insert(offset_pos, block_state);
 
                     for (block_pos, block_state) in placed_blocks.blocks.iter() {
+                        state
+                            .0
+                            .world
+                            .get_chunk_mut(block_pos.chunk(), Dimension::Overworld)
+                            .map(|mut chunk| {
+                                chunk.set_block(block_pos.chunk_block_pos(), *block_state)
+                            })
+                            .unwrap_or_else(|_| {
+                                error!("Failed to update chunk {}", block_pos.chunk())
+                            });
+
                         let block_chunk = block_pos.chunk();
                         world_change.write(WorldChange {
                             chunk: Some(block_chunk),
@@ -194,6 +211,7 @@ pub fn handle(
                         }
                     }
                 }
+
                 let ack_packet = BlockChangeAck {
                     sequence: event.sequence,
                 };

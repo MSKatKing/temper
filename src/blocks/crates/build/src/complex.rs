@@ -163,7 +163,7 @@ pub fn generate_complex_blocks(
                                         use temper_block_properties::*;
 
                                         #[allow(dead_code)]
-                                        #[derive(Clone, Debug)]
+                                        #[derive(Clone, Debug, Eq, PartialEq)]
                                         pub enum #enum_name {
                                             #(#variants,)*
                                         }
