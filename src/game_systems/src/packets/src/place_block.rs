@@ -10,7 +10,6 @@ use temper_messages::BlockInteractMessage;
 use bevy_math::{DVec3, IVec3};
 use temper_blocks::BlockDispatch;
 use temper_components::player::rotation::Rotation;
-use temper_config::server_config::get_global_config;
 use temper_core::block_state_id::ITEM_TO_BLOCK_MAPPING;
 use temper_core::dimension::Dimension;
 use temper_core::mq;
@@ -196,7 +195,7 @@ pub fn handle(
                         };
 
                         let (block_chunk_x, block_chunk_z) = (block_chunk.x(), block_chunk.z());
-                        let render_distance = get_global_config().chunk_render_distance as i32;
+                        let render_distance = state.0.config.chunk_render_distance as i32;
                         for (_, conn, _, _, pos, _, _) in query.iter() {
                             let chunk = pos.chunk();
                             let (chunk_x, chunk_z) = (chunk.x(), chunk.z());

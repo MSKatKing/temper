@@ -3,7 +3,6 @@ use std::io::Read;
 use temper_codec::decode::errors::NetDecodeError;
 use temper_codec::decode::{NetDecode, NetDecodeOpts};
 use temper_codec::net_types::var_int::VarInt;
-use temper_nbt::tokio::io::AsyncRead;
 
 #[derive(Debug, Clone)]
 pub enum BlockFace {
@@ -60,15 +59,6 @@ impl TryFrom<u32> for BlockFace {
 impl NetDecode for BlockFace {
     fn decode<R: Read>(reader: &mut R, opts: &NetDecodeOpts) -> Result<Self, NetDecodeError> {
         let VarInt(data) = VarInt::decode(reader, opts)?;
-
-        BlockFace::try_from(data as u32).map_err(|_| NetDecodeError::InvalidEnumVariant)
-    }
-
-    async fn decode_async<R: AsyncRead + Unpin>(
-        reader: &mut R,
-        opts: &NetDecodeOpts,
-    ) -> Result<Self, NetDecodeError> {
-        let VarInt(data) = VarInt::decode_async(reader, opts).await?;
 
         BlockFace::try_from(data as u32).map_err(|_| NetDecodeError::InvalidEnumVariant)
     }
