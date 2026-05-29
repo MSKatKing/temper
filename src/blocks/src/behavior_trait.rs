@@ -160,7 +160,8 @@ block_behavior_trait!(
     fn try_break(; _world: &World, _pos: BlockPos) -> BrokenBlocks; BrokenBlocks::default(),
 
     fn is_interactable(;) -> bool; false,
+    fn is_solid(;) -> bool; true, // Used for fence and pane connections
 
     fn can_be_replaced(; _context: PlacementContext) -> bool; false,
-    fn update(mut; _world: &World, _pos: BlockPos),
+    fn update(mut; _world: &World, _pos: BlockPos) -> bool; false, // The boolean returned is whether to emit more adjacent updates from this block
 );

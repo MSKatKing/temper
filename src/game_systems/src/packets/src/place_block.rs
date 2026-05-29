@@ -25,6 +25,10 @@ use tracing::{debug, error, trace};
 
 // TODO: in the future this should be reworked so that if a block update exits early the client is informed that the block never updated.
 //      Currently it spawns ghost blocks if this function exits early (ie continues on to the next update)
+//
+// TODO: also create a better block update propagation system. All block updates should happen (preferably) on the same tick to prevent
+//      visible slowdowns. When a block is placed, all adjacent blocks should be updated. There's already a built in `update` function on
+//      BlockBehavior that should return whether or not the block changed (if it did then we should keep updating blocks next to that)
 pub fn handle(
     receiver: Res<PlaceBlockReceiver>,
     state: Res<GlobalStateResource>,
