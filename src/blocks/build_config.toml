@@ -120,6 +120,10 @@
 "minecraft:target" = "TargetBlock"
 "minecraft:structure_block" = "StructureBlock"
 "minecraft:test_block" = "TestBlock"
+"minecraft:torch" = "TorchBlock"
+"minecraft:wall_torch" = "WallTorchBlock"
+"minecraft:soul_torch" = "TorchBlock"
+"minecraft:soul_wall_torch" = "WallTorchBlock"
 
 # From Minecraft's net.minecraft.world.level.block.state.properties.BlockStateProperties class
 #

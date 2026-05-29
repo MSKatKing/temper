@@ -11,13 +11,13 @@ fn main() {
 
     let (simple_blocks, complex_blocks) = separate_blocks(block_states);
 
-    let (simple_enum, enum_impl) = generate_simple_block_enum(simple_blocks);
+    let (simple_enum, enum_impl) = generate_simple_block_enum(&build_config, simple_blocks);
     let (block_structs, block_mod) = generate_complex_blocks(&build_config, complex_blocks);
 
     let out_dir = std::env::var("OUT_DIR").unwrap();
 
     let enum_impl = quote::quote! {
-        use crate::SimpleBlock;
+        use crate::*;
 
         #enum_impl
     };
