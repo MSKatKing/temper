@@ -60,7 +60,6 @@ members = [
     "src/text",
     "src/utils",
     "src/world",
-    "src/world/block-placing",
     "src/world/db",
     "src/world/format",
     "src/world/gen",
