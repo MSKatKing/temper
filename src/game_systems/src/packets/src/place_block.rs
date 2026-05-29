@@ -23,6 +23,8 @@ use temper_state::GlobalStateResource;
 use temper_text::{Color, NamedColor, TextComponentBuilder};
 use tracing::{debug, error, trace};
 
+// TODO: in the future this should be reworked so that if a block update exits early the client is informed that the block never updated.
+//      Currently it spawns ghost blocks if this function exits early (ie continues on to the next update)
 pub fn handle(
     receiver: Res<PlaceBlockReceiver>,
     state: Res<GlobalStateResource>,
@@ -67,6 +69,10 @@ pub fn handle(
                 continue 'ev_loop;
             }
         }
+
+        let ack_packet = BlockChangeAck {
+            sequence: event.sequence,
+        };
 
         match event.hand.0 {
             0 => {
@@ -157,17 +163,30 @@ pub fn handle(
                         player_rotation: rot,
                     };
 
-                    let Ok(can_replace) = state
-                        .0
-                        .world
-                        .get_block(offset_pos, Dimension::Overworld)
-                        .map(|block| block.can_be_replaced(placement_context.clone()))
+                    let Ok(curr_state) = state.0.world.get_block(offset_pos, Dimension::Overworld)
                     else {
                         error!("Can't get block at {}", offset_pos);
                         continue 'ev_loop;
                     };
 
-                    if !can_replace {
+                    if !curr_state.can_be_replaced(placement_context.clone()) {
+                        if let Err(err) = conn.send_packet_ref(&ack_packet) {
+                            error!("Failed to send block change ack packet: {:?}", err);
+                            continue 'ev_loop;
+                        }
+
+                        if let Err(err) = conn.send_packet(BlockUpdate {
+                            location: NetworkPosition {
+                                x: offset_pos.pos.x,
+                                y: offset_pos.pos.y as i16,
+                                z: offset_pos.pos.z,
+                            },
+                            block_state_id: curr_state.to_varint(),
+                        }) {
+                            error!("Failed to send block update packet to player: {err}");
+                            continue 'ev_loop;
+                        }
+
                         continue 'ev_loop;
                     }
 
@@ -219,10 +238,6 @@ pub fn handle(
                         }
                     }
                 }
-
-                let ack_packet = BlockChangeAck {
-                    sequence: event.sequence,
-                };
 
                 if let Err(err) = conn.send_packet_ref(&ack_packet) {
                     error!("Failed to send block change ack packet: {:?}", err);

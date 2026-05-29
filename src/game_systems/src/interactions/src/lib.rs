@@ -83,17 +83,17 @@ pub fn handle_block_interact(
             );
 
             for (pos, block_state) in &updates {
-                if !state
+                if let Err(error) = state
                     .0
                     .world
                     .get_chunk_mut(pos.chunk(), Dimension::Overworld)
                     .map(|mut chunk| chunk.set_block(pos.chunk_block_pos(), *block_state))
-                    .is_ok()
                 {
                     error!(
-                        "Attempted to update block at {} to {} but failed. (interaction failure)",
+                        "Attempted to update block at {} to {} but failed: {}",
                         pos,
-                        block_state.raw()
+                        block_state.raw(),
+                        error
                     );
                 }
             }
