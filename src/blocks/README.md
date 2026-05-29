@@ -76,3 +76,14 @@ The `block_overrides` section is for placing specific blocks into different stru
 ### Important Note
 
 All block struct names **MUST** be unique. The generated crate will not compile otherwise.
+
+## Roadmap
+
+Here's a quick roadmap of features that are planned to be added in future versions of this crate:
+
+- BlockBehavior generator macro as a proc-macro for 100% rust-style function definition syntax
+- Better generator functions (like `get_placement_state`), make them more rust-like and return `Option<Self>` rather than mutating self directly
+- Performance improvements and code-size reduction
+- Better struct combination capabilities (combine structs with not identical properties, property serialization depends on the block type set)
+  - Note to self: this would be super useful for things like torches where they have two different blocks representing the same item. Combining TorchBlock and WallTorchBlock into just TorchBlock would be very helpful
+- And of course, more block behavior functions!
