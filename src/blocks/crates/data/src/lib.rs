@@ -25,6 +25,10 @@ pub struct PlacedBlocks {
 
     /// Whether an item is taken from the player's inventory or not
     pub take_item: bool,
+
+    // TODO: when version 2 of the block system is implemented, this can be removed and will be replaced with an Option<Block>
+    /// Whether to place the original block or now
+    pub place_original: bool,
 }
 
 /// Result of the try_break function
@@ -46,6 +50,7 @@ impl Default for PlacedBlocks {
         Self {
             blocks: HashMap::default(),
             take_item: true,
+            place_original: true,
         }
     }
 }

@@ -126,6 +126,12 @@ pub fn handle(
                         )
                         .into();
 
+                    let Ok(curr_state) = state.0.world.get_block(offset_pos, Dimension::Overworld)
+                    else {
+                        error!("Can't get block at {}", offset_pos);
+                        continue 'ev_loop;
+                    };
+
                     // Check if the block collides with any entities
                     let does_collide = {
                         pos_q.into_iter().any(|(pos, bounds)| {
@@ -148,7 +154,7 @@ pub fn handle(
                         })
                     };
 
-                    if does_collide {
+                    if does_collide && curr_state.is_solid() {
                         trace!("Block placement collided with entity");
                         continue 'ev_loop;
                     }
@@ -165,12 +171,6 @@ pub fn handle(
                         level: &state.0.world,
                         dimension: Dimension::Overworld,
                         player_rotation: rot,
-                    };
-
-                    let Ok(curr_state) = state.0.world.get_block(offset_pos, Dimension::Overworld)
-                    else {
-                        error!("Can't get block at {}", offset_pos);
-                        continue 'ev_loop;
                     };
 
                     if !curr_state.can_be_replaced(placement_context.clone()) {
@@ -203,7 +203,9 @@ pub fn handle(
 
                     let mut placed_blocks = block_state.get_placement_state(placement_context);
 
-                    placed_blocks.blocks.insert(offset_pos, block_state);
+                    if placed_blocks.place_original {
+                        placed_blocks.blocks.insert(offset_pos, block_state);
+                    }
 
                     for (block_pos, block_state) in placed_blocks.blocks.iter() {
                         state

@@ -15,5 +15,6 @@ mod respawn_anchor;
 mod scaffolding;
 mod structure;
 mod test;
+mod torch;
 mod trial_spawner;
 mod vault;

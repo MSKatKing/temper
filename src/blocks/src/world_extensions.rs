@@ -15,7 +15,11 @@ pub trait WorldBlockUpdates {
     ) -> Result<BlockStateId, WorldError>;
 
     fn block_is<T: BlockBehavior>(&self, block_pos: BlockPos) -> bool;
-    fn block_is_and<T: BlockBehavior>(&self, block_pos: BlockPos, callback: impl Fn(T) -> bool) -> bool;
+    fn block_is_and<T: BlockBehavior>(
+        &self,
+        block_pos: BlockPos,
+        callback: impl Fn(T) -> bool,
+    ) -> bool;
 }
 
 impl WorldBlockUpdates for World {
@@ -43,11 +47,16 @@ impl WorldBlockUpdates for World {
             .unwrap_or_default()
     }
 
-    fn block_is_and<T: BlockBehavior>(&self, block_pos: BlockPos, callback: impl Fn(T) -> bool) -> bool {
+    fn block_is_and<T: BlockBehavior>(
+        &self,
+        block_pos: BlockPos,
+        callback: impl Fn(T) -> bool,
+    ) -> bool {
         self.get_chunk(block_pos.chunk(), Dimension::Overworld)
             .and_then(|chunk| {
                 let block_id = chunk.get_block(block_pos.chunk_block_pos());
-                let block = T::try_from(block_id.raw()).map_err(|_| WorldError::InvalidBlock(block_id))?;
+                let block =
+                    T::try_from(block_id.raw()).map_err(|_| WorldError::InvalidBlock(block_id))?;
                 Ok(callback(block))
             })
             .unwrap_or_default()

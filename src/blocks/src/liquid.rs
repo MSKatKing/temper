@@ -1,5 +1,5 @@
-use temper_block_data::PlacementContext;
 use crate::BlockBehavior;
+use temper_block_data::PlacementContext;
 use temper_blocks_generated::LiquidBlock;
 
 impl BlockBehavior for LiquidBlock {
