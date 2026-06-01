@@ -2,7 +2,7 @@ use bevy_ecs::prelude::ApplyDeferred;
 use bevy_ecs::schedule::{ExecutorKind, IntoScheduleConfigs, Schedule, SystemSet};
 use std::time::Duration;
 use temper_commands::infrastructure::register_command_systems;
-use temper_scheduler::{drain_registered_schedules, MissedTickBehavior, Scheduler, TimedSchedule};
+use temper_scheduler::{MissedTickBehavior, Scheduler, TimedSchedule, drain_registered_schedules};
 
 pub use background::lan_pinger::LanPinger;
 use temper_state::GlobalState;

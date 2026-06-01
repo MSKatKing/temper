@@ -1,5 +1,5 @@
-use crate::world_extensions::WorldBlockUpdates;
 use crate::BlockBehavior;
+use crate::world_extensions::WorldBlockUpdates;
 use std::collections::HashMap;
 use temper_block_data::{BlockUpdates, BrokenBlocks, PlacedBlocks, PlacementContext};
 use temper_block_properties::{Direction, DoorHingeSide, DoubleBlockHalf};

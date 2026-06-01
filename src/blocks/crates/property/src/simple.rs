@@ -77,7 +77,7 @@ impl Direction {
             _ => unreachable!(),
         }
     }
-    
+
     pub fn axis(&self) -> Axis {
         match self {
             Self::East | Self::West => Axis::X,
@@ -85,7 +85,7 @@ impl Direction {
             Self::North | Self::South => Axis::Z,
         }
     }
-    
+
     pub fn get_normal(&self) -> bevy_math::IVec3 {
         match self {
             Self::Up => bevy_math::IVec3::new(0, 1, 0),
@@ -96,7 +96,7 @@ impl Direction {
             Self::West => bevy_math::IVec3::new(-1, 0, 0),
         }
     }
-    
+
     pub fn opposite(&self) -> Self {
         match self {
             Self::Up => Self::Down,

@@ -38,7 +38,7 @@ impl BlockFace {
             Self::West => IVec3::new(-1, 0, 0),
         }
     }
-    
+
     pub fn opposite(&self) -> BlockFace {
         match self {
             Self::Top => Self::Bottom,

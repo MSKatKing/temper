@@ -6,22 +6,42 @@ use temper_core::{block_face::BlockFace, block_state_id::BlockStateId, pos::Bloc
 use temper_macros::match_block;
 use temper_world::{Dimension, World};
 
-fn is_different_orientation(level: &World, block: &StairsBlock, block_pos: BlockPos, direction: &Direction, dimension: Dimension) -> bool {
-    if let Some(other_block) = level.try_get_block::<StairsBlock>(block_pos + direction.get_normal(), dimension) {
-       other_block.facing != block.facing || other_block.half != block.half
+fn is_different_orientation(
+    level: &World,
+    block: &StairsBlock,
+    block_pos: BlockPos,
+    direction: &Direction,
+    dimension: Dimension,
+) -> bool {
+    if let Some(other_block) =
+        level.try_get_block::<StairsBlock>(block_pos + direction.get_normal(), dimension)
+    {
+        other_block.facing != block.facing || other_block.half != block.half
     } else {
         true
     }
 }
 
-fn get_shape(block: &StairsBlock, level: &World, block_pos: BlockPos, dimension: Dimension) -> StairsShape {
+fn get_shape(
+    block: &StairsBlock,
+    level: &World,
+    block_pos: BlockPos,
+    dimension: Dimension,
+) -> StairsShape {
     let offset_block_pos = block_pos + block.facing.get_normal();
     let opposite_offset_block_pos = block_pos + block.facing.opposite().get_normal();
 
     if let Some(offset_block) = level.try_get_block::<StairsBlock>(offset_block_pos, dimension)
         && block.half == offset_block.half
         && offset_block.facing.axis() != block.facing.axis()
-        && is_different_orientation(level, block, block_pos, &offset_block.facing.opposite(), dimension) {
+        && is_different_orientation(
+            level,
+            block,
+            block_pos,
+            &offset_block.facing.opposite(),
+            dimension,
+        )
+    {
         return if offset_block.facing == block.facing.rotate_y_counter_clockwise() {
             StairsShape::OuterLeft
         } else {
@@ -29,10 +49,18 @@ fn get_shape(block: &StairsBlock, level: &World, block_pos: BlockPos, dimension:
         };
     }
 
-    if let Some(opposite_offset_block) = level.try_get_block::<StairsBlock>(opposite_offset_block_pos, dimension)
+    if let Some(opposite_offset_block) =
+        level.try_get_block::<StairsBlock>(opposite_offset_block_pos, dimension)
         && block.half == opposite_offset_block.half
         && opposite_offset_block.facing.axis() != block.facing.axis()
-        && is_different_orientation(level, block, block_pos, &opposite_offset_block.facing, dimension) {
+        && is_different_orientation(
+            level,
+            block,
+            block_pos,
+            &opposite_offset_block.facing,
+            dimension,
+        )
+    {
         return if opposite_offset_block.facing == block.facing.rotate_y_counter_clockwise() {
             StairsShape::InnerLeft
         } else {
