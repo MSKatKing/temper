@@ -104,6 +104,16 @@ impl Add<(i32, i32, i32)> for BlockPos {
     }
 }
 
+impl Add<IVec3> for BlockPos {
+    type Output = BlockPos;
+
+    fn add(self, rhs: IVec3) -> Self::Output {
+        Self {
+            pos: self.pos + rhs,
+        }
+    }
+}
+
 #[derive(Clone, Copy, DeepSizeOf, Serialize, Deserialize, TypeHash)]
 pub struct ChunkHeight {
     pub min_y: i16,

@@ -16,26 +16,37 @@ pub enum BlockFace {
 
 impl BlockFace {
     pub fn is_x_axis(&self) -> bool {
-        matches!(self, BlockFace::East | BlockFace::West)
+        matches!(self, Self::East | Self::West)
     }
 
     pub fn is_y_axis(&self) -> bool {
-        matches!(self, BlockFace::Top | BlockFace::Bottom)
+        matches!(self, Self::Top | Self::Bottom)
     }
 
     pub fn is_z_axis(&self) -> bool {
-        matches!(self, BlockFace::North | BlockFace::South)
+        matches!(self, Self::North | Self::South)
     }
 
     /// Returns the translation vector that will get the block that touches this face.
     pub fn get_normal(&self) -> IVec3 {
         match self {
-            BlockFace::Top => IVec3::new(0, 1, 0),
-            BlockFace::Bottom => IVec3::new(0, -1, 0),
-            BlockFace::North => IVec3::new(0, 0, -1),
-            BlockFace::South => IVec3::new(0, 0, 1),
-            BlockFace::East => IVec3::new(1, 0, 0),
-            BlockFace::West => IVec3::new(-1, 0, 0),
+            Self::Top => IVec3::new(0, 1, 0),
+            Self::Bottom => IVec3::new(0, -1, 0),
+            Self::North => IVec3::new(0, 0, -1),
+            Self::South => IVec3::new(0, 0, 1),
+            Self::East => IVec3::new(1, 0, 0),
+            Self::West => IVec3::new(-1, 0, 0),
+        }
+    }
+
+    pub fn opposite(&self) -> BlockFace {
+        match self {
+            Self::Top => Self::Bottom,
+            Self::Bottom => Self::Bottom,
+            Self::North => Self::South,
+            Self::South => Self::North,
+            Self::East => Self::West,
+            Self::West => Self::East,
         }
     }
 }

@@ -1,5 +1,5 @@
-use crate::world_extensions::WorldBlockUpdates;
 use crate::BlockBehavior;
+use crate::world_extensions::WorldBlockUpdates;
 use std::collections::HashMap;
 use temper_block_data::{BlockUpdates, BrokenBlocks, PlacedBlocks, PlacementContext};
 use temper_block_properties::{Direction, DoorHingeSide, DoubleBlockHalf};
@@ -17,16 +17,7 @@ impl BlockBehavior for DoorBlock {
             BlockFace::South => Direction::North,
             BlockFace::East => Direction::West,
             BlockFace::West => Direction::East,
-            BlockFace::Top => {
-                let yaw = (context.player_rotation.yaw + 180.0) % 360.0;
-
-                match yaw {
-                    45.0..135.0 => Direction::East,
-                    135.0..225.0 => Direction::South,
-                    225.0..315.0 => Direction::West,
-                    _ => Direction::North,
-                }
-            }
+            BlockFace::Top => Direction::from_yaw(context.player_rotation.yaw),
             _ => {
                 error!("Invalid block face clicked");
                 return PlacedBlocks::default(); // TODO: should return None or Err in the future

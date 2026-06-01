@@ -1,4 +1,5 @@
 use crate::BlockBehavior;
+use crate::behavior_trait::BlockDispatch;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::dimension::Dimension;
 use temper_core::pos::BlockPos;
@@ -20,6 +21,12 @@ pub trait WorldBlockUpdates {
         block_pos: BlockPos,
         callback: impl Fn(T) -> bool,
     ) -> bool;
+
+    fn try_get_block<T: BlockBehavior>(
+        &self,
+        block_pos: BlockPos,
+        dimension: Dimension,
+    ) -> Option<T>;
 }
 
 impl WorldBlockUpdates for World {
@@ -60,5 +67,16 @@ impl WorldBlockUpdates for World {
                 Ok(callback(block))
             })
             .unwrap_or_default()
+    }
+
+    fn try_get_block<T: BlockBehavior>(
+        &self,
+        block_pos: BlockPos,
+        dimension: Dimension,
+    ) -> Option<T> {
+        self.get_chunk(block_pos.chunk(), dimension)
+            .map(|c| c.get_block(block_pos.chunk_block_pos()))
+            .unwrap_or(BlockStateId::new(0))
+            .try_cast::<T>()
     }
 }

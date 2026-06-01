@@ -15,12 +15,12 @@ use temper_entities::entity_types::EntityTypeEnum;
 use temper_entities::markers::entity_types::{Cow, Fox, Pig};
 use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
 use temper_entities::{CowBundle, FoxBundle, MobBundle, MobKind, PigBundle};
+use temper_messages::SpawnMobCommand;
 use temper_messages::load_chunk_entities::LoadChunkEntities;
 use temper_messages::save_chunk_entities::SaveChunkEntities;
-use temper_messages::SpawnMobCommand;
 use temper_resources::world_sync_tracker::WorldSyncTracker;
 use temper_scheduler::Scheduler;
-use temper_state::{create_test_state, GlobalStateResource};
+use temper_state::{GlobalStateResource, create_test_state};
 
 fn emit_save_for(
     chunk: temper_core::pos::ChunkPos,
@@ -147,7 +147,7 @@ fn run_registered_shutdown_schedule(world: &mut World) {
     let mut timed = Scheduler::new();
     let mut shutdown_schedule = Schedule::default();
     let state = create_test_state();
-    temper_game_systems::register_schedules(&mut timed, &mut shutdown_schedule, state.0 .0);
+    temper_game_systems::register_schedules(&mut timed, &mut shutdown_schedule, state.0.0);
     shutdown_schedule.run(world);
 }
 

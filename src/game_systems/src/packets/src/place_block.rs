@@ -123,8 +123,7 @@ pub fn handle(
                             (event.cursor_x * 2.0 - 1.0) as i32,
                             (event.cursor_y * 2.0 - 1.0) as i32,
                             (event.cursor_z * 2.0 - 1.0) as i32,
-                        )
-                        .into();
+                        );
 
                     let Ok(curr_state) = state.0.world.get_block(offset_pos, Dimension::Overworld)
                     else {
