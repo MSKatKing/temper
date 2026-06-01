@@ -66,6 +66,59 @@ enum_property!(
     West => "west",
 );
 
+impl Direction {
+    pub fn from_yaw(yaw: f32) -> Self {
+        let index = ((yaw / 90.0 + 0.5).floor() as i32).rem_euclid(4);
+        match index {
+            0 => Self::South,
+            1 => Self::West,
+            2 => Self::North,
+            3 => Self::East,
+            _ => unreachable!(),
+        }
+    }
+    
+    pub fn axis(&self) -> Axis {
+        match self {
+            Self::East | Self::West => Axis::X,
+            Self::Up | Self::Down => Axis::Y,
+            Self::North | Self::South => Axis::Z,
+        }
+    }
+    
+    pub fn get_normal(&self) -> bevy_math::IVec3 {
+        match self {
+            Self::Up => bevy_math::IVec3::new(0, 1, 0),
+            Self::Down => bevy_math::IVec3::new(0, -1, 0),
+            Self::North => bevy_math::IVec3::new(0, 0, -1),
+            Self::South => bevy_math::IVec3::new(0, 0, 1),
+            Self::East => bevy_math::IVec3::new(1, 0, 0),
+            Self::West => bevy_math::IVec3::new(-1, 0, 0),
+        }
+    }
+    
+    pub fn opposite(&self) -> Self {
+        match self {
+            Self::Up => Self::Down,
+            Self::Down => Self::Up,
+            Self::North => Self::South,
+            Self::South => Self::North,
+            Self::East => Self::West,
+            Self::West => Self::East,
+        }
+    }
+
+    pub fn rotate_y_counter_clockwise(&self) -> Self {
+        match self {
+            Self::North => Self::West,
+            Self::East => Self::North,
+            Self::South => Self::East,
+            Self::West => Self::South,
+            _ => self.clone(),
+        }
+    }
+}
+
 enum_property!(
     DoorHingeSide,
     Left => "left",
