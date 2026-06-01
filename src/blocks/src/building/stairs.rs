@@ -93,13 +93,13 @@ impl BlockBehavior for StairsBlock {
             }
         };
         self.facing = Direction::from_yaw(context.player_rotation.yaw);
-        self.shape = get_shape(&self, context.level, context.block_pos, context.dimension);
+        self.shape = get_shape(self, context.level, context.block_pos, context.dimension);
 
         PlacedBlocks::default()
     }
 
     fn update(&mut self, world: &World, pos: BlockPos) -> bool {
-        self.shape = get_shape(&self, world, pos, Dimension::Overworld);
+        self.shape = get_shape(self, world, pos, Dimension::Overworld);
         false
     }
 }
