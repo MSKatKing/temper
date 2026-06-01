@@ -20,6 +20,11 @@ members = [
     "src/base/macros",
     "src/base/profiling",
     "src/base/threadpool",
+    "src/blocks",
+    "src/blocks/crates/property",
+    "src/blocks/crates/generated",
+    "src/blocks/crates/build",
+    "src/blocks/crates/data",
     "src/bin",
     "src/commands",
     "src/components",
@@ -55,7 +60,6 @@ members = [
     "src/text",
     "src/utils",
     "src/world",
-    "src/world/block-placing",
     "src/world/db",
     "src/world/format",
     "src/world/gen",
@@ -119,6 +123,9 @@ debug = true
 # Workspace members
 temper-app = { path = "src/app" }
 temper-anvil = { path = "src/adapters/anvil" }
+temper-blocks = { path = "src/blocks" }
+temper-block-properties = { path = "src/blocks/crates/property" }
+temper-block-data = { path = "src/blocks/crates/data" }
 temper-config = { path = "src/config" }
 temper-core = { path = "src/core" }
 temper-default-commands = { path = "src/default_commands" }
@@ -225,6 +232,7 @@ uuid = { version = "1.23.1", features = ["v4", "v3", "serde"] }
 indexmap = { version = "2.14.0", features = ["serde"] }
 bimap = "0.6.3"
 arrayvec = "0.7.6"
+fastcache = "0.1.7"
 
 # Macros
 lazy_static = "1.5.0"

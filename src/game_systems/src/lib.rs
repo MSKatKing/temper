@@ -43,8 +43,7 @@ fn register_tick_systems(schedule: &mut Schedule) {
     schedule.add_systems(packets::confirm_player_teleport::handle);
     schedule.add_systems(packets::keep_alive::handle);
     schedule.add_systems(packets::place_block::handle);
-    schedule.add_systems(interactions::interaction_listener::handle_block_interact);
-    schedule.add_systems(interactions::door_interaction::handle_door_toggled);
+    schedule.add_systems(interactions::handle_block_interact);
     schedule.add_systems(packets::player_action::handle);
     schedule.add_systems(packets::player_command::handle);
     schedule.add_systems(packets::player_input::handle);

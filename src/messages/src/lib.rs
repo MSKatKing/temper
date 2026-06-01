@@ -52,7 +52,7 @@ use crate::particle::SendParticle;
 use crate::save_chunk_entities::SaveChunkEntities;
 use crate::teleport_player::TeleportPlayer;
 pub use block_break::BlockBrokenEvent;
-pub use block_interaction::{BlockInteractMessage, BlockToggledEvent, DoorToggledEvent};
+pub use block_interaction::BlockInteractMessage;
 use temper_commands::messages::{CommandDispatched, ResolvedCommandDispatched};
 use world_change::WorldChange;
 
@@ -83,8 +83,6 @@ pub fn register_messages(world: &mut World) {
     MessageRegistry::register_message::<TeleportPlayer>(world);
     MessageRegistry::register_message::<WorldChange>(world);
     MessageRegistry::register_message::<BlockInteractMessage>(world);
-    MessageRegistry::register_message::<BlockToggledEvent>(world);
-    MessageRegistry::register_message::<DoorToggledEvent>(world);
     MessageRegistry::register_message::<LoadChunkEntities>(world);
     MessageRegistry::register_message::<SaveChunkEntities>(world);
     MessageRegistry::register_message::<DestroyEntity>(world);

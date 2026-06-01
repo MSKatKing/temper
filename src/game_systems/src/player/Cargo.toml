@@ -26,6 +26,7 @@ interactions = { workspace = true }
 rand = { workspace = true }
 bitcode = { workspace = true }
 temper-permissions = { workspace = true }
+temper-blocks = { workspace = true }
 
 [lints]
 workspace = true
