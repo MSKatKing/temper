@@ -15,12 +15,13 @@ use bevy_ecs::change_detection::Res;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::message::MessageReader;
 use bevy_ecs::prelude::{Local, Query};
-use std::collections::HashMap;
+use fastcache::Cache;
 use std::time::{Duration, Instant};
 use temper_blocks::BlockDispatch;
 use temper_codec::net_types::network_position::NetworkPosition;
 use temper_codec::net_types::var_int::VarInt;
 use temper_components::InteractionCooldown;
+use temper_components::player::client_information::ClientInformationComponent;
 use temper_components::player::position::Position;
 use temper_core::dimension::Dimension;
 use temper_core::pos::BlockPos;
@@ -34,8 +35,13 @@ use tracing::{debug, error};
 pub fn handle_block_interact(
     mut events: MessageReader<BlockInteractMessage>,
     state: Res<GlobalStateResource>,
-    query: Query<(Entity, &StreamWriter, &Position)>,
-    mut cooldowns: Local<HashMap<BlockPos, Instant>>,
+    query: Query<(
+        Entity,
+        &StreamWriter,
+        &Position,
+        &ClientInformationComponent,
+    )>,
+    mut cooldowns: Local<Option<Cache<BlockPos, Instant>>>,
 ) {
     let cooldown_duration = Duration::from_millis(InteractionCooldown::default().cooldown_ms);
 
@@ -43,11 +49,12 @@ pub fn handle_block_interact(
         let pos = event.position;
 
         // Ignore rapid repeated interactions on the same block
-        if cooldowns
-            .get(&pos)
-            .is_some_and(|t| t.elapsed() < cooldown_duration)
+        if let Some(cooldowns_map) = cooldowns.as_ref()
+            && cooldowns_map
+                .get(&pos)
+                .is_some_and(|t| t.elapsed() < cooldown_duration)
         {
-            if let Ok((_, conn, _)) = query.get(event.player) {
+            if let Ok((_, conn, _, _)) = query.get(event.player) {
                 let ack = BlockChangeAck {
                     sequence: event.sequence,
                 };
@@ -57,7 +64,9 @@ pub fn handle_block_interact(
             }
             continue;
         }
-        cooldowns.insert(pos, Instant::now());
+        cooldowns
+            .get_or_insert(Cache::new(512, Duration::from_secs(30)))
+            .insert(pos, Instant::now());
 
         // Load the chunk and get current block state
         let mut block_state = state
@@ -112,7 +121,7 @@ pub fn handle_block_interact(
         }; // chunk lock released here
 
         // Send BlockChangeAck to the player
-        if let Ok((_, conn, _)) = query.get(event.player) {
+        if let Ok((_, conn, _, _)) = query.get(event.player) {
             let ack = BlockChangeAck {
                 sequence: event.sequence,
             };
@@ -124,14 +133,16 @@ pub fn handle_block_interact(
         // Broadcast BlockUpdate to all players within render distance
         let block_chunk = pos.chunk();
         let (block_cx, block_cz) = (block_chunk.x(), block_chunk.z());
-        let render_distance = state.0.config.chunk_render_distance as i32;
+        let render_distance = state.0.config.chunk_render_distance;
 
-        for (_, conn, player_pos) in query.iter() {
+        for (_, conn, player_pos, client_info) in query.iter() {
             let pchunk = player_pos.chunk();
             let (pcx, pcz) = (pchunk.x(), pchunk.z());
 
-            if (block_cx - pcx).abs() <= render_distance
-                && (block_cz - pcz).abs() <= render_distance
+            let player_render_distance = u32::from(client_info.view_distance).min(render_distance);
+
+            if (block_cx - pcx).abs() <= player_render_distance as i32
+                && (block_cz - pcz).abs() <= player_render_distance as i32
             {
                 for update in &updates {
                     if let Err(e) = conn.send_packet_ref(update) {

@@ -16,6 +16,7 @@ temper-state = { workspace = true }
 temper-world = { workspace = true }
 tracing = { workspace = true }
 temper-blocks = { workspace = true }
+fastcache = { workspace = true }
 
 [dev-dependencies]
 temper-macros = { workspace = true }
