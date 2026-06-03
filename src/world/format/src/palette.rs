@@ -163,7 +163,7 @@ impl BlockPalette {
             idx,
         );
 
-        let (_, count) = &mut self.palette[idx].unwrap();
+        let (_, count) = self.palette[idx].as_mut().unwrap();
 
         if count.get() == 1 {
             self.palette[idx] = None;
