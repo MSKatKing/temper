@@ -231,7 +231,7 @@ mod tests {
                 assert_eq!(idx, 1);
                 assert_eq!(palette.len(), 2);
                 assert_eq!(palette.block_count(), 2);
-            },
+            }
             BlockPaletteResult::ShouldResize(_, _) => unreachable!(),
             BlockPaletteResult::ConvertToUniform(_) => unreachable!(),
         }
@@ -245,8 +245,12 @@ mod tests {
                 assert_eq!(idx, 1);
                 assert_eq!(palette.block_count(), 2);
                 palette.remove_block(idx);
-                assert_eq!(palette.block_count(), 1, "expected block count to be 1 after remove_block");
-            },
+                assert_eq!(
+                    palette.block_count(),
+                    1,
+                    "expected block count to be 1 after remove_block"
+                );
+            }
             BlockPaletteResult::ShouldResize(_, _) => unreachable!(),
             BlockPaletteResult::ConvertToUniform(_) => unreachable!(),
         }
