@@ -29,7 +29,7 @@ impl BlockBehavior for FenceAndPaneBlock {
             &mut self.south,
             &mut self.west,
         ]) {
-            let pos = context.block_pos + IVec3::new(*dx, 0, *dz).into();
+            let pos = context.block_pos + IVec3::new(*dx, 0, *dz);
             let block = context
                 .level
                 .get_block(pos, context.dimension)
@@ -61,7 +61,7 @@ impl BlockBehavior for FenceAndPaneBlock {
             &mut self.south,
             &mut self.west,
         ]) {
-            let pos = pos + IVec3::new(*dx, 0, *dz).into();
+            let pos = pos + IVec3::new(*dx, 0, *dz);
             let block = world
                 .get_block(pos, Dimension::Overworld)
                 .unwrap_or_default();
