@@ -16,6 +16,7 @@ pub struct PlacementContext<'a> {
     pub level: &'a World,
     pub dimension: Dimension,
     pub player_rotation: &'a Rotation,
+    pub default_placement_state: BlockStateId,
 }
 
 /// Result of the get_placement_state function
