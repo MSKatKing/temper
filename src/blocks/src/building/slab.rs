@@ -60,6 +60,9 @@ impl BlockBehavior for SlabBlock {
             return false;
         }
 
-        context.default_placement_state.try_cast::<SlabBlock>().is_some_and(|slab| slab.block_type == self.block_type)
+        context
+            .default_placement_state
+            .try_cast::<SlabBlock>()
+            .is_some_and(|slab| slab.block_type == self.block_type)
     }
 }

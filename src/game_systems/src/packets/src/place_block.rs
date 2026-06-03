@@ -186,7 +186,8 @@ pub fn handle(
                         // If the block cannot be replaced, try to replace the block adjacent to the face clicked
                         offset_pos = block_pos + event.face.get_normal().into();
 
-                        let Ok(curr_state) = state.0.world.get_block(offset_pos, Dimension::Overworld)
+                        let Ok(curr_state) =
+                            state.0.world.get_block(offset_pos, Dimension::Overworld)
                         else {
                             error!("Can't get block at {}", offset_pos);
                             continue 'ev_loop;
