@@ -118,7 +118,7 @@ pub fn handle(
                         continue 'ev_loop;
                     }
 
-                    let offset_pos = block_pos
+                    let mut offset_pos = block_pos
                         + IVec3::new(
                             (event.cursor_x * 2.0 - 1.0) as i32,
                             (event.cursor_y * 2.0 - 1.0) as i32,
@@ -158,8 +158,15 @@ pub fn handle(
                         continue 'ev_loop;
                     }
 
-                    let placement_context = temper_blocks::PlacementContext {
-                        face: event.face,
+                    let mut block_state = ITEM_TO_BLOCK_MAPPING
+                        .get()
+                        .unwrap()
+                        .get(&(item_id.as_u32() as i32))
+                        .copied()
+                        .unwrap();
+
+                    let mut placement_context = temper_blocks::PlacementContext {
+                        face: event.face.clone(),
                         cursor: DVec3::new(
                             f64::from(event.cursor_x),
                             f64::from(event.cursor_y),
@@ -170,35 +177,44 @@ pub fn handle(
                         level: &state.0.world,
                         dimension: Dimension::Overworld,
                         player_rotation: rot,
+                        default_placement_state: block_state,
                     };
 
+                    // Try to replace the block from the offset calculated
                     if !curr_state.can_be_replaced(placement_context.clone()) {
-                        if let Err(err) = conn.send_packet_ref(&ack_packet) {
-                            error!("Failed to send block change ack packet: {:?}", err);
+                        // If the block cannot be replaced, try to replace the block adjacent to the face clicked
+                        offset_pos = block_pos + event.face.get_normal();
+
+                        let Ok(curr_state) =
+                            state.0.world.get_block(offset_pos, Dimension::Overworld)
+                        else {
+                            error!("Can't get block at {}", offset_pos);
+                            continue 'ev_loop;
+                        };
+
+                        if !curr_state.can_be_replaced(placement_context.clone()) {
+                            if let Err(err) = conn.send_packet_ref(&ack_packet) {
+                                error!("Failed to send block change ack packet: {:?}", err);
+                                continue 'ev_loop;
+                            }
+
+                            if let Err(err) = conn.send_packet(BlockUpdate {
+                                location: NetworkPosition {
+                                    x: offset_pos.pos.x,
+                                    y: offset_pos.pos.y as i16,
+                                    z: offset_pos.pos.z,
+                                },
+                                block_state_id: curr_state.to_varint(),
+                            }) {
+                                error!("Failed to send block update packet to player: {err}");
+                                continue 'ev_loop;
+                            }
+
                             continue 'ev_loop;
                         }
 
-                        if let Err(err) = conn.send_packet(BlockUpdate {
-                            location: NetworkPosition {
-                                x: offset_pos.pos.x,
-                                y: offset_pos.pos.y as i16,
-                                z: offset_pos.pos.z,
-                            },
-                            block_state_id: curr_state.to_varint(),
-                        }) {
-                            error!("Failed to send block update packet to player: {err}");
-                            continue 'ev_loop;
-                        }
-
-                        continue 'ev_loop;
+                        placement_context.block_pos = offset_pos;
                     }
-
-                    let mut block_state = ITEM_TO_BLOCK_MAPPING
-                        .get()
-                        .unwrap()
-                        .get(&(item_id.as_u32() as i32))
-                        .copied()
-                        .unwrap();
 
                     let mut placed_blocks = block_state.get_placement_state(placement_context);
 

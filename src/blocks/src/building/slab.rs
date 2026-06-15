@@ -41,7 +41,28 @@ impl BlockBehavior for SlabBlock {
         PlacedBlocks::default()
     }
 
-    fn can_be_replaced(&self, _context: PlacementContext) -> bool {
-        true
+    fn can_be_replaced(&self, context: PlacementContext) -> bool {
+        if matches!(self.ty, SlabType::Double) {
+            return false;
+        }
+
+        if !matches!(context.face, BlockFace::Top | BlockFace::Bottom) {
+            return false;
+        }
+
+        let expected_face = match self.ty {
+            SlabType::Top => BlockFace::Bottom,
+            SlabType::Bottom => BlockFace::Top,
+            SlabType::Double => unreachable!(),
+        };
+
+        if context.face != expected_face {
+            return false;
+        }
+
+        context
+            .default_placement_state
+            .try_cast::<SlabBlock>()
+            .is_some_and(|slab| slab.block_type == self.block_type)
     }
 }
