@@ -180,7 +180,7 @@ tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 tracing-appender = "0.2.5"
 tracing-tracy = { version = "0.11.4", features = ["timer-fallback", "ondemand", "fibers", "context-switch-tracing", "delayed-init"] }
-log = "0.4.29"
+log = "0.4.32"
 tracy-client = "0.18.4"
 
 # Concurrency/Parallelism
@@ -191,7 +191,7 @@ rusty_pool = "0.7.0"
 crossbeam-queue = "0.3.12"
 
 # Network
-reqwest = { version = "0.13.3", features = ["json", "native-tls", "blocking", "http2"], default-features = false }
+reqwest = { version = "0.13.4", features = ["json", "native-tls", "blocking", "http2"], default-features = false }
 
 # Error handling
 thiserror = "2.0.18"
@@ -210,7 +210,7 @@ num-bigint = "0.4.6"
 
 # Encoding/Serialization
 serde = { version = "1.0.228", features = ["derive", "std", "rc"] }
-serde_json = "1.0.149"
+serde_json = "1.0.150"
 serde_derive = "1.0.228"
 base64 = "0.22.1"
 
@@ -228,7 +228,7 @@ byteorder = "1.5.0"
 
 # Data types
 dashmap = { version = "7.0.0-rc2", features = ["serde"] }
-uuid = { version = "1.23.1", features = ["v4", "v3", "serde"] }
+uuid = { version = "1.23.3", features = ["v4", "v3", "serde"] }
 indexmap = { version = "2.14.0", features = ["serde"] }
 bimap = "0.6.3"
 arrayvec = "0.7.6"
@@ -246,7 +246,7 @@ type_hash = "0.3.0"
 
 # Magic
 dhat = "0.3.3"
-ctor = "1.0.6"
+ctor = "1.0.7"
 
 # Compression/Decompression
 yazi = "0.2.1"
@@ -261,7 +261,7 @@ heed = "0.22.1"
 deepsize = "0.2.0"
 page_size = "0.6.0"
 enum-ordinalize = "4.3.2"
-regex = "1.12.3"
+regex = "1.12.4"
 noise = "0.9.0"
 ctrlc = "3.5.2"
 num_cpus = "1.17.0"
@@ -274,9 +274,9 @@ mime_guess = "2.0.5"
 
 ## TUI/CLI
 crossterm = "0.29.0"
-ratatui-core = "0.1.0"
+ratatui-core = "0.1.1"
 tui-input = "0.15.3"
-ratatui = "0.30.0"
+ratatui = "0.30.1"
 tui-logger = { version = "0.18.2", features = ["tracing-support", "crossterm"] }
 clap = { version = "4.6.1", features = ["derive", "env"] }
 indicatif = "0.18.4"
@@ -300,7 +300,7 @@ phf_codegen = { version = "0.13.1" }
 axum = { version = "0.8.9", features = ["tokio", "ws"] }
 
 # Stats
-sysinfo = { version = "0.39.2", default-features = false, features = ["system"] }
+sysinfo = { version = "0.39.3", default-features = false, features = ["system"] }
 dir-size = "0.1.1"
 
 # Compression is a real bottleneck that we can do little about, so compiling it with optimizations is needed in dev mode.

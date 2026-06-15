@@ -5,6 +5,7 @@ use std::cmp::max;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
+use tracing::error;
 use temper_codec::encode::NetEncodeOpts;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::client_information::ClientInformationComponent;
@@ -154,14 +155,16 @@ pub fn handle(
         let packets = batch.wait();
         let packets_len = packets.len();
         for packet in packets {
-            conn.send_raw_packet(packet)
-                .expect("Failed to send ChunkAndLightData");
+            if let Err(err) = conn.send_raw_packet(packet) {
+                error!("Failed to send chunk packet: {:?}", err);
+            }
         }
 
-        conn.send_packet(ChunkBatchFinish {
+        if let Err(err) = conn.send_packet(ChunkBatchFinish {
             batch_size: packets_len.into(),
-        })
-        .expect("Failed to send ChunkBatchFinish");
+        }) {
+            error!("Failed to send ChunkBatchFinish packet: {:?}", err);
+        }
 
         // Tell the client to unload chunks that are no longer needed
 
@@ -170,8 +173,9 @@ pub fn handle(
                 x: coords.0,
                 z: coords.1,
             };
-            conn.send_packet(packet)
-                .expect("Failed to send UnloadChunk packet");
+            if let Err(err) = conn.send_packet(packet) {
+                error!("Failed to send UnloadChunk packet: {:?}", err);
+            }
         }
 
         // God, I hope the compiler can optimize this shit out
