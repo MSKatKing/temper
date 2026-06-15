@@ -5,7 +5,6 @@ use std::cmp::max;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
-use tracing::error;
 use temper_codec::encode::NetEncodeOpts;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::client_information::ClientInformationComponent;
@@ -20,6 +19,7 @@ use temper_protocol::outgoing::chunk_batch_finish::ChunkBatchFinish;
 use temper_protocol::outgoing::chunk_batch_start::ChunkBatchStart;
 use temper_protocol::outgoing::set_center_chunk::SetCenterChunk;
 use temper_state::GlobalStateResource;
+use tracing::error;
 
 // Just take the needed chunks from the ChunkReceiver and send them
 // calculating which chunks are required is figured out elsewhere
