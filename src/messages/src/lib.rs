@@ -53,6 +53,7 @@ use crate::save_chunk_entities::SaveChunkEntities;
 use crate::teleport_player::TeleportPlayer;
 pub use block_break::BlockBrokenEvent;
 pub use block_interaction::BlockInteractMessage;
+use temper_command_infra::RebuildCommandGraph;
 use temper_commands::messages::{CommandDispatched, ResolvedCommandDispatched};
 use world_change::WorldChange;
 
@@ -62,6 +63,7 @@ pub fn register_messages(world: &mut World) {
     MessageRegistry::register_message::<ForcePlayerRecount>(world);
     MessageRegistry::register_message::<CommandDispatched>(world);
     MessageRegistry::register_message::<ResolvedCommandDispatched>(world);
+    MessageRegistry::register_message::<RebuildCommandGraph>(world);
 
     MessageRegistry::register_message::<PlayerLeft>(world);
     MessageRegistry::register_message::<PlayerJoined>(world);

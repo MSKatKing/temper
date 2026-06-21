@@ -1,3 +1,5 @@
+use std::fmt;
+
 use temper_codec::net_types::{length_prefixed_vec::LengthPrefixedVec, var_int::VarInt};
 use temper_command_infra::{
     ArgumentSpec, CommandGraph as InfraCommandGraph, CommandNode as InfraCommandNode,
@@ -9,9 +11,47 @@ use temper_commands::{
         PrimitiveArgumentFlags, PrimitiveArgumentType, int::IntArgumentFlags,
         string::StringArgumentType,
     },
-    graph::{CommandGraph, node::CommandNode},
+    graph::{CommandGraph, node::CommandNode as OldCommandNode},
 };
 use temper_macros::{NetEncode, packet};
+
+#[derive(Clone, NetEncode)]
+pub struct CommandNode {
+    pub flags: u8,
+    pub children: LengthPrefixedVec<VarInt>,
+    pub redirect_node: Option<VarInt>,
+    pub name: Option<String>,
+    pub parser_id: Option<PrimitiveArgumentType>,
+    pub properties: Option<PrimitiveArgumentFlags>,
+    pub suggestions_type: Option<String>,
+}
+
+impl fmt::Debug for CommandNode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CommandNode")
+            .field("node_type", &command_node_kind(self.flags))
+            .field("executable", &(self.flags & 0x04 != 0))
+            .field("has_redirect", &(self.flags & 0x08 != 0))
+            .field("has_suggestions_type", &(self.flags & 0x10 != 0))
+            .field("flags", &self.flags)
+            .field("children", &self.children)
+            .field("redirect_node", &self.redirect_node)
+            .field("name", &self.name)
+            .field("parser_id", &self.parser_id)
+            .field("properties", &self.properties)
+            .field("suggestions_type", &self.suggestions_type)
+            .finish()
+    }
+}
+
+fn command_node_kind(flags: u8) -> &'static str {
+    match flags & 0x03 {
+        0 => "Root",
+        1 => "Literal",
+        2 => "Argument",
+        _ => "Invalid",
+    }
+}
 
 #[derive(NetEncode, Debug)]
 #[packet(packet_id = "commands", state = "play")]
@@ -24,7 +64,7 @@ impl CommandsPacket {
     /// Creates a CommandsPacket from the provided command graph.
     pub fn new(graph: CommandGraph) -> Self {
         Self {
-            graph: LengthPrefixedVec::new(graph.nodes),
+            graph: LengthPrefixedVec::new(graph.nodes.iter().map(convert_old_node).collect()),
             root_idx: VarInt::new(0),
         }
     }
@@ -42,6 +82,18 @@ impl CommandsPacket {
     /// registered server commands for tab-completion and validation.
     pub fn from_global_graph() -> Self {
         Self::new(temper_commands::infrastructure::get_graph())
+    }
+}
+
+fn convert_old_node(node: &OldCommandNode) -> CommandNode {
+    CommandNode {
+        flags: node.flags,
+        children: node.children.clone(),
+        redirect_node: node.redirect_node.clone(),
+        name: node.name.clone(),
+        parser_id: node.parser_id.clone(),
+        properties: node.properties.clone(),
+        suggestions_type: node.suggestions_type.clone(),
     }
 }
 
@@ -114,5 +166,37 @@ fn string_mode(mode: StringMode) -> StringArgumentType {
 impl Default for CommandsPacket {
     fn default() -> Self {
         Self::from_global_graph()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use temper_command_infra::{
+        ArgumentSpec, CommandGraph, CommandPath, CommandPathSegment, ParserKind,
+    };
+
+    use super::CommandsPacket;
+
+    #[test]
+    fn converts_command_infra_graph_to_protocol_nodes() {
+        let graph = CommandGraph::from_paths(&[CommandPath::new(
+            "tp",
+            vec![CommandPathSegment::argument(
+                "target",
+                ArgumentSpec::new(ParserKind::Entity).with_suggestions("ask_server"),
+            )],
+        )]);
+
+        let packet = CommandsPacket::from_command_infra_graph(&graph);
+
+        assert_eq!(packet.root_idx.0, 0);
+        assert_eq!(packet.graph.data.len(), 3);
+        assert_eq!(packet.graph.data[1].name.as_deref(), Some("tp"));
+        assert_eq!(packet.graph.data[2].name.as_deref(), Some("target"));
+        assert!(packet.graph.data[2].flags & 0x04 != 0);
+        assert_eq!(
+            packet.graph.data[2].suggestions_type.as_deref(),
+            Some("ask_server")
+        );
     }
 }

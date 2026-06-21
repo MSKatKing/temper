@@ -55,6 +55,7 @@ fn register_tick_systems(schedule: &mut Schedule) {
     schedule.add_systems(packets::close_container::handle);
     schedule.add_systems(packets::player_loaded::handle);
     schedule.add_systems(packets::command::handle);
+    schedule.add_systems(packets::command_graph::rebuild_and_send_command_graphs);
     schedule.add_systems(packets::command_suggestions::handle);
     schedule.add_systems(packets::chat_message::handle);
     schedule.add_systems(packets::set_creative_mode_slot::handle);

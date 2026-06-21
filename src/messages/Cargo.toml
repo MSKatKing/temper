@@ -8,6 +8,7 @@ description = "Defines all Bevy ECS messages for Temper."
 bevy_ecs = { workspace = true }
 bevy_math = { workspace = true }
 
+temper-command-infra = { workspace = true }
 temper-components = { workspace = true }
 temper-core = { workspace = true }
 temper-codec = { workspace = true }
