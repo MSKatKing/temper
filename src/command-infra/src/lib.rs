@@ -1,9 +1,11 @@
 pub mod args;
+pub mod ecs;
 pub mod error;
 pub mod graph;
 pub mod metadata;
 pub mod reader;
 
+pub use ecs::{CommandRegistry, PlayerCommandGraph, RebuildCommandGraph, RegisteredCommand};
 pub use error::ParseError;
 pub use graph::{CommandGraph, CommandNode, CommandNodeKind};
 pub use metadata::{
