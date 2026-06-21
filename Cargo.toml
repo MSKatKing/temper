@@ -26,6 +26,7 @@ members = [
     "src/blocks/crates/build",
     "src/blocks/crates/data",
     "src/bin",
+    "src/command-infra",
     "src/commands",
     "src/components",
     "src/core",
@@ -137,6 +138,7 @@ temper-nbt = { path = "src/adapters/nbt" }
 temper-net-runtime = { path = "src/net/runtime" }
 temper-performance = { path = "src/performance" }
 temper-codec = { path = "src/net/codec" }
+temper-command-infra = { path = "src/command-infra" }
 temper-protocol = { path = "src/net/protocol" }
 temper-encryption = { path = "src/net/encryption" }
 temper-profiling = { path = "src/base/profiling" }
@@ -237,7 +239,7 @@ fastcache = "0.1.7"
 # Macros
 lazy_static = "1.5.0"
 quote = "1.0.45"
-syn = { version = "2.0.117", features = ["extra-traits"] }
+syn = { version = "2.0.117", features = ["extra-traits", "full"] }
 proc-macro2 = "1.0.106"
 paste = "1.0.15"
 maplit = "1.0.2"

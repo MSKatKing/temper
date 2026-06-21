@@ -1,0 +1,58 @@
+use crate::{ArgumentSpec, CommandArg, CommandReader, ParseError, ParserKind};
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PositionArg {
+    pub x: String,
+    pub y: String,
+    pub z: String,
+}
+
+impl CommandArg for PositionArg {
+    type Raw<'a> = (&'a str, &'a str, &'a str);
+
+    fn recognize<'a>(reader: &mut CommandReader<'a>) -> Result<Self::Raw<'a>, ParseError> {
+        let x = read_coord(reader, "x coordinate")?;
+        let y = read_coord(reader, "y coordinate")?;
+        let z = read_coord(reader, "z coordinate")?;
+
+        Ok((x, y, z))
+    }
+
+    fn parse(raw: Self::Raw<'_>) -> Result<Self, ParseError> {
+        Ok(Self {
+            x: raw.0.to_string(),
+            y: raw.1.to_string(),
+            z: raw.2.to_string(),
+        })
+    }
+
+    fn argument_spec() -> ArgumentSpec {
+        ArgumentSpec::new(ParserKind::Position)
+    }
+}
+
+fn read_coord<'a>(
+    reader: &mut CommandReader<'a>,
+    expected: &'static str,
+) -> Result<&'a str, ParseError> {
+    let cursor = reader.cursor();
+    let span = reader.read_word_span()?;
+
+    if is_coord(span) {
+        Ok(span)
+    } else {
+        Err(ParseError::new(
+            cursor,
+            expected,
+            format!("invalid {expected}: {span}"),
+        ))
+    }
+}
+
+fn is_coord(span: &str) -> bool {
+    if let Some(relative) = span.strip_prefix('~') {
+        relative.is_empty() || relative.parse::<f64>().is_ok()
+    } else {
+        span.parse::<f64>().is_ok()
+    }
+}
