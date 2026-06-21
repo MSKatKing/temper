@@ -16,6 +16,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
 fn expand(input: DeriveInput) -> SynResult<proc_macro2::TokenStream> {
     let ident = input.ident;
+    let register_fn = format_ident!("__{}_register_command", ident);
     let command_name = command_name(&input.attrs)?;
 
     let Data::Enum(data_enum) = input.data else {
@@ -159,6 +160,15 @@ fn expand(input: DeriveInput) -> SynResult<proc_macro2::TokenStream> {
             fn paths() -> Vec<::temper_command_infra::CommandPath> {
                 vec![#(#path_entries),*]
             }
+        }
+
+        #[::temper_command_infra::ctor::ctor(unsafe)]
+        #[allow(non_snake_case)]
+        #[doc(hidden)]
+        fn #register_fn() {
+            ::temper_command_infra::register_static_command(
+                ::temper_command_infra::RegisteredCommand::of::<#ident>(),
+            );
         }
     })
 }

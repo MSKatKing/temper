@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 temper-messages = { workspace = true }
 temper-components = { workspace = true }
+temper-command-infra = { workspace = true }
 temper-commands = { workspace = true }
 temper-macros = { workspace = true }
 temper-text = { workspace = true }

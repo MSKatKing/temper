@@ -6,6 +6,7 @@ pub mod fly;
 pub mod gamemode;
 mod kill;
 pub mod nested;
+pub mod new;
 pub mod op;
 pub mod permissions;
 mod say;

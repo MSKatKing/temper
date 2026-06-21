@@ -1,6 +1,11 @@
+use std::sync::{LazyLock, RwLock};
+
 use bevy_ecs::prelude::{Component, Entity, Message, Resource};
 
 use crate::{CommandGraph, CommandPath, CommandSpec};
+
+static STATIC_COMMANDS: LazyLock<RwLock<Vec<RegisteredCommand>>> =
+    LazyLock::new(|| RwLock::new(Vec::new()));
 
 #[derive(Clone, Debug)]
 pub struct RegisteredCommand {
@@ -17,12 +22,31 @@ impl RegisteredCommand {
     }
 }
 
+pub fn register_static_command(command: RegisteredCommand) {
+    if let Ok(mut commands) = STATIC_COMMANDS.write() {
+        commands.push(command);
+    }
+}
+
+pub fn static_commands() -> Vec<RegisteredCommand> {
+    STATIC_COMMANDS
+        .read()
+        .map(|commands| commands.clone())
+        .unwrap_or_default()
+}
+
 #[derive(Default, Resource)]
 pub struct CommandRegistry {
     commands: Vec<RegisteredCommand>,
 }
 
 impl CommandRegistry {
+    pub fn from_static_commands() -> Self {
+        Self {
+            commands: static_commands(),
+        }
+    }
+
     pub fn register<C: CommandSpec>(&mut self) {
         self.commands.push(RegisteredCommand::of::<C>());
     }

@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 bevy_ecs = { workspace = true }
+ctor = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

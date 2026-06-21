@@ -30,7 +30,7 @@ pub fn register_resources(
     world.insert_resource(WorldTime::default());
     world.insert_resource(ServerCommandReceiver(server_command_recv));
     world.insert_resource(PhysicalRegistry::new());
-    world.insert_resource(CommandRegistry::default());
+    world.insert_resource(CommandRegistry::from_static_commands());
 
     world.insert_resource(BossBarResource::new());
 }

@@ -5,7 +5,9 @@ pub mod graph;
 pub mod metadata;
 pub mod reader;
 
+pub use ctor;
 pub use ecs::{CommandRegistry, PlayerCommandGraph, RebuildCommandGraph, RegisteredCommand};
+pub use ecs::{register_static_command, static_commands};
 pub use error::ParseError;
 pub use graph::{CommandGraph, CommandNode, CommandNodeKind};
 pub use metadata::{
