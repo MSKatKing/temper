@@ -1,5 +1,10 @@
 use std::ops::Deref;
 
+use bevy_ecs::entity::Entity;
+use temper_components::entity_identity::Identity;
+use temper_components::player::player_marker::PlayerMarker;
+use uuid::Uuid;
+
 use crate::{ArgumentSpec, CommandArg, CommandReader, ParseError, ParserKind};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -10,6 +15,36 @@ impl Deref for EntityArg {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl EntityArg {
+    pub fn resolve<'a>(
+        &self,
+        iter: impl Iterator<Item = (Entity, &'a Identity, Option<&'a PlayerMarker>)>,
+    ) -> Vec<Entity> {
+        match &**self {
+            "@e" => iter.map(|(entity, _, _)| entity).collect(),
+            "@a" => iter
+                .filter_map(|(entity, _, marker)| marker.map(|_| entity))
+                .collect(),
+            "@r" => iter
+                .filter_map(|(entity, _, marker)| marker.map(|_| entity))
+                .take(1)
+                .collect(),
+            raw => {
+                let uuid = Uuid::parse_str(raw).ok();
+
+                iter.filter_map(|(entity, identity, _)| {
+                    if identity.name.as_deref() == Some(raw) || Some(identity.uuid) == uuid {
+                        Some(entity)
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+            }
+        }
     }
 }
 

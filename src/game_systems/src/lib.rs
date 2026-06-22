@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::ApplyDeferred;
 use bevy_ecs::schedule::{ExecutorKind, IntoScheduleConfigs, Schedule, SystemSet};
 use std::time::Duration;
-use temper_commands::infrastructure::register_command_systems;
+use temper_commands::infrastructure::register_command_systems as register_old_command_systems;
 use temper_scheduler::{MissedTickBehavior, Scheduler, TimedSchedule, drain_registered_schedules};
 
 pub use background::lan_pinger::LanPinger;
@@ -95,7 +95,8 @@ fn register_tick_systems(schedule: &mut Schedule) {
     schedule.add_systems(player::player_tp::teleport_player);
     schedule.add_systems(player::send_inventory_updates::handle_inventory_updates);
 
-    register_command_systems(schedule);
+    register_old_command_systems(schedule);
+    temper_command_infra::register_command_systems(schedule);
 
     schedule.add_systems(background::chunk_sending::handle.in_set(TickPhase::ChunkSending));
     mobs::register_load_systems(schedule);

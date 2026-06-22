@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::Query;
-use temper_commands::arg::primitive::string::GreedyString;
 use temper_commands::Sender;
+use temper_commands::arg::primitive::string::GreedyString;
 use temper_components::entity_identity::Identity;
 use temper_core::mq;
 use temper_macros::command;

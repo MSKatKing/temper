@@ -61,9 +61,9 @@
 use bevy_ecs::entity::Entity;
 use bevy_ecs::prelude::Query;
 use bevy_ecs::system::ResMut;
+use temper_commands::Sender;
 use temper_commands::arg::bossbar_set::BossbarSetOptions;
 use temper_commands::arg::primitive::string::{GreedyString, QuotableString};
-use temper_commands::Sender;
 use temper_components::entity_identity::Identity;
 use temper_components::player::bossbar_sender::BossbarSender;
 use temper_components::player::player_marker::PlayerMarker;

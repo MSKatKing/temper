@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use temper_commands::{arg::primitive::string::GreedyString, Sender};
+use temper_commands::{Sender, arg::primitive::string::GreedyString};
 use temper_components::entity_identity::Identity;
 use temper_macros::command;
 use temper_text::{TextComponent, TextComponentBuilder};

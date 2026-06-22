@@ -1,3 +1,5 @@
+use temper_components::player::position::Position;
+
 use crate::{ArgumentSpec, CommandArg, CommandReader, ParseError, ParserKind};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -5,6 +7,16 @@ pub struct PositionArg {
     pub x: String,
     pub y: String,
     pub z: String,
+}
+
+impl PositionArg {
+    pub fn resolve(&self, base: &Position) -> Position {
+        Position::new(
+            resolve_coord(&self.x, base.x),
+            resolve_coord(&self.y, base.y),
+            resolve_coord(&self.z, base.z),
+        )
+    }
 }
 
 impl CommandArg for PositionArg {
@@ -54,5 +66,17 @@ fn is_coord(span: &str) -> bool {
         relative.is_empty() || relative.parse::<f64>().is_ok()
     } else {
         span.parse::<f64>().is_ok()
+    }
+}
+
+fn resolve_coord(coord: &str, base: f64) -> f64 {
+    if let Some(relative) = coord.strip_prefix('~') {
+        if relative.is_empty() {
+            base
+        } else {
+            base + relative.parse::<f64>().unwrap_or(0.0)
+        }
+    } else {
+        coord.parse::<f64>().unwrap_or(base)
     }
 }

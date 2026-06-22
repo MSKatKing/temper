@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::{Entity, MessageWriter, Query};
-use temper_commands::arg::entities::EntityArgument;
 use temper_commands::Sender;
 use temper_commands::Sender::Player;
+use temper_commands::arg::entities::EntityArgument;
 use temper_components::entity_identity::Identity;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_macros::command;

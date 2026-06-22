@@ -1,14 +1,14 @@
 use bevy_ecs::prelude::{Query, Res, ResMut};
-use temper_commands::arg::primitive::int::Integer;
 use temper_commands::Sender;
+use temper_commands::arg::primitive::int::Integer;
 use temper_components::player::time::LastSentTimeUpdate;
 use temper_macros::command;
 use temper_resources::time::WorldTime;
 use temper_text::TextComponent;
 
 use temper_commands::{
-    arg::{primitive::PrimitiveArgument, utils::parser_error, CommandArgument, ParserResult},
     CommandContext, Suggestion,
+    arg::{CommandArgument, ParserResult, primitive::PrimitiveArgument, utils::parser_error},
 };
 
 #[derive(Debug, Clone, Copy)]

@@ -1,7 +1,9 @@
 use temper_command_infra::args::{
     EntityArg, GreedyStringArg, IntegerArg, PositionArg, SingleWordArg,
 };
-use temper_command_infra::{CommandGraph, CommandNodeKind, CommandSpec};
+use temper_command_infra::{
+    CommandGraph, CommandHandler, CommandNodeKind, CommandSource, CommandSpec,
+};
 use temper_macros::Command;
 
 #[derive(Debug, PartialEq, Command)]
@@ -50,6 +52,31 @@ enum RenameCommand {
         name: SingleWordArg,
     },
 }
+
+macro_rules! impl_noop_handler {
+    ($($command:ty),* $(,)?) => {
+        $(
+            impl CommandHandler for $command {
+                type SystemParam<'w, 's> = ();
+
+                fn handle<'w, 's>(
+                    self,
+                    _source: CommandSource,
+                    _params: &mut Self::SystemParam<'w, 's>,
+                ) {
+                }
+            }
+        )*
+    };
+}
+
+impl_noop_handler!(
+    TpCommand,
+    OverlapCommand,
+    SayCommand,
+    NumberCommand,
+    RenameCommand,
+);
 
 #[test]
 fn tp_to_position_parses() {

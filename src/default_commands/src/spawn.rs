@@ -2,8 +2,8 @@ use bevy_ecs::prelude::MessageWriter;
 use bimap::BiMap;
 use lazy_static::lazy_static;
 use temper_commands::{
-    arg::{primitive::PrimitiveArgument, utils::parser_error, CommandArgument, ParserResult},
     CommandContext, Sender, Suggestion,
+    arg::{CommandArgument, ParserResult, primitive::PrimitiveArgument, utils::parser_error},
 };
 use temper_entities::entity_types::EntityTypeEnum;
 use temper_macros::command;
@@ -114,7 +114,7 @@ impl CommandArgument for EntityTypeArg {
             None => {
                 return Err(parser_error(
                     format!("Unknown entity type: {}", str).as_str(),
-                ))
+                ));
             }
         };
 

@@ -1,12 +1,12 @@
 use bevy_ecs::prelude::{Entity, Query};
-use temper_commands::arg::entities::EntityArgument;
 use temper_commands::Sender;
+use temper_commands::arg::entities::EntityArgument;
 use temper_components::entity_identity::Identity;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_macros::command;
-use temper_permissions::player::PlayerPermission;
 use temper_permissions::Access::Allow;
 use temper_permissions::Permissions::ALL;
+use temper_permissions::player::PlayerPermission;
 use temper_text::TextComponent;
 
 #[command("op")]
