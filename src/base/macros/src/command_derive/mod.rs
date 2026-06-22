@@ -1,8 +1,8 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{
-    parse_macro_input, spanned::Spanned, Data, DeriveInput, Field, Fields, Ident, LitStr,
-    Result as SynResult,
+    parse_macro_input, spanned::Spanned, Data, DataEnum, DataStruct, DeriveInput, Field, Fields,
+    Ident, LitStr, Result as SynResult,
 };
 
 pub fn derive(input: TokenStream) -> TokenStream {
@@ -16,28 +16,215 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
 fn expand(input: DeriveInput) -> SynResult<proc_macro2::TokenStream> {
     let ident = input.ident;
-    let register_fn = format_ident!("__{}_register_command", ident);
-    let register_system_fn = format_ident!("__{}_register_command_system", ident);
     let command_name = command_name(&input.attrs)?;
 
-    let Data::Enum(data_enum) = input.data else {
-        return Err(syn::Error::new(
+    match input.data {
+        Data::Enum(data_enum) => expand_enum(&ident, command_name, data_enum),
+        Data::Struct(data_struct) => expand_struct(&ident, command_name, data_struct),
+        Data::Union(_) => Err(syn::Error::new(
             ident.span(),
-            "Command can only be derived for enums",
-        ));
-    };
+            "Command can only be derived for enums or structs",
+        )),
+    }
+}
 
+fn expand_enum(
+    ident: &Ident,
+    command_name: LitStr,
+    data_enum: DataEnum,
+) -> SynResult<proc_macro2::TokenStream> {
     let mut parse_arms = Vec::new();
     let mut path_entries = Vec::new();
     let mut greedy_assertions = Vec::new();
 
     for variant in data_enum.variants {
         let variant_ident = variant.ident;
-        let fields = match variant.fields {
-            Fields::Unnamed(fields) => {
-                VariantFields::Unnamed(fields.unnamed.into_iter().map(CommandField::from).collect())
+        let fields = CommandFields::from_fields(variant.fields)?;
+        let field_parse = FieldParse::new(fields.fields(), ident)?;
+
+        greedy_assertions.extend(field_parse.greedy_assertions);
+
+        let constructor = match &fields {
+            CommandFields::Unnamed(_) => {
+                let values = &field_parse.tuple_values;
+                quote! {
+                    Self::#variant_ident(#(#values),*)
+                }
             }
-            Fields::Named(fields) => VariantFields::Named(
+            CommandFields::Named(_) => {
+                let values = &field_parse.named_values;
+                quote! {
+                    Self::#variant_ident { #(#values),* }
+                }
+            }
+            CommandFields::Unit => quote! {
+                Self::#variant_ident
+            },
+        };
+
+        let raw_bindings = &field_parse.raw_bindings;
+        parse_arms.push(quote! {
+            {
+                let __checkpoint = __reader.checkpoint();
+                let __result = (|| -> Result<Self, ::temper_command_infra::ParseError> {
+                    #(#raw_bindings)*
+                    __reader.expect_end()?;
+                    Ok(#constructor)
+                })();
+
+                match __result {
+                    Ok(__command) => return Ok(__command),
+                    Err(__err) => {
+                        __best_error = Some(match __best_error.take() {
+                            Some(__best) => __best.farthest(__err),
+                            None => __err,
+                        });
+                        __reader.rewind(__checkpoint);
+                    }
+                }
+            }
+        });
+
+        let segments = &field_parse.segments;
+        path_entries.push(quote! {
+            ::temper_command_infra::CommandPath::new(#command_name, vec![#(#segments),*])
+        });
+    }
+
+    let parse_body = quote! {
+        let mut __best_error: Option<::temper_command_infra::ParseError> = None;
+
+        #(#parse_arms)*
+
+        Err(__best_error.unwrap_or_else(|| {
+            ::temper_command_infra::ParseError::expected(__reader.cursor(), "command variant")
+        }))
+    };
+
+    Ok(expand_command_impl(
+        ident,
+        command_name,
+        parse_body,
+        path_entries,
+        greedy_assertions,
+    ))
+}
+
+fn expand_struct(
+    ident: &Ident,
+    command_name: LitStr,
+    data_struct: DataStruct,
+) -> SynResult<proc_macro2::TokenStream> {
+    let fields = CommandFields::from_fields(data_struct.fields)?;
+    let field_parse = FieldParse::new(fields.fields(), ident)?;
+    let raw_bindings = &field_parse.raw_bindings;
+
+    let constructor = match &fields {
+        CommandFields::Unnamed(_) => {
+            let values = &field_parse.tuple_values;
+            quote! {
+                Self(#(#values),*)
+            }
+        }
+        CommandFields::Named(_) => {
+            let values = &field_parse.named_values;
+            quote! {
+                Self { #(#values),* }
+            }
+        }
+        CommandFields::Unit => quote! {
+            Self
+        },
+    };
+
+    let parse_body = quote! {
+        #(#raw_bindings)*
+        __reader.expect_end()?;
+        Ok(#constructor)
+    };
+
+    let segments = &field_parse.segments;
+    let path_entries = vec![quote! {
+        ::temper_command_infra::CommandPath::new(#command_name, vec![#(#segments),*])
+    }];
+
+    Ok(expand_command_impl(
+        ident,
+        command_name,
+        parse_body,
+        path_entries,
+        field_parse.greedy_assertions,
+    ))
+}
+
+fn expand_command_impl(
+    ident: &Ident,
+    command_name: LitStr,
+    parse_body: proc_macro2::TokenStream,
+    path_entries: Vec<proc_macro2::TokenStream>,
+    greedy_assertions: Vec<proc_macro2::TokenStream>,
+) -> proc_macro2::TokenStream {
+    let registration = expand_registration(ident);
+
+    quote! {
+        #(#greedy_assertions)*
+
+        impl ::temper_command_infra::CommandSpec for #ident {
+            const NAME: &'static str = #command_name;
+
+            fn parse_reader(
+                __reader: &mut ::temper_command_infra::CommandReader<'_>,
+            ) -> Result<Self, ::temper_command_infra::ParseError> {
+                #parse_body
+            }
+
+            fn paths() -> Vec<::temper_command_infra::CommandPath> {
+                vec![#(#path_entries),*]
+            }
+        }
+
+        #registration
+    }
+}
+
+fn expand_registration(ident: &Ident) -> proc_macro2::TokenStream {
+    let register_fn = format_ident!("__{}_register_command", ident);
+    let register_system_fn = format_ident!("__{}_register_command_system", ident);
+
+    quote! {
+        #[::temper_command_infra::ctor::ctor(unsafe)]
+        #[allow(non_snake_case)]
+        #[doc(hidden)]
+        fn #register_fn() {
+            ::temper_command_infra::register_static_command(
+                ::temper_command_infra::RegisteredCommand::of::<#ident>(),
+            );
+        }
+
+        #[::temper_command_infra::ctor::ctor(unsafe)]
+        #[allow(non_snake_case)]
+        #[doc(hidden)]
+        fn #register_system_fn() {
+            ::temper_command_infra::add_system(
+                ::temper_command_infra::dispatch_command::<#ident>,
+            );
+        }
+    }
+}
+
+enum CommandFields {
+    Unnamed(Vec<CommandField>),
+    Named(Vec<CommandField>),
+    Unit,
+}
+
+impl CommandFields {
+    fn from_fields(fields: Fields) -> SynResult<Self> {
+        match fields {
+            Fields::Unnamed(fields) => Ok(Self::Unnamed(
+                fields.unnamed.into_iter().map(CommandField::from).collect(),
+            )),
+            Fields::Named(fields) => Ok(Self::Named(
                 fields
                     .named
                     .into_iter()
@@ -51,17 +238,37 @@ fn expand(input: DeriveInput) -> SynResult<proc_macro2::TokenStream> {
                         })
                     })
                     .collect::<SynResult<Vec<_>>>()?,
-            ),
-            Fields::Unit => VariantFields::Unit,
-        };
+            )),
+            Fields::Unit => Ok(Self::Unit),
+        }
+    }
 
-        let last_field_idx = fields.fields().len().saturating_sub(1);
+    fn fields(&self) -> &[CommandField] {
+        match self {
+            CommandFields::Unnamed(fields) | CommandFields::Named(fields) => fields,
+            CommandFields::Unit => &[],
+        }
+    }
+}
+
+struct FieldParse {
+    raw_bindings: Vec<proc_macro2::TokenStream>,
+    tuple_values: Vec<proc_macro2::TokenStream>,
+    named_values: Vec<proc_macro2::TokenStream>,
+    segments: Vec<proc_macro2::TokenStream>,
+    greedy_assertions: Vec<proc_macro2::TokenStream>,
+}
+
+impl FieldParse {
+    fn new(fields: &[CommandField], _ident: &Ident) -> SynResult<Self> {
+        let last_field_idx = fields.len().saturating_sub(1);
         let mut raw_bindings = Vec::new();
-        let mut tuple_value_exprs = Vec::new();
-        let mut named_value_exprs = Vec::new();
+        let mut tuple_values = Vec::new();
+        let mut named_values = Vec::new();
         let mut segments = Vec::new();
+        let mut greedy_assertions = Vec::new();
 
-        for (idx, command_field) in fields.fields().iter().enumerate() {
+        for (idx, command_field) in fields.iter().enumerate() {
             let arg_name = arg_name(command_field)?;
             let field = &command_field.field;
             let ty = &field.ty;
@@ -71,12 +278,12 @@ fn expand(input: DeriveInput) -> SynResult<proc_macro2::TokenStream> {
                 let #raw_ident = <#ty as ::temper_command_infra::CommandArg>::recognize(__reader)?;
             });
 
-            tuple_value_exprs.push(quote! {
+            tuple_values.push(quote! {
                 <#ty as ::temper_command_infra::CommandArg>::parse(#raw_ident)?
             });
 
             if let Some(field_ident) = &command_field.ident {
-                named_value_exprs.push(quote! {
+                named_values.push(quote! {
                     #field_ident: <#ty as ::temper_command_infra::CommandArg>::parse(#raw_ident)?
                 });
             }
@@ -101,100 +308,13 @@ fn expand(input: DeriveInput) -> SynResult<proc_macro2::TokenStream> {
             }
         }
 
-        let constructor = match &fields {
-            VariantFields::Unnamed(_) => quote! {
-                Self::#variant_ident(#(#tuple_value_exprs),*)
-            },
-            VariantFields::Named(_) => quote! {
-                Self::#variant_ident { #(#named_value_exprs),* }
-            },
-            VariantFields::Unit => quote! {
-                Self::#variant_ident
-            },
-        };
-
-        parse_arms.push(quote! {
-            {
-                let __checkpoint = __reader.checkpoint();
-                let __result = (|| -> Result<Self, ::temper_command_infra::ParseError> {
-                    #(#raw_bindings)*
-                    __reader.expect_end()?;
-                    Ok(#constructor)
-                })();
-
-                match __result {
-                    Ok(__command) => return Ok(__command),
-                    Err(__err) => {
-                        __best_error = Some(match __best_error.take() {
-                            Some(__best) => __best.farthest(__err),
-                            None => __err,
-                        });
-                        __reader.rewind(__checkpoint);
-                    }
-                }
-            }
-        });
-
-        path_entries.push(quote! {
-            ::temper_command_infra::CommandPath::new(#command_name, vec![#(#segments),*])
-        });
-    }
-
-    Ok(quote! {
-        #(#greedy_assertions)*
-
-        impl ::temper_command_infra::CommandSpec for #ident {
-            const NAME: &'static str = #command_name;
-
-            fn parse_reader(
-                __reader: &mut ::temper_command_infra::CommandReader<'_>,
-            ) -> Result<Self, ::temper_command_infra::ParseError> {
-                let mut __best_error: Option<::temper_command_infra::ParseError> = None;
-
-                #(#parse_arms)*
-
-                Err(__best_error.unwrap_or_else(|| {
-                    ::temper_command_infra::ParseError::expected(__reader.cursor(), "command variant")
-                }))
-            }
-
-            fn paths() -> Vec<::temper_command_infra::CommandPath> {
-                vec![#(#path_entries),*]
-            }
-        }
-
-        #[::temper_command_infra::ctor::ctor(unsafe)]
-        #[allow(non_snake_case)]
-        #[doc(hidden)]
-        fn #register_fn() {
-            ::temper_command_infra::register_static_command(
-                ::temper_command_infra::RegisteredCommand::of::<#ident>(),
-            );
-        }
-
-        #[::temper_command_infra::ctor::ctor(unsafe)]
-        #[allow(non_snake_case)]
-        #[doc(hidden)]
-        fn #register_system_fn() {
-            ::temper_command_infra::add_system(
-                ::temper_command_infra::dispatch_command::<#ident>,
-            );
-        }
-    })
-}
-
-enum VariantFields {
-    Unnamed(Vec<CommandField>),
-    Named(Vec<CommandField>),
-    Unit,
-}
-
-impl VariantFields {
-    fn fields(&self) -> &[CommandField] {
-        match self {
-            VariantFields::Unnamed(fields) | VariantFields::Named(fields) => fields,
-            VariantFields::Unit => &[],
-        }
+        Ok(Self {
+            raw_bindings,
+            tuple_values,
+            named_values,
+            segments,
+            greedy_assertions,
+        })
     }
 }
 

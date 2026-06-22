@@ -53,6 +53,16 @@ enum RenameCommand {
     },
 }
 
+#[derive(Debug, PartialEq, Command)]
+#[command("stop")]
+struct StopCommand;
+
+#[derive(Debug, PartialEq, Command)]
+#[command("me")]
+struct MeCommand {
+    action: GreedyStringArg,
+}
+
 macro_rules! impl_noop_handler {
     ($($command:ty),* $(,)?) => {
         $(
@@ -76,6 +86,8 @@ impl_noop_handler!(
     SayCommand,
     NumberCommand,
     RenameCommand,
+    StopCommand,
+    MeCommand,
 );
 
 #[test]
@@ -213,4 +225,42 @@ fn arg_attribute_overrides_named_field_name() {
     let name_idx = graph.nodes[rename_idx].children[0];
 
     assert_eq!(graph.nodes[name_idx].name.as_deref(), Some("display_name"));
+}
+
+#[test]
+fn unit_struct_command_parses_without_args() {
+    let command = StopCommand::parse("").unwrap();
+
+    assert_eq!(command, StopCommand);
+    assert!(StopCommand::parse("extra").is_err());
+}
+
+#[test]
+fn unit_struct_command_graph_executable_at_root_literal() {
+    let graph = CommandGraph::from_paths(&StopCommand::paths());
+    let stop_idx = graph.nodes[graph.root_idx].children[0];
+    let stop = &graph.nodes[stop_idx];
+
+    assert_eq!(stop.name.as_deref(), Some("stop"));
+    assert!(stop.children.is_empty());
+    assert!(stop.executable);
+}
+
+#[test]
+fn named_struct_command_parses_single_arg_set() {
+    let command = MeCommand::parse("waves hello").unwrap();
+
+    assert_eq!(&*command.action, "waves hello");
+}
+
+#[test]
+fn named_struct_command_uses_field_names_in_graph() {
+    let graph = CommandGraph::from_paths(&MeCommand::paths());
+    let me_idx = graph.nodes[graph.root_idx].children[0];
+    let action_idx = graph.nodes[me_idx].children[0];
+    let action = &graph.nodes[action_idx];
+
+    assert_eq!(graph.nodes[me_idx].name.as_deref(), Some("me"));
+    assert_eq!(action.name.as_deref(), Some("action"));
+    assert!(action.executable);
 }
