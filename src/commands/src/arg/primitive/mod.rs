@@ -28,6 +28,25 @@ pub mod int;
 pub mod long;
 pub mod string;
 
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct EntityArgumentFlags {
+    pub single: bool,
+    pub players_only: bool,
+}
+
+impl NetEncode for EntityArgumentFlags {
+    fn encode<W: Write>(&self, writer: &mut W, opts: &NetEncodeOpts) -> Result<(), NetEncodeError> {
+        let mut flags = 0u8;
+        if self.single {
+            flags |= 0x01;
+        }
+        if self.players_only {
+            flags |= 0x02;
+        }
+        flags.encode(writer, opts)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrimitiveArgument {
     pub argument_type: PrimitiveArgumentType,
@@ -94,6 +113,7 @@ pub enum PrimitiveArgumentFlags {
     Int(IntArgumentFlags),
     Long(LongArgumentFlags),
     String(StringArgumentType),
+    Entity(EntityArgumentFlags),
 }
 
 #[derive(Clone, Debug, PartialEq, Ordinalize)]

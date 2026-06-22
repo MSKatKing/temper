@@ -13,8 +13,8 @@ use temper_macros::lookup_packet;
 use temper_protocol::ConnState::*;
 use temper_protocol::incoming::packet_skeleton::PacketSkeleton;
 use temper_protocol::outgoing::login_success::{LoginSuccessPacket, LoginSuccessProperties};
+use temper_protocol::outgoing::registry_data::REGISTRY_PACKETS;
 use temper_protocol::outgoing::set_default_spawn_position::DEFAULT_SPAWN_POSITION;
-use temper_protocol::outgoing::{commands::CommandsPacket, registry_data::REGISTRY_PACKETS};
 use temper_state::GlobalState;
 
 use temper_components::entity_identity::Identity;
@@ -434,16 +434,6 @@ fn send_player_info(
     Ok(())
 }
 
-/// Sends the command graph to the client.
-fn send_command_graph(conn_write: &StreamWriter) -> Result<(), NetError> {
-    conn_write.send_packet(CommandsPacket::from_global_graph())?;
-    trace!(
-        "sending command graph {:#?}",
-        temper_commands::infrastructure::get_graph()
-    );
-    Ok(())
-}
-
 /// Sends the player's inventory contents to the client.
 fn send_inventory_contents(
     conn_write: &StreamWriter,
@@ -551,7 +541,6 @@ pub(super) async fn login(
     .await?;
     send_player_info(conn_write, &player_identity, &player_properties)?;
     send_inventory_contents(conn_write, &offline_data)?;
-    send_command_graph(conn_write)?;
 
     // Login complete
     Ok((

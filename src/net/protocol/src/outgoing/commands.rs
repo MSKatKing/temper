@@ -8,7 +8,7 @@ use temper_command_infra::{
 };
 use temper_commands::{
     arg::primitive::{
-        PrimitiveArgumentFlags, PrimitiveArgumentType, int::IntArgumentFlags,
+        EntityArgumentFlags, PrimitiveArgumentFlags, PrimitiveArgumentType, int::IntArgumentFlags,
         string::StringArgumentType,
     },
     graph::{CommandGraph, node::CommandNode as OldCommandNode},
@@ -74,14 +74,6 @@ impl CommandsPacket {
             graph: LengthPrefixedVec::new(graph.nodes.iter().map(convert_node).collect()),
             root_idx: VarInt::new(graph.root_idx as i32),
         }
-    }
-
-    /// Creates a CommandsPacket using the globally registered command graph.
-    ///
-    /// This is the typical way to create this packet, as it includes all
-    /// registered server commands for tab-completion and validation.
-    pub fn from_global_graph() -> Self {
-        Self::new(temper_commands::infrastructure::get_graph())
     }
 }
 
@@ -151,6 +143,9 @@ fn parser_properties(argument: ArgumentSpec) -> Option<PrimitiveArgumentFlags> {
         None if argument.parser == ParserKind::Word => {
             Some(PrimitiveArgumentFlags::String(StringArgumentType::Word))
         }
+        None if argument.parser == ParserKind::Entity => Some(PrimitiveArgumentFlags::Entity(
+            EntityArgumentFlags::default(),
+        )),
         None => None,
     }
 }
@@ -163,17 +158,12 @@ fn string_mode(mode: StringMode) -> StringArgumentType {
     }
 }
 
-impl Default for CommandsPacket {
-    fn default() -> Self {
-        Self::from_global_graph()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use temper_command_infra::{
         ArgumentSpec, CommandGraph, CommandPath, CommandPathSegment, ParserKind,
     };
+    use temper_commands::arg::primitive::PrimitiveArgumentFlags;
 
     use super::CommandsPacket;
 
@@ -194,6 +184,10 @@ mod tests {
         assert_eq!(packet.graph.data[1].name.as_deref(), Some("tp"));
         assert_eq!(packet.graph.data[2].name.as_deref(), Some("target"));
         assert!(packet.graph.data[2].flags & 0x04 != 0);
+        assert!(matches!(
+            packet.graph.data[2].properties,
+            Some(PrimitiveArgumentFlags::Entity(_))
+        ));
         assert_eq!(
             packet.graph.data[2].suggestions_type.as_deref(),
             Some("ask_server")

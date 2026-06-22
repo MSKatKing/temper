@@ -28,7 +28,7 @@ impl CommandHandler for EchoCommand {
                 .expect("No Player Name")
                 .clone(),
         };
-        
+
         let message = TextComponentBuilder::new(format!("{username} said: "))
             .extra(TextComponent::from(self.message.to_string()))
             .build();
