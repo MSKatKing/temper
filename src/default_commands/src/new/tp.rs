@@ -9,7 +9,7 @@ use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_core::mq;
 use temper_macros::Command;
-use temper_messages::teleport_player::TeleportPlayer;
+use temper_messages::teleport_entity::TeleportEntity;
 use temper_text::TextComponent;
 use tracing::info;
 
@@ -37,7 +37,7 @@ impl CommandHandler for TpCommand {
     type SystemParam<'w, 's> = (
         Query<'w, 's, (&'static Rotation, &'static Position)>,
         Query<'w, 's, (Entity, &'static Identity, Option<&'static PlayerMarker>)>,
-        MessageWriter<'w, TeleportPlayer>,
+        MessageWriter<'w, TeleportEntity>,
     );
 
     fn handle(self, source: CommandSource, params: &mut Self::SystemParam<'_, '_>) {
@@ -51,7 +51,7 @@ fn execute_tp(
     command: TpCommand,
     positions: &Query<(&Rotation, &Position)>,
     identities: &Query<(Entity, &Identity, Option<&PlayerMarker>)>,
-    teleports: &mut MessageWriter<TeleportPlayer>,
+    teleports: &mut MessageWriter<TeleportEntity>,
 ) {
     match command {
         TpCommand::TpToPos { location } => {
@@ -172,19 +172,9 @@ fn teleport_entity(
     entity: Entity,
     rotation: Rotation,
     destination: Position,
-    teleports: &mut MessageWriter<TeleportPlayer>,
+    teleports: &mut MessageWriter<TeleportEntity>,
 ) {
-    teleports.write(TeleportPlayer {
-        entity,
-        x: destination.x,
-        y: destination.y,
-        z: destination.z,
-        vel_x: 0.0,
-        vel_y: 0.0,
-        vel_z: 0.0,
-        yaw: rotation.yaw,
-        pitch: rotation.pitch,
-    });
+    teleports.write(TeleportEntity::new(entity, destination, rotation));
 }
 
 fn send_message(source: CommandSource, message: TextComponent) {

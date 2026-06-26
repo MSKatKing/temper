@@ -38,7 +38,7 @@ pub mod force_player_recount_event;
 pub mod load_chunk_entities;
 pub mod packet_messages;
 pub mod save_chunk_entities;
-pub mod teleport_player;
+pub mod teleport_entity;
 pub mod world_change;
 
 use crate::chunk_calc::ChunkCalc;
@@ -50,7 +50,7 @@ use crate::load_chunk_entities::LoadChunkEntities;
 use crate::packet_messages::Movement;
 use crate::particle::SendParticle;
 use crate::save_chunk_entities::SaveChunkEntities;
-use crate::teleport_player::TeleportPlayer;
+use crate::teleport_entity::TeleportEntity;
 pub use block_break::BlockBrokenEvent;
 pub use block_interaction::BlockInteractMessage;
 use temper_command_infra::{NewCommandDispatched, RebuildCommandGraph};
@@ -83,7 +83,7 @@ pub fn register_messages(world: &mut World) {
     MessageRegistry::register_message::<SendEntityUpdate>(world);
     MessageRegistry::register_message::<SendParticle>(world);
     MessageRegistry::register_message::<BlockBrokenEvent>(world);
-    MessageRegistry::register_message::<TeleportPlayer>(world);
+    MessageRegistry::register_message::<TeleportEntity>(world);
     MessageRegistry::register_message::<WorldChange>(world);
     MessageRegistry::register_message::<BlockInteractMessage>(world);
     MessageRegistry::register_message::<LoadChunkEntities>(world);

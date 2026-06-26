@@ -92,7 +92,7 @@ fn register_tick_systems(schedule: &mut Schedule) {
     schedule.add_systems(player::player_join_message::handle);
     schedule.add_systems(player::player_leave_message::handle);
     schedule.add_systems(player::player_swimming::detect_player_swimming);
-    schedule.add_systems(player::player_tp::teleport_player);
+    schedule.add_systems(player::teleport::teleport_entities);
     schedule.add_systems(player::send_inventory_updates::handle_inventory_updates);
 
     register_old_command_systems(schedule);

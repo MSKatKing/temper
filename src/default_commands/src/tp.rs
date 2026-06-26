@@ -9,13 +9,13 @@ use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_macros::command;
-use temper_messages::teleport_player::TeleportPlayer;
+use temper_messages::teleport_entity::TeleportEntity;
 
 #[command("tp pos")]
 fn tp_command(
     #[sender] sender: Sender,
     #[arg] pos: CommandPosition,
-    args: (Query<(&Rotation, &Position)>, MessageWriter<TeleportPlayer>),
+    args: (Query<(&Rotation, &Position)>, MessageWriter<TeleportEntity>),
 ) {
     let (mut query, mut tp_player_msg) = args;
     let Player(entity) = sender else {
@@ -29,17 +29,7 @@ fn tp_command(
     };
     let resolved_pos = pos.resolve(position);
 
-    tp_player_msg.write(TeleportPlayer {
-        entity,
-        x: resolved_pos.x,
-        y: resolved_pos.y,
-        z: resolved_pos.z,
-        vel_x: 0.0,
-        vel_y: 0.0,
-        vel_z: 0.0,
-        yaw: rot.yaw,
-        pitch: rot.pitch,
-    });
+    tp_player_msg.write(TeleportEntity::new(entity, resolved_pos, *rot));
 
     sender.send_message(format!("Teleported to ({}).", resolved_pos).into(), false);
 }
@@ -50,7 +40,7 @@ fn tp_to_command(
     #[arg] target: EntityArgument,
     args: (
         Query<(&Rotation, &Position)>,
-        MessageWriter<TeleportPlayer>,
+        MessageWriter<TeleportEntity>,
         Query<(Entity, &Identity, Option<&PlayerMarker>)>,
     ),
 ) {
@@ -80,17 +70,7 @@ fn tp_to_command(
         return;
     };
 
-    tp_player_msg.write(TeleportPlayer {
-        entity: sender_e,
-        x: target_pos.x,
-        y: target_pos.y,
-        z: target_pos.z,
-        vel_x: 0.0,
-        vel_y: 0.0,
-        vel_z: 0.0,
-        yaw: sender_rot.yaw,
-        pitch: sender_rot.pitch,
-    });
+    tp_player_msg.write(TeleportEntity::new(sender_e, *target_pos, *sender_rot));
 
     sender.send_message(
         format!("Teleported to the entity at {}.", target_pos).into(),
