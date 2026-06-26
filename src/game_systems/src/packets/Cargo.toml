@@ -17,6 +17,7 @@ temper-commands = { workspace = true }
 temper-net-runtime = { workspace = true }
 temper-codec = { workspace = true }
 temper-command-infra = { workspace = true }
+temper-permissions = { workspace = true }
 temper-config = { workspace = true }
 temper-blocks = { workspace = true }
 once_cell = { workspace = true }

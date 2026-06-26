@@ -80,7 +80,7 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
     commands::command(attr, input)
 }
 
-#[proc_macro_derive(Command, attributes(command, arg, literal, subcommand))]
+#[proc_macro_derive(Command, attributes(command, arg, literal, subcommand, permission))]
 pub fn command_derive(input: TokenStream) -> TokenStream {
     command_derive::derive(input)
 }

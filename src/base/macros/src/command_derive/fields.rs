@@ -1,5 +1,7 @@
 use quote::{format_ident, quote, quote_spanned};
-use syn::{spanned::Spanned, Field, Fields, Ident, LitStr, Result as SynResult, Type};
+use syn::{spanned::Spanned, Field, Fields, Ident, LitStr, Path, Result as SynResult, Type};
+
+use super::attrs::permission_attr;
 
 pub enum CommandFields {
     Unnamed(Vec<CommandField>),
@@ -11,7 +13,11 @@ impl CommandFields {
     pub fn from_fields(fields: Fields) -> SynResult<Self> {
         match fields {
             Fields::Unnamed(fields) => Ok(Self::Unnamed(
-                fields.unnamed.into_iter().map(CommandField::from).collect(),
+                fields
+                    .unnamed
+                    .into_iter()
+                    .map(CommandField::unnamed)
+                    .collect::<SynResult<Vec<_>>>()?,
             )),
             Fields::Named(fields) => Ok(Self::Named(
                 fields
@@ -23,6 +29,7 @@ impl CommandFields {
                         })?;
                         Ok(CommandField {
                             ident: Some(ident),
+                            permission: permission_attr(&field.attrs)?,
                             field,
                         })
                     })
@@ -83,8 +90,10 @@ impl FieldParse {
             let field = &command_field.field;
             let ty = &field.ty;
             let raw_ident = format_ident!("__raw_{idx}");
+            let permission_check = permission_check(command_field.permission.as_ref());
 
             raw_bindings.push(quote! {
+                #permission_check
                 let #raw_ident = <#ty as ::temper_command_infra::CommandArg>::recognize(__reader)?;
             });
 
@@ -98,12 +107,20 @@ impl FieldParse {
                 });
             }
 
-            segments.push(quote! {
+            let mut segment = quote! {
                 ::temper_command_infra::CommandPathSegment::argument(
                     #arg_name,
                     <#ty as ::temper_command_infra::CommandArg>::argument_spec(),
                 )
-            });
+            };
+
+            if let Some(permission) = &command_field.permission {
+                segment = quote! {
+                    #segment.with_permission(#permission)
+                };
+            }
+
+            segments.push(segment);
 
             if idx != last_field_idx {
                 greedy_assertions.push(quote_spanned! { ty.span() =>
@@ -130,12 +147,19 @@ impl FieldParse {
 
 pub struct CommandField {
     ident: Option<Ident>,
+    permission: Option<Path>,
     field: Field,
 }
 
-impl From<Field> for CommandField {
-    fn from(field: Field) -> Self {
-        Self { ident: None, field }
+impl CommandField {
+    fn unnamed(field: Field) -> SynResult<Self> {
+        let permission = permission_attr(&field.attrs)?;
+
+        Ok(Self {
+            ident: None,
+            permission,
+            field,
+        })
     }
 }
 
@@ -154,4 +178,19 @@ fn arg_name(command_field: &CommandField) -> SynResult<LitStr> {
         command_field.field.span(),
         "command tuple fields must have #[arg(\"name\")]",
     ))
+}
+
+fn permission_check(permission: Option<&Path>) -> proc_macro2::TokenStream {
+    match permission {
+        Some(permission) => quote! {
+            if !__can_use(#permission) {
+                return Err(::temper_command_infra::ParseError::new(
+                    __reader.cursor(),
+                    "permission",
+                    "you do not have permission to use this command argument",
+                ));
+            }
+        },
+        None => quote! {},
+    }
 }

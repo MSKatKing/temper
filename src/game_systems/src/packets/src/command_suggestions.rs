@@ -7,6 +7,7 @@ use temper_codec::net_types::{
 use temper_command_infra::{CommandPathSegment, CommandRegistry, ParserKind};
 use temper_commands::{Command, CommandContext, CommandInput, ROOT_COMMAND, Sender};
 use temper_net_runtime::connection::StreamWriter;
+use temper_permissions::player::PlayerPermission;
 use temper_protocol::CommandSuggestionRequestReceiver;
 use temper_protocol::outgoing::command_suggestions::{CommandSuggestionsPacket, Match};
 use temper_state::{GlobalState, GlobalStateResource};
@@ -69,6 +70,7 @@ fn create_ctx(
 pub fn handle(
     receiver: Res<CommandSuggestionRequestReceiver>,
     query: Query<&StreamWriter>,
+    permissions: Query<&PlayerPermission>,
     registry: Res<CommandRegistry>,
     state: Res<GlobalStateResource>,
 ) {
@@ -82,7 +84,9 @@ pub fn handle(
             continue;
         };
 
-        if let Some(response) = new_command_suggestions(&input, &registry, &state) {
+        if let Some(response) =
+            new_command_suggestions(&input, &registry, &state, permissions.get(entity).ok())
+        {
             send_suggestions(writer, request.transaction_id, response);
             continue;
         }
@@ -157,6 +161,7 @@ fn new_command_suggestions(
     input: &str,
     registry: &CommandRegistry,
     state: &GlobalStateResource,
+    permissions: Option<&PlayerPermission>,
 ) -> Option<SuggestionResponse> {
     let command_input = input.strip_prefix('/').unwrap_or(input);
     let root_end = command_input
@@ -166,7 +171,7 @@ fn new_command_suggestions(
     let command = registry
         .commands()
         .iter()
-        .find(|command| command.name == root)?;
+        .find(|command| command.matches_root(root))?;
     let rest = command_input[root_end..].trim_start();
     let current_token = current_token(rest);
     let completed_tokens = completed_tokens(rest);
@@ -176,6 +181,10 @@ fn new_command_suggestions(
     let matches = command
         .paths
         .iter()
+        .filter(|path| path.root == root)
+        .filter(|path| {
+            path.is_allowed_by(|permission| permissions.is_some_and(|p| p.can(permission)))
+        })
         .filter_map(|path| candidate_segment(&path.segments, &completed_tokens))
         .filter_map(|segment| segment_suggestions(segment, state))
         .flatten()
@@ -235,7 +244,7 @@ fn candidate_segment<'a>(
 
 fn segment_accepts_token(segment: &CommandPathSegment, token: &str) -> bool {
     match segment {
-        CommandPathSegment::Literal(literal) => literal == &token,
+        CommandPathSegment::Literal { name, .. } => name == &token,
         CommandPathSegment::Argument { spec, .. } => match spec.parser {
             ParserKind::Integer => token.parse::<i32>().is_ok(),
             ParserKind::Position => is_coordinate_token(token),
@@ -264,7 +273,7 @@ fn segment_suggestions(
     state: &GlobalStateResource,
 ) -> Option<Vec<String>> {
     match segment {
-        CommandPathSegment::Literal(literal) => Some(vec![(*literal).to_string()]),
+        CommandPathSegment::Literal { name, .. } => Some(vec![(*name).to_string()]),
         CommandPathSegment::Argument { spec, .. } if is_ask_server(spec.suggestions) => {
             match spec.parser {
                 ParserKind::Entity => Some(entity_suggestions(state)),
@@ -314,6 +323,8 @@ mod tests {
         let mut registry = CommandRegistry::default();
         registry.register_command(RegisteredCommand {
             name: "tp",
+            aliases: &[],
+            permission: None,
             paths: vec![
                 CommandPath::new(
                     "tp",
@@ -373,7 +384,7 @@ mod tests {
             .player_list
             .insert(Entity::PLACEHOLDER, (0, "Alex".to_string()));
 
-        let suggestions = new_command_suggestions("/tp ", &registry(), &state).unwrap();
+        let suggestions = new_command_suggestions("/tp ", &registry(), &state, None).unwrap();
         let matches = suggestions
             .matches
             .iter()
@@ -395,7 +406,8 @@ mod tests {
             .player_list
             .insert(Entity::PLACEHOLDER, (0, "Alex".to_string()));
 
-        let suggestions = new_command_suggestions("/tp Steve A", &registry(), &state).unwrap();
+        let suggestions =
+            new_command_suggestions("/tp Steve A", &registry(), &state, None).unwrap();
         let matches = suggestions
             .matches
             .iter()
@@ -411,7 +423,7 @@ mod tests {
     fn old_command_suggestions_do_not_handle_new_roots() {
         let (state, _temp_dir) = create_test_state();
 
-        assert!(new_command_suggestions("/tp Unknown", &registry(), &state).is_some());
-        assert!(new_command_suggestions("/time set ", &registry(), &state).is_none());
+        assert!(new_command_suggestions("/tp Unknown", &registry(), &state, None).is_some());
+        assert!(new_command_suggestions("/time set ", &registry(), &state, None).is_none());
     }
 }

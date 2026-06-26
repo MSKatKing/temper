@@ -2,11 +2,13 @@ use std::sync::{LazyLock, RwLock};
 use std::{cell::RefCell, sync::Arc};
 
 use bevy_ecs::prelude::{
-    Component, Entity, IntoScheduleConfigs, Message, MessageReader, Resource, Schedule,
+    Component, Entity, IntoScheduleConfigs, Message, MessageReader, Query, Resource, Schedule,
 };
 use bevy_ecs::schedule::ScheduleConfigs;
 use bevy_ecs::system::{ScheduleSystem, SystemParam};
 use temper_core::mq;
+use temper_permissions::Permissions;
+use temper_permissions::player::PlayerPermission;
 use temper_text::{NamedColor, TextComponentBuilder};
 use tracing::info;
 
@@ -22,15 +24,33 @@ thread_local! {
 #[derive(Clone, Debug)]
 pub struct RegisteredCommand {
     pub name: &'static str,
+    pub aliases: &'static [&'static str],
+    pub permission: Option<Permissions>,
     pub paths: Vec<CommandPath>,
 }
 
 impl RegisteredCommand {
     pub fn of<C: CommandSpec>() -> Self {
+        let primary_paths = C::paths()
+            .into_iter()
+            .map(|path| path.with_permission(C::permission()));
+        let alias_paths = C::aliases().iter().flat_map(|alias| {
+            let alias = *alias;
+            C::paths()
+                .into_iter()
+                .map(move |path| path.with_root(alias).with_permission(C::permission()))
+        });
+
         Self {
             name: C::NAME,
-            paths: C::paths(),
+            aliases: C::aliases(),
+            permission: C::permission(),
+            paths: primary_paths.chain(alias_paths).collect(),
         }
+    }
+
+    pub fn matches_root(&self, root: &str) -> bool {
+        self.name == root || self.aliases.contains(&root)
     }
 }
 
@@ -89,15 +109,29 @@ pub fn send_parse_error(source: CommandSource, error: &ParseError) {
 
 pub fn dispatch_command<C: CommandHandler>(
     mut commands: MessageReader<NewCommandDispatched>,
+    permissions: Query<&PlayerPermission>,
     mut params: C::SystemParam<'_, '_>,
 ) {
     for event in commands.read() {
-        if command_root(&event.input) != Some(C::NAME) {
+        let Some(root) = command_root(&event.input) else {
+            continue;
+        };
+
+        if root != C::NAME && !C::aliases().contains(&root) {
             continue;
         }
 
-        let input = command_args(&event.input, C::NAME);
-        match C::parse(input) {
+        let can_use = |permission| source_can_use(event.source, &permissions, permission);
+        if let Some(permission) = C::permission()
+            && !can_use(permission)
+        {
+            send_permission_error(event.source);
+            continue;
+        }
+
+        let input = command_args(&event.input, root);
+        let mut reader = crate::CommandReader::new(input);
+        match C::parse_reader_with_permissions(&mut reader, &can_use) {
             Ok(command) => command.handle(event.source, &mut params),
             Err(error) => C::handle_parse_error(event.source, error, &mut params),
         }
@@ -132,15 +166,32 @@ impl CommandRegistry {
         command_root(input).is_some_and(|input_root| {
             self.commands
                 .iter()
-                .filter_map(|command| command_root(command.name))
-                .any(|command_root| command_root == input_root)
+                .any(|command| command.matches_root(input_root))
         })
     }
 
     pub fn paths_for_player(&self, _player: Entity) -> Vec<CommandPath> {
+        self.paths_for_permissions(|_| true)
+    }
+
+    pub fn paths_for_player_permissions(
+        &self,
+        _player: Entity,
+        permissions: Option<&PlayerPermission>,
+    ) -> Vec<CommandPath> {
+        self.paths_for_permissions(|permission| permissions.is_some_and(|p| p.can(permission)))
+    }
+
+    pub fn paths_for_permissions(&self, can_use: impl Fn(Permissions) -> bool) -> Vec<CommandPath> {
         self.commands
             .iter()
-            .flat_map(|command| command.paths.iter().cloned())
+            .flat_map(|command| {
+                command
+                    .paths
+                    .iter()
+                    .filter(|path| path.is_allowed_by(&can_use))
+                    .cloned()
+            })
             .collect()
     }
 
@@ -155,6 +206,30 @@ fn command_root(input: &str) -> Option<&str> {
 
 fn command_args<'a>(input: &'a str, root: &str) -> &'a str {
     input.strip_prefix(root).unwrap_or(input).trim_start()
+}
+
+fn source_can_use(
+    source: CommandSource,
+    permissions: &Query<&PlayerPermission>,
+    permission: Permissions,
+) -> bool {
+    match source {
+        CommandSource::Server => true,
+        CommandSource::Player(entity) => permissions
+            .get(entity)
+            .is_ok_and(|player_permissions| player_permissions.can(permission)),
+    }
+}
+
+fn send_permission_error(source: CommandSource) {
+    let message = TextComponentBuilder::new("You don't have permission to use this command.")
+        .color(NamedColor::Red)
+        .build();
+
+    match source {
+        CommandSource::Player(entity) => mq::queue(message, false, entity),
+        CommandSource::Server => info!("{}", message.to_plain_text()),
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

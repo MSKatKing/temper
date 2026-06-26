@@ -22,3 +22,4 @@ pub use metadata::{
     IntegerProperties, ParserKind, ParserProperties, StringMode,
 };
 pub use reader::{Checkpoint, CommandReader};
+pub use temper_permissions::Permissions;

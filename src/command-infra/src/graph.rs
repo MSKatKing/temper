@@ -49,7 +49,7 @@ impl CommandNode {
 
     fn matches_segment(&self, segment: &CommandPathSegment) -> bool {
         match segment {
-            CommandPathSegment::Literal(name) => {
+            CommandPathSegment::Literal { name, .. } => {
                 self.kind == CommandNodeKind::Literal && self.name.as_deref() == Some(*name)
             }
             CommandPathSegment::Argument { spec, .. } => {
@@ -118,8 +118,8 @@ impl CommandGraph {
         }
 
         let node = match segment {
-            CommandPathSegment::Literal(name) => CommandNode::literal(name),
-            CommandPathSegment::Argument { name, spec } => CommandNode::argument(name, spec),
+            CommandPathSegment::Literal { name, .. } => CommandNode::literal(name),
+            CommandPathSegment::Argument { name, spec, .. } => CommandNode::argument(name, spec),
         };
 
         let priority = node.child_priority();

@@ -1,7 +1,7 @@
 use quote::{format_ident, quote};
 use syn::{Data, DataEnum, DataStruct, DeriveInput, Ident, LitStr, Result as SynResult};
 
-use super::attrs::{command_kind, variant_prefix, CommandKind, VariantPrefix};
+use super::attrs::{command_kind, variant_attrs, CommandKind, PrefixAttrs, VariantPrefix};
 use super::fields::{CommandFields, FieldParse};
 
 pub fn expand(input: DeriveInput) -> SynResult<proc_macro2::TokenStream> {
@@ -29,19 +29,21 @@ fn expand_enum(
 
     for variant in data_enum.variants {
         let variant_ident = variant.ident;
-        let prefix = variant_prefix(&variant.attrs)?;
+        let variant_attrs = variant_attrs(&variant.attrs)?;
         let fields = CommandFields::from_fields(variant.fields)?;
 
-        match prefix {
-            Some(VariantPrefix::Subcommand(literal)) => {
+        match variant_attrs.prefix.as_ref() {
+            Some(VariantPrefix::Subcommand(prefix)) => {
                 let ty = fields.single_unnamed_type()?;
-                let literal_parse = literal_parse(&literal);
+                let permission_parse = permission_parse(variant_attrs.permission.as_ref());
+                let literal_parse = literal_parse(prefix);
                 parse_arms.push(quote! {
                     {
                         let __checkpoint = __reader.checkpoint();
                         let __result = (|| -> Result<Self, ::temper_command_infra::ParseError> {
+                            #permission_parse
                             #literal_parse
-                            let __subcommand = <#ty as ::temper_command_infra::SubcommandSpec>::parse_reader(__reader)?;
+                            let __subcommand = <#ty as ::temper_command_infra::SubcommandSpec>::parse_reader_with_permissions(__reader, __can_use)?;
                             Ok(Self::#variant_ident(__subcommand))
                         })();
 
@@ -58,31 +60,30 @@ fn expand_enum(
                     }
                 });
 
-                segment_entries.push(quote! {
-                    <#ty as ::temper_command_infra::SubcommandSpec>::segments()
-                        .into_iter()
-                        .map(|mut __segments| {
-                            let mut __path = vec![
-                                ::temper_command_infra::CommandPathSegment::literal(#literal),
-                            ];
-                            __path.append(&mut __segments);
-                            __path
-                        })
-                        .collect::<Vec<_>>()
-                });
+                segment_entries.push(subcommand_segment_entries(
+                    prefix,
+                    variant_attrs.permission.as_ref(),
+                    ty,
+                ));
             }
-            prefix => {
+            _ => {
                 let field_parse = FieldParse::new(fields.fields())?;
                 greedy_assertions.extend(field_parse.greedy_assertions.clone());
                 let constructor = constructor(ident, &variant_ident, &fields, &field_parse);
                 let raw_bindings = &field_parse.raw_bindings;
-                let prefix_parse = prefix_parse(prefix.as_ref());
-                let prefix_segments = prefix_segments(prefix.as_ref());
+                let permission_parse = permission_parse(variant_attrs.permission.as_ref());
+                let prefix_parse = prefix_parse(variant_attrs.prefix.as_ref());
+                let variant_segment_entries = variant_segment_entries(
+                    variant_attrs.prefix.as_ref(),
+                    variant_attrs.permission.as_ref(),
+                    &field_parse.segments,
+                );
 
                 parse_arms.push(quote! {
                     {
                         let __checkpoint = __reader.checkpoint();
                         let __result = (|| -> Result<Self, ::temper_command_infra::ParseError> {
+                            #permission_parse
                             #prefix_parse
                             #(#raw_bindings)*
                             __reader.expect_end()?;
@@ -102,15 +103,7 @@ fn expand_enum(
                     }
                 });
 
-                let segments = &field_parse.segments;
-                segment_entries.push(quote! {
-                    vec![{
-                        let mut __segments = Vec::new();
-                        #prefix_segments
-                        __segments.extend(vec![#(#segments),*]);
-                        __segments
-                    }]
-                });
+                segment_entries.push(variant_segment_entries);
             }
         }
     }
@@ -180,7 +173,11 @@ fn expand_impl(
     };
 
     match command_kind {
-        CommandKind::Root(command_name) => {
+        CommandKind::Root(command_attrs) => {
+            let command_name = command_attrs.name;
+            let aliases = command_attrs.aliases;
+            let command_permission_parse = permission_parse(command_attrs.permission.as_ref());
+            let permission_fn = permission_fn(command_attrs.permission.as_ref());
             let registration = expand_registration(ident);
 
             quote! {
@@ -192,8 +189,23 @@ fn expand_impl(
                     fn parse_reader(
                         __reader: &mut ::temper_command_infra::CommandReader<'_>,
                     ) -> Result<Self, ::temper_command_infra::ParseError> {
+                        let __can_use = |_| true;
+                        Self::parse_reader_with_permissions(__reader, &__can_use)
+                    }
+
+                    fn parse_reader_with_permissions(
+                        __reader: &mut ::temper_command_infra::CommandReader<'_>,
+                        __can_use: &dyn Fn(::temper_command_infra::Permissions) -> bool,
+                    ) -> Result<Self, ::temper_command_infra::ParseError> {
+                        #command_permission_parse
                         #parse_body
                     }
+
+                    fn aliases() -> &'static [&'static str] {
+                        &[#(#aliases),*]
+                    }
+
+                    #permission_fn
 
                     fn paths() -> Vec<::temper_command_infra::CommandPath> {
                         #segment_builder
@@ -208,21 +220,38 @@ fn expand_impl(
                 #registration
             }
         }
-        CommandKind::Subcommand => quote! {
-            #(#greedy_assertions)*
+        CommandKind::Subcommand(subcommand_attrs) => {
+            let permission_parse = permission_parse(subcommand_attrs.permission.as_ref());
+            let subcommand_segments = subcommand_segments_with_permission(
+                subcommand_attrs.permission.as_ref(),
+                segment_builder,
+            );
 
-            impl ::temper_command_infra::SubcommandSpec for #ident {
-                fn parse_reader(
-                    __reader: &mut ::temper_command_infra::CommandReader<'_>,
-                ) -> Result<Self, ::temper_command_infra::ParseError> {
-                    #parse_body
-                }
+            quote! {
+                #(#greedy_assertions)*
 
-                fn segments() -> Vec<Vec<::temper_command_infra::CommandPathSegment>> {
-                    #segment_builder
+                impl ::temper_command_infra::SubcommandSpec for #ident {
+                    fn parse_reader(
+                        __reader: &mut ::temper_command_infra::CommandReader<'_>,
+                    ) -> Result<Self, ::temper_command_infra::ParseError> {
+                        let __can_use = |_| true;
+                        Self::parse_reader_with_permissions(__reader, &__can_use)
+                    }
+
+                    fn parse_reader_with_permissions(
+                        __reader: &mut ::temper_command_infra::CommandReader<'_>,
+                        __can_use: &dyn Fn(::temper_command_infra::Permissions) -> bool,
+                    ) -> Result<Self, ::temper_command_infra::ParseError> {
+                        #permission_parse
+                        #parse_body
+                    }
+
+                    fn segments() -> Vec<Vec<::temper_command_infra::CommandPathSegment>> {
+                        #subcommand_segments
+                    }
                 }
             }
-        },
+        }
     }
 }
 
@@ -301,25 +330,141 @@ fn struct_constructor(
 
 fn prefix_parse(prefix: Option<&VariantPrefix>) -> proc_macro2::TokenStream {
     match prefix {
-        Some(VariantPrefix::Literal(literal)) => literal_parse(literal),
+        Some(VariantPrefix::Literal(prefix)) => literal_parse(prefix),
         Some(VariantPrefix::Subcommand(_)) | None => quote! {},
     }
 }
 
-fn prefix_segments(prefix: Option<&VariantPrefix>) -> proc_macro2::TokenStream {
+fn variant_segment_entries(
+    prefix: Option<&VariantPrefix>,
+    permission: Option<&syn::Path>,
+    segments: &[proc_macro2::TokenStream],
+) -> proc_macro2::TokenStream {
     match prefix {
-        Some(VariantPrefix::Literal(literal)) => quote! {
-            __segments.push(::temper_command_infra::CommandPathSegment::literal(#literal));
-        },
-        Some(VariantPrefix::Subcommand(_)) | None => quote! {},
+        Some(VariantPrefix::Literal(prefix)) => {
+            let literal_segments = literal_segments(prefix, permission);
+            let trailing_segments = quote! {
+                vec![#(#segments),*]
+            };
+
+            quote! {
+                vec![
+                    #({
+                        let mut __segments = vec![#literal_segments];
+                        __segments.extend(#trailing_segments);
+                        __segments
+                    }),*
+                ]
+            }
+        }
+        Some(VariantPrefix::Subcommand(_)) | None => {
+            quote! {
+                vec![vec![#(#segments),*]]
+            }
+        }
     }
 }
 
-fn literal_parse(literal: &LitStr) -> proc_macro2::TokenStream {
+fn subcommand_segment_entries(
+    prefix: &PrefixAttrs,
+    permission: Option<&syn::Path>,
+    ty: &syn::Type,
+) -> proc_macro2::TokenStream {
+    let literal_segments = literal_segments(prefix, permission);
+
+    quote! {
+        {
+            let __subcommand_paths = <#ty as ::temper_command_infra::SubcommandSpec>::segments();
+            let mut __paths = Vec::new();
+
+            #(
+                __paths.extend(__subcommand_paths.iter().cloned().map(|mut __segments| {
+                    let mut __path = vec![#literal_segments];
+                    __path.append(&mut __segments);
+                    __path
+                }));
+            )*
+
+            __paths
+        }
+    }
+}
+
+fn literal_segments(
+    prefix: &PrefixAttrs,
+    permission: Option<&syn::Path>,
+) -> Vec<proc_macro2::TokenStream> {
+    std::iter::once(&prefix.name)
+        .chain(prefix.aliases.iter())
+        .map(|literal| literal_segment(literal, permission))
+        .collect()
+}
+
+fn literal_segment(literal: &LitStr, permission: Option<&syn::Path>) -> proc_macro2::TokenStream {
+    let segment = quote! {
+        ::temper_command_infra::CommandPathSegment::literal(#literal)
+    };
+
+    match permission {
+        Some(permission) => quote! {
+            #segment.with_permission(#permission)
+        },
+        None => segment,
+    }
+}
+
+fn permission_parse(permission: Option<&syn::Path>) -> proc_macro2::TokenStream {
+    match permission {
+        Some(permission) => quote! {
+            if !__can_use(#permission) {
+                return Err(::temper_command_infra::ParseError::new(
+                    __reader.cursor(),
+                    "permission",
+                    "you do not have permission to use this command path",
+                ));
+            }
+        },
+        None => quote! {},
+    }
+}
+
+fn permission_fn(permission: Option<&syn::Path>) -> proc_macro2::TokenStream {
+    match permission {
+        Some(permission) => quote! {
+            fn permission() -> Option<::temper_command_infra::Permissions> {
+                Some(#permission)
+            }
+        },
+        None => quote! {},
+    }
+}
+
+fn subcommand_segments_with_permission(
+    permission: Option<&syn::Path>,
+    segment_builder: proc_macro2::TokenStream,
+) -> proc_macro2::TokenStream {
+    match permission {
+        Some(permission) => quote! {
+            let mut __segments = #segment_builder;
+            for __path in &mut __segments {
+                if let Some(__first) = __path.first_mut() {
+                    *__first = __first.clone().with_permission(#permission);
+                }
+            }
+            __segments
+        },
+        None => segment_builder,
+    }
+}
+
+fn literal_parse(prefix: &PrefixAttrs) -> proc_macro2::TokenStream {
+    let literal = &prefix.name;
+    let aliases = &prefix.aliases;
+
     quote! {
         let __literal_cursor = __reader.cursor();
         let __actual_literal = __reader.read_word_span()?;
-        if __actual_literal != #literal {
+        if __actual_literal != #literal #(&& __actual_literal != #aliases)* {
             return Err(::temper_command_infra::ParseError::new(
                 __literal_cursor,
                 #literal,

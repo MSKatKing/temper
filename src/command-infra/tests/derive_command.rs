@@ -2,7 +2,8 @@ use temper_command_infra::args::{
     EntityArg, GreedyStringArg, IntegerArg, PositionArg, SingleWordArg,
 };
 use temper_command_infra::{
-    CommandGraph, CommandHandler, CommandNodeKind, CommandSource, CommandSpec,
+    CommandGraph, CommandHandler, CommandNodeKind, CommandReader, CommandSource, CommandSpec,
+    Permissions,
 };
 use temper_macros::Command;
 
@@ -66,16 +67,21 @@ struct MeCommand {
 #[derive(Debug, PartialEq, Command)]
 #[command(name = "time")]
 enum TimeCommand {
-    #[subcommand("set")]
+    #[subcommand("set", aliases = ["s"])]
+    #[permission(Permissions::Op)]
     Set(SetTimeCommand),
     #[literal("add")]
-    Add { amount: IntegerArg<0, 24000> },
+    Add {
+        #[permission(Permissions::Kill)]
+        amount: IntegerArg<0, 24000>,
+    },
 }
 
 #[derive(Debug, PartialEq, Command)]
 #[command(subcommand)]
 enum SetTimeCommand {
-    #[literal("day")]
+    #[literal("day", aliases = ["d"])]
+    #[permission(Permissions::DeOp)]
     Day,
     #[literal("night")]
     Night,
@@ -83,6 +89,14 @@ enum SetTimeCommand {
         value: IntegerArg<0, 24000>,
     },
 }
+
+#[derive(Debug, PartialEq, Command)]
+#[command(
+    name = "alias-demo",
+    aliases = ["ad", "demoalias"],
+    permission = Permissions::Teleport
+)]
+struct AliasCommand;
 
 macro_rules! impl_noop_handler {
     ($($command:ty),* $(,)?) => {
@@ -110,6 +124,7 @@ impl_noop_handler!(
     StopCommand,
     MeCommand,
     TimeCommand,
+    AliasCommand,
 );
 
 #[test]
@@ -295,6 +310,20 @@ fn nested_subcommand_literal_parses() {
 }
 
 #[test]
+fn nested_subcommand_alias_parses() {
+    let command = TimeCommand::parse("s night").unwrap();
+
+    assert!(matches!(command, TimeCommand::Set(SetTimeCommand::Night)));
+}
+
+#[test]
+fn nested_literal_alias_parses() {
+    let command = TimeCommand::parse("set d").unwrap();
+
+    assert!(matches!(command, TimeCommand::Set(SetTimeCommand::Day)));
+}
+
+#[test]
 fn nested_subcommand_arg_parses() {
     let command = TimeCommand::parse("set 1200").unwrap();
 
@@ -323,7 +352,7 @@ fn nested_subcommands_generate_literal_graph_paths() {
         .map(|idx| graph.nodes[*idx].name.as_deref().unwrap())
         .collect::<Vec<_>>();
 
-    assert_eq!(time_children, vec!["set", "add"]);
+    assert_eq!(time_children, vec!["set", "s", "add"]);
 
     let set_idx = time
         .children
@@ -338,6 +367,104 @@ fn nested_subcommands_generate_literal_graph_paths() {
         .map(|idx| graph.nodes[*idx].name.as_deref().unwrap())
         .collect::<Vec<_>>();
 
-    assert_eq!(set_children, vec!["day", "night", "value"]);
+    assert_eq!(set_children, vec!["day", "d", "night", "value"]);
     assert!(set.children.iter().all(|idx| graph.nodes[*idx].executable));
+
+    let s_idx = time
+        .children
+        .iter()
+        .copied()
+        .find(|idx| graph.nodes[*idx].name.as_deref() == Some("s"))
+        .unwrap();
+    let s = &graph.nodes[s_idx];
+    let s_children = s
+        .children
+        .iter()
+        .map(|idx| graph.nodes[*idx].name.as_deref().unwrap())
+        .collect::<Vec<_>>();
+
+    assert_eq!(s_children, vec!["day", "d", "night", "value"]);
+    assert!(s.children.iter().all(|idx| graph.nodes[*idx].executable));
+}
+
+#[test]
+fn command_aliases_generate_extra_roots() {
+    let roots = AliasCommand::paths()
+        .iter()
+        .map(|path| path.root)
+        .collect::<Vec<_>>();
+
+    assert_eq!(AliasCommand::aliases(), &["ad", "demoalias"]);
+    assert_eq!(AliasCommand::permission(), Some(Permissions::Teleport));
+    assert_eq!(roots, vec!["alias-demo"]);
+
+    let registry = temper_command_infra::RegisteredCommand::of::<AliasCommand>();
+    let registry_roots = registry
+        .paths
+        .iter()
+        .map(|path| path.root)
+        .collect::<Vec<_>>();
+
+    assert_eq!(registry_roots, vec!["alias-demo", "ad", "demoalias"]);
+}
+
+#[test]
+fn command_permission_blocks_permission_aware_parse() {
+    let mut reader = CommandReader::new("");
+    let err = AliasCommand::parse_reader_with_permissions(&mut reader, &|permission| {
+        permission != Permissions::Teleport
+    })
+    .unwrap_err();
+
+    assert_eq!(err.expected, "permission");
+}
+
+#[test]
+fn subcommand_permission_blocks_permission_aware_parse() {
+    let mut reader = CommandReader::new("set night");
+    let err = TimeCommand::parse_reader_with_permissions(&mut reader, &|permission| {
+        permission != Permissions::Op
+    })
+    .unwrap_err();
+
+    assert_eq!(err.expected, "permission");
+}
+
+#[test]
+fn literal_permission_blocks_permission_aware_parse() {
+    let mut reader = CommandReader::new("set day");
+    let err = TimeCommand::parse_reader_with_permissions(&mut reader, &|permission| {
+        permission != Permissions::DeOp
+    })
+    .unwrap_err();
+
+    assert_eq!(err.expected, "permission");
+}
+
+#[test]
+fn arg_permission_blocks_permission_aware_parse() {
+    let mut reader = CommandReader::new("add 20");
+    let err = TimeCommand::parse_reader_with_permissions(&mut reader, &|permission| {
+        permission != Permissions::Kill
+    })
+    .unwrap_err();
+
+    assert_eq!(err.expected, "permission");
+}
+
+#[test]
+fn permission_filter_removes_disallowed_paths() {
+    let registry = temper_command_infra::RegisteredCommand::of::<TimeCommand>();
+    let allowed_paths = registry
+        .paths
+        .iter()
+        .filter(|path| path.is_allowed_by(|permission| permission != Permissions::Op))
+        .map(|path| path.segments.first().unwrap())
+        .collect::<Vec<_>>();
+
+    assert_eq!(allowed_paths.len(), 1);
+    assert!(matches!(
+        allowed_paths[0],
+        temper_command_infra::CommandPathSegment::Literal { name: "add", .. }
+    ));
 }
