@@ -119,3 +119,9 @@ pub trait CommandSpec: Sized {
         Self::parse_reader(&mut reader)
     }
 }
+
+pub trait SubcommandSpec: Sized {
+    fn parse_reader(reader: &mut CommandReader<'_>) -> Result<Self, ParseError>;
+
+    fn segments() -> Vec<Vec<CommandPathSegment>>;
+}

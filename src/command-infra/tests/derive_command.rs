@@ -63,6 +63,27 @@ struct MeCommand {
     action: GreedyStringArg,
 }
 
+#[derive(Debug, PartialEq, Command)]
+#[command(name = "time")]
+enum TimeCommand {
+    #[subcommand("set")]
+    Set(SetTimeCommand),
+    #[literal("add")]
+    Add { amount: IntegerArg<0, 24000> },
+}
+
+#[derive(Debug, PartialEq, Command)]
+#[command(subcommand)]
+enum SetTimeCommand {
+    #[literal("day")]
+    Day,
+    #[literal("night")]
+    Night,
+    Ticks {
+        value: IntegerArg<0, 24000>,
+    },
+}
+
 macro_rules! impl_noop_handler {
     ($($command:ty),* $(,)?) => {
         $(
@@ -88,6 +109,7 @@ impl_noop_handler!(
     RenameCommand,
     StopCommand,
     MeCommand,
+    TimeCommand,
 );
 
 #[test]
@@ -263,4 +285,59 @@ fn named_struct_command_uses_field_names_in_graph() {
     assert_eq!(graph.nodes[me_idx].name.as_deref(), Some("me"));
     assert_eq!(action.name.as_deref(), Some("action"));
     assert!(action.executable);
+}
+
+#[test]
+fn nested_subcommand_literal_parses() {
+    let command = TimeCommand::parse("set day").unwrap();
+
+    assert!(matches!(command, TimeCommand::Set(SetTimeCommand::Day)));
+}
+
+#[test]
+fn nested_subcommand_arg_parses() {
+    let command = TimeCommand::parse("set 1200").unwrap();
+
+    assert!(matches!(
+        command,
+        TimeCommand::Set(SetTimeCommand::Ticks { .. })
+    ));
+}
+
+#[test]
+fn literal_variant_with_args_parses() {
+    let command = TimeCommand::parse("add 20").unwrap();
+
+    assert!(matches!(command, TimeCommand::Add { .. }));
+}
+
+#[test]
+fn nested_subcommands_generate_literal_graph_paths() {
+    let graph = CommandGraph::from_paths(&TimeCommand::paths());
+    let time_idx = graph.nodes[graph.root_idx].children[0];
+    let time = &graph.nodes[time_idx];
+
+    let time_children = time
+        .children
+        .iter()
+        .map(|idx| graph.nodes[*idx].name.as_deref().unwrap())
+        .collect::<Vec<_>>();
+
+    assert_eq!(time_children, vec!["set", "add"]);
+
+    let set_idx = time
+        .children
+        .iter()
+        .copied()
+        .find(|idx| graph.nodes[*idx].name.as_deref() == Some("set"))
+        .unwrap();
+    let set = &graph.nodes[set_idx];
+    let set_children = set
+        .children
+        .iter()
+        .map(|idx| graph.nodes[*idx].name.as_deref().unwrap())
+        .collect::<Vec<_>>();
+
+    assert_eq!(set_children, vec!["day", "night", "value"]);
+    assert!(set.children.iter().all(|idx| graph.nodes[*idx].executable));
 }

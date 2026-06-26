@@ -16,6 +16,7 @@ pub use ecs::{
 };
 pub use error::ParseError;
 pub use graph::{CommandGraph, CommandNode, CommandNodeKind};
+pub use metadata::SubcommandSpec;
 pub use metadata::{
     ArgKind, ArgumentSpec, CommandArg, CommandPath, CommandPathSegment, CommandSpec,
     IntegerProperties, ParserKind, ParserProperties, StringMode,

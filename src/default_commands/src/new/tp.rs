@@ -15,7 +15,6 @@ use tracing::info;
 
 #[derive(Command)]
 #[command("tp")]
-#[allow(dead_code)]
 enum TpCommand {
     TpToPos {
         location: PositionArg,
