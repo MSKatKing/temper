@@ -187,20 +187,20 @@ fn graph_generation_merges_shared_prefixes() {
         .map(|idx| graph.nodes[*idx].name.as_deref().unwrap())
         .collect::<Vec<_>>();
 
-    assert_eq!(child_names, vec!["location", "destination", "target"]);
+    assert_eq!(child_names, vec!["destination", "location"]);
 
-    let target_idx = tp
+    let destination_idx = tp
         .children
         .iter()
         .copied()
-        .find(|idx| graph.nodes[*idx].name.as_deref() == Some("target"))
+        .find(|idx| graph.nodes[*idx].name.as_deref() == Some("destination"))
         .unwrap();
-    let target = &graph.nodes[target_idx];
+    let destination = &graph.nodes[destination_idx];
 
-    assert_eq!(target.children.len(), 2);
-    assert!(!target.executable);
+    assert_eq!(destination.children.len(), 2);
+    assert!(destination.executable);
     assert!(
-        target
+        destination
             .children
             .iter()
             .all(|idx| graph.nodes[*idx].executable)

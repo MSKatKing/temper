@@ -52,11 +52,22 @@ impl CommandNode {
             CommandPathSegment::Literal(name) => {
                 self.kind == CommandNodeKind::Literal && self.name.as_deref() == Some(*name)
             }
-            CommandPathSegment::Argument { name, spec } => {
-                self.kind == CommandNodeKind::Argument
-                    && self.name.as_deref() == Some(*name)
-                    && self.argument == Some(*spec)
+            CommandPathSegment::Argument { spec, .. } => {
+                self.kind == CommandNodeKind::Argument && self.argument == Some(*spec)
             }
+        }
+    }
+
+    fn child_priority(&self) -> u8 {
+        match self.kind {
+            CommandNodeKind::Literal => 0,
+            CommandNodeKind::Argument
+                if self.argument.and_then(|arg| arg.suggestions).is_some() =>
+            {
+                1
+            }
+            CommandNodeKind::Argument => 2,
+            CommandNodeKind::Root => 3,
         }
     }
 }
@@ -111,9 +122,16 @@ impl CommandGraph {
             CommandPathSegment::Argument { name, spec } => CommandNode::argument(name, spec),
         };
 
+        let priority = node.child_priority();
+        let insert_at = self.nodes[parent]
+            .children
+            .iter()
+            .position(|child_idx| self.nodes[*child_idx].child_priority() > priority)
+            .unwrap_or(self.nodes[parent].children.len());
+
         let idx = self.nodes.len();
         self.nodes.push(node);
-        self.nodes[parent].children.push(idx);
+        self.nodes[parent].children.insert(insert_at, idx);
         idx
     }
 }

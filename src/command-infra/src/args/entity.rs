@@ -67,6 +67,6 @@ impl CommandArg for EntityArg {
     }
 
     fn argument_spec() -> ArgumentSpec {
-        ArgumentSpec::new(ParserKind::Entity).with_suggestions("ask_server")
+        ArgumentSpec::new(ParserKind::Entity).with_suggestions("minecraft:ask_server")
     }
 }

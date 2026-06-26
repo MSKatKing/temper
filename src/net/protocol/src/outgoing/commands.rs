@@ -173,7 +173,7 @@ mod tests {
             "tp",
             vec![CommandPathSegment::argument(
                 "target",
-                ArgumentSpec::new(ParserKind::Entity).with_suggestions("ask_server"),
+                ArgumentSpec::new(ParserKind::Entity).with_suggestions("minecraft:ask_server"),
             )],
         )]);
 
@@ -190,7 +190,7 @@ mod tests {
         ));
         assert_eq!(
             packet.graph.data[2].suggestions_type.as_deref(),
-            Some("ask_server")
+            Some("minecraft:ask_server")
         );
     }
 }
