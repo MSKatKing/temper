@@ -375,6 +375,42 @@ mod tests {
         registry
     }
 
+    fn time_registry() -> CommandRegistry {
+        let mut registry = CommandRegistry::default();
+        registry.register_command(RegisteredCommand {
+            name: "time",
+            aliases: &[],
+            permission: None,
+            paths: vec![
+                CommandPath::new(
+                    "time",
+                    vec![
+                        CommandPathSegment::literal("set"),
+                        CommandPathSegment::literal("day"),
+                    ],
+                ),
+                CommandPath::new(
+                    "time",
+                    vec![
+                        CommandPathSegment::literal("set"),
+                        CommandPathSegment::literal("d"),
+                    ],
+                ),
+                CommandPath::new(
+                    "time",
+                    vec![
+                        CommandPathSegment::literal("set"),
+                        CommandPathSegment::argument(
+                            "value",
+                            ArgumentSpec::new(ParserKind::String),
+                        ),
+                    ],
+                ),
+            ],
+        });
+        registry
+    }
+
     #[test]
     fn new_command_suggestions_include_entities_for_first_tp_arg() {
         let (state, _temp_dir) = create_test_state();
@@ -417,6 +453,23 @@ mod tests {
         assert_eq!(suggestions.start, 10);
         assert_eq!(suggestions.length, 1);
         assert_eq!(matches, vec!["Alex"]);
+    }
+
+    #[test]
+    fn new_command_suggestions_include_time_literals() {
+        let (state, _temp_dir) = create_test_state();
+
+        let suggestions =
+            new_command_suggestions("/time set ", &time_registry(), &state, None).unwrap();
+        let matches = suggestions
+            .matches
+            .iter()
+            .map(|suggestion| suggestion.content.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(suggestions.start, 10);
+        assert_eq!(suggestions.length, 0);
+        assert_eq!(matches, vec!["day", "d"]);
     }
 
     #[test]

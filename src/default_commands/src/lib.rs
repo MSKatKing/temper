@@ -12,7 +12,6 @@ pub mod permissions;
 mod say;
 pub mod spawn;
 mod stop;
-pub mod time;
 mod tp;
 pub mod tps;
 
