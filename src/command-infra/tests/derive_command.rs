@@ -1,9 +1,10 @@
 use temper_command_infra::args::{
-    EntityArg, GreedyStringArg, IntegerArg, PositionArg, SingleWordArg,
+    EntitiesArg, EntityArg, GreedyStringArg, IntegerArg, PlayerArg, PlayersArg, PositionArg,
+    SingleWordArg,
 };
 use temper_command_infra::{
     CommandGraph, CommandHandler, CommandNodeKind, CommandReader, CommandSource, CommandSpec,
-    Permissions,
+    ParserProperties, Permissions,
 };
 use temper_macros::Command;
 
@@ -17,13 +18,22 @@ enum TpCommand {
         destination: EntityArg,
     },
     TpEntityToPos {
-        target: EntityArg,
+        target: EntitiesArg,
         location: PositionArg,
     },
     TpEntityToEntity {
-        target: EntityArg,
+        target: EntitiesArg,
         destination: EntityArg,
     },
+}
+
+#[derive(Debug, PartialEq, Command)]
+#[command("entity-flags")]
+enum EntityFlagsCommand {
+    Entity { target: EntityArg },
+    Entities { targets: EntitiesArg },
+    Player { player: PlayerArg },
+    Players { players: PlayersArg },
 }
 
 #[derive(Debug, PartialEq, Command)]
@@ -125,6 +135,7 @@ impl_noop_handler!(
     MeCommand,
     TimeCommand,
     AliasCommand,
+    EntityFlagsCommand,
 );
 
 #[test]
@@ -224,7 +235,7 @@ fn graph_generation_merges_shared_prefixes() {
         .map(|idx| graph.nodes[*idx].name.as_deref().unwrap())
         .collect::<Vec<_>>();
 
-    assert_eq!(child_names, vec!["destination", "location"]);
+    assert_eq!(child_names, vec!["destination", "target", "location"]);
 
     let destination_idx = tp
         .children
@@ -234,10 +245,21 @@ fn graph_generation_merges_shared_prefixes() {
         .unwrap();
     let destination = &graph.nodes[destination_idx];
 
-    assert_eq!(destination.children.len(), 2);
+    assert!(destination.children.is_empty());
     assert!(destination.executable);
+
+    let target_idx = tp
+        .children
+        .iter()
+        .copied()
+        .find(|idx| graph.nodes[*idx].name.as_deref() == Some("target"))
+        .unwrap();
+    let target = &graph.nodes[target_idx];
+
+    assert!(!target.executable);
+    assert_eq!(target.children.len(), 2);
     assert!(
-        destination
+        target
             .children
             .iter()
             .all(|idx| graph.nodes[*idx].executable)
@@ -253,6 +275,16 @@ fn graph_uses_arg_attribute_names() {
     assert_eq!(graph.nodes[number_idx].name.as_deref(), Some("number"));
     assert_eq!(graph.nodes[value_idx].name.as_deref(), Some("value"));
     assert!(graph.nodes[value_idx].executable);
+}
+
+#[test]
+fn entity_arg_types_generate_entity_flags() {
+    let paths = EntityFlagsCommand::paths();
+
+    assert_entity_flags(&paths, "target", true, false);
+    assert_entity_flags(&paths, "targets", false, false);
+    assert_entity_flags(&paths, "player", true, true);
+    assert_entity_flags(&paths, "players", false, true);
 }
 
 #[test]
@@ -467,4 +499,34 @@ fn permission_filter_removes_disallowed_paths() {
         allowed_paths[0],
         temper_command_infra::CommandPathSegment::Literal { name: "add", .. }
     ));
+}
+
+fn assert_entity_flags(
+    paths: &[temper_command_infra::CommandPath],
+    arg_name: &str,
+    single: bool,
+    players_only: bool,
+) {
+    let spec = paths
+        .iter()
+        .filter_map(|path| path.segments.first())
+        .find_map(|segment| match segment {
+            temper_command_infra::CommandPathSegment::Argument { name, spec, .. }
+                if *name == arg_name =>
+            {
+                Some(*spec)
+            }
+            _ => None,
+        })
+        .unwrap();
+
+    assert_eq!(
+        spec.properties,
+        Some(ParserProperties::Entity(
+            temper_command_infra::EntityProperties {
+                single,
+                players_only
+            }
+        ))
+    );
 }

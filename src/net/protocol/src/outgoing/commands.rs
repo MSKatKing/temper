@@ -3,8 +3,8 @@ use std::fmt;
 use temper_codec::net_types::{length_prefixed_vec::LengthPrefixedVec, var_int::VarInt};
 use temper_command_infra::{
     ArgumentSpec, CommandGraph as InfraCommandGraph, CommandNode as InfraCommandNode,
-    CommandNodeKind as InfraCommandNodeKind, IntegerProperties, ParserKind, ParserProperties,
-    StringMode,
+    CommandNodeKind as InfraCommandNodeKind, EntityProperties, IntegerProperties, ParserKind,
+    ParserProperties, StringMode,
 };
 use temper_commands::{
     arg::primitive::{
@@ -140,6 +140,13 @@ fn parser_properties(argument: ArgumentSpec) -> Option<PrimitiveArgumentFlags> {
         Some(ParserProperties::Integer(IntegerProperties { min, max })) => {
             Some(PrimitiveArgumentFlags::Int(IntArgumentFlags { min, max }))
         }
+        Some(ParserProperties::Entity(EntityProperties {
+            single,
+            players_only,
+        })) => Some(PrimitiveArgumentFlags::Entity(EntityArgumentFlags {
+            single,
+            players_only,
+        })),
         None if argument.parser == ParserKind::Word => {
             Some(PrimitiveArgumentFlags::String(StringArgumentType::Word))
         }
@@ -160,10 +167,8 @@ fn string_mode(mode: StringMode) -> StringArgumentType {
 
 #[cfg(test)]
 mod tests {
-    use temper_command_infra::{
-        ArgumentSpec, CommandGraph, CommandPath, CommandPathSegment, ParserKind,
-    };
-    use temper_commands::arg::primitive::PrimitiveArgumentFlags;
+    use temper_command_infra::{ArgumentSpec, CommandGraph, CommandPath, CommandPathSegment};
+    use temper_commands::arg::primitive::{EntityArgumentFlags, PrimitiveArgumentFlags};
 
     use super::CommandsPacket;
 
@@ -173,7 +178,7 @@ mod tests {
             "tp",
             vec![CommandPathSegment::argument(
                 "target",
-                ArgumentSpec::new(ParserKind::Entity).with_suggestions("minecraft:ask_server"),
+                ArgumentSpec::entity(false, false),
             )],
         )]);
 
@@ -192,5 +197,26 @@ mod tests {
             packet.graph.data[2].suggestions_type.as_deref(),
             Some("minecraft:ask_server")
         );
+    }
+
+    #[test]
+    fn converts_entity_flags_to_protocol_properties() {
+        let graph = CommandGraph::from_paths(&[CommandPath::new(
+            "gamemode",
+            vec![CommandPathSegment::argument(
+                "target",
+                ArgumentSpec::entity(true, true),
+            )],
+        )]);
+
+        let packet = CommandsPacket::from_command_infra_graph(&graph);
+
+        assert!(matches!(
+            packet.graph.data[2].properties,
+            Some(PrimitiveArgumentFlags::Entity(EntityArgumentFlags {
+                single: true,
+                players_only: true,
+            }))
+        ));
     }
 }

@@ -13,6 +13,7 @@ temper-text = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
+rand = { workspace = true }
 
 [dev-dependencies]
 temper-macros = { workspace = true }

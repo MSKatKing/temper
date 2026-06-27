@@ -21,9 +21,16 @@ pub struct IntegerProperties {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct EntityProperties {
+    pub single: bool,
+    pub players_only: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ParserProperties {
     String(StringMode),
     Integer(IntegerProperties),
+    Entity(EntityProperties),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -62,6 +69,17 @@ impl ArgumentSpec {
     pub const fn with_suggestions(mut self, suggestions: &'static str) -> ArgumentSpec {
         self.suggestions = Some(suggestions);
         self
+    }
+
+    pub const fn entity(single: bool, players_only: bool) -> ArgumentSpec {
+        Self::with_properties(
+            ParserKind::Entity,
+            ParserProperties::Entity(EntityProperties {
+                single,
+                players_only,
+            }),
+        )
+        .with_suggestions("minecraft:ask_server")
     }
 }
 

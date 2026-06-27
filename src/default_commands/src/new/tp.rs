@@ -1,7 +1,7 @@
 use bevy_ecs::entity::Entity;
 use bevy_ecs::prelude::{MessageWriter, Query};
 use temper_command_infra::CommandSource::*;
-use temper_command_infra::args::{EntityArg, PositionArg};
+use temper_command_infra::args::{EntitiesArg, EntityArg, PositionArg};
 use temper_command_infra::{CommandHandler, CommandSource};
 use temper_components::entity_identity::Identity;
 use temper_components::player::player_marker::PlayerMarker;
@@ -23,11 +23,11 @@ enum TpCommand {
         destination: EntityArg,
     },
     TpEntityToPos {
-        target: EntityArg,
+        target: EntitiesArg,
         location: PositionArg,
     },
     TpEntityToEntity {
-        target: EntityArg,
+        target: EntitiesArg,
         destination: EntityArg,
     },
 }

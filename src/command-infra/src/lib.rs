@@ -19,7 +19,7 @@ pub use graph::{CommandGraph, CommandNode, CommandNodeKind};
 pub use metadata::SubcommandSpec;
 pub use metadata::{
     ArgKind, ArgumentSpec, CommandArg, CommandPath, CommandPathSegment, CommandSpec,
-    IntegerProperties, ParserKind, ParserProperties, StringMode,
+    EntityProperties, IntegerProperties, ParserKind, ParserProperties, StringMode,
 };
 pub use reader::{Checkpoint, CommandReader};
 pub use temper_permissions::Permissions;
