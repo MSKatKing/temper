@@ -3,6 +3,7 @@ mod credits;
 mod echo;
 mod gamemode;
 mod kill;
+mod op;
 mod stop;
 mod summon;
 mod time;

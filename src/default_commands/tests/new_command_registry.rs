@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::World;
 use temper_command_infra::{
-    CommandGraph, CommandNodeKind, CommandPathSegment, CommandRegistry, ParserKind,
-    ParserProperties, ResourceProperties, SuggestionInput, suggest_command_arg,
+    CommandGraph, CommandNodeKind, CommandPathSegment, CommandRegistry, EntityProperties,
+    ParserKind, ParserProperties, ResourceProperties, SuggestionInput, suggest_command_arg,
 };
 use temper_commands::arg::primitive::PrimitiveArgumentType;
 use temper_protocol::outgoing::commands::CommandsPacket;
@@ -19,6 +19,7 @@ fn default_commands_register_new_metadata() {
     assert!(paths.iter().any(|path| path.root == "time"));
     assert!(paths.iter().any(|path| path.root == "bossbar"));
     assert!(paths.iter().any(|path| path.root == "gamemode"));
+    assert!(paths.iter().any(|path| path.root == "op"));
     assert!(paths.iter().any(|path| path.root == "summon"));
     assert!(paths.iter().any(|path| path.root == "spawn"));
 
@@ -44,6 +45,24 @@ fn default_commands_register_new_metadata() {
         summon_entity_spec.properties,
         Some(ParserProperties::Resource(ResourceProperties {
             registry: "minecraft:entity_type",
+        }))
+    );
+
+    let op_target_spec = paths
+        .iter()
+        .filter(|path| path.root == "op")
+        .filter_map(|path| path.segments.first())
+        .find_map(|segment| match segment {
+            CommandPathSegment::Argument { spec, .. } => Some(*spec),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(op_target_spec.parser, ParserKind::Entity);
+    assert_eq!(
+        op_target_spec.properties,
+        Some(ParserProperties::Entity(EntityProperties {
+            single: false,
+            players_only: false,
         }))
     );
 
