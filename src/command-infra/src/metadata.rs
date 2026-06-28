@@ -133,8 +133,8 @@ pub enum SuggestionProviderKind {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 /// Metadata generated for one command argument in the client command graph.
 ///
-/// Each [CommandArg](crate::CommandArg) returns an `ArgumentSpec` from
-/// [CommandArg::argument_spec](crate::CommandArg::argument_spec). The derive macro then uses that
+/// Each [CommandArg](CommandArg) returns an `ArgumentSpec` from
+/// [CommandArg::argument_spec](CommandArg::argument_spec). The derive macro then uses that
 /// spec when building command paths and protocol graph nodes.
 ///
 /// In most custom args you will use one of:
@@ -147,7 +147,7 @@ pub enum SuggestionProviderKind {
 /// ```
 ///
 /// Suggestions are usually filled in by the derive macro from
-/// [CommandArg::SUGGESTIONS](crate::CommandArg::SUGGESTIONS), so custom args should not normally
+/// [CommandArg::SUGGESTIONS](CommandArg::SUGGESTIONS), so custom args should not normally
 /// set `protocol_suggestions` or `server_suggestions` by hand.
 pub struct ArgumentSpec {
     /// The basic parser type the client should use for this argument.

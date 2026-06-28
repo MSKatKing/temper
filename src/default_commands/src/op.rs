@@ -77,7 +77,6 @@ mod tests {
             SystemState::<<OpCommand as CommandHandler>::SystemParam<'_, '_>>::new(&mut world);
         let mut system_params = params.get_mut(&mut world);
         command.handle(CommandSource::Server, &mut system_params);
-        drop(system_params);
         params.apply(&mut world);
 
         assert!(
@@ -107,7 +106,6 @@ mod tests {
             SystemState::<<OpCommand as CommandHandler>::SystemParam<'_, '_>>::new(&mut world);
         let mut system_params = params.get_mut(&mut world);
         command.handle(CommandSource::Player(sender), &mut system_params);
-        drop(system_params);
         params.apply(&mut world);
 
         assert!(!world.get::<PlayerPermission>(target).unwrap().can(ALL));

@@ -185,8 +185,8 @@ fn default_tp_graph_uses_client_handled_entity_and_position_parsers() {
         child.parser_id == Some(PrimitiveArgumentType::Vec3) && child.suggestions_type.is_none()
     });
 
-    assert_eq!(
-        has_client_position_branch, true,
+    assert!(
+        has_client_position_branch,
         "tp should expose a plain vec3 branch for client coordinate suggestions"
     );
 }

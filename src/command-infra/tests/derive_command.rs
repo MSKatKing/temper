@@ -13,17 +13,17 @@ use temper_macros::Command;
 #[derive(Debug, PartialEq, Command)]
 #[command("tp")]
 enum TpCommand {
-    TpToPos {
+    ToPos {
         location: PositionArg,
     },
-    TpToEntity {
+    ToEntity {
         destination: EntityArg,
     },
-    TpEntityToPos {
+    EntityToPos {
         target: EntitiesArg,
         location: PositionArg,
     },
-    TpEntityToEntity {
+    EntityToEntity {
         target: EntitiesArg,
         destination: EntityArg,
     },
@@ -236,7 +236,7 @@ impl_noop_handler!(
 fn tp_to_position_parses() {
     let command = TpCommand::parse("~ ~ ~").unwrap();
 
-    assert!(matches!(command, TpCommand::TpToPos { .. }));
+    assert!(matches!(command, TpCommand::ToPos { .. }));
 }
 
 #[test]
@@ -244,7 +244,7 @@ fn tp_to_entity_parses() {
     let command = TpCommand::parse("Steve").unwrap();
 
     match command {
-        TpCommand::TpToEntity { destination } => assert_eq!(&*destination, "Steve"),
+        TpCommand::ToEntity { destination } => assert_eq!(&*destination, "Steve"),
         _ => panic!("expected entity destination"),
     }
 }
@@ -254,7 +254,7 @@ fn tp_entity_to_position_parses() {
     let command = TpCommand::parse("Steve ~ ~ ~").unwrap();
 
     match command {
-        TpCommand::TpEntityToPos { target, location } => {
+        TpCommand::EntityToPos { target, location } => {
             assert_eq!(&*target, "Steve");
             assert_eq!(location.x, "~");
             assert_eq!(location.y, "~");
@@ -269,7 +269,7 @@ fn tp_entity_to_entity_parses() {
     let command = TpCommand::parse("Steve Alex").unwrap();
 
     match command {
-        TpCommand::TpEntityToEntity {
+        TpCommand::EntityToEntity {
             target,
             destination,
         } => {
@@ -284,7 +284,7 @@ fn tp_entity_to_entity_parses() {
 fn failed_variants_rewind_cleanly() {
     let command = TpCommand::parse("Steve 1 2 3").unwrap();
 
-    assert!(matches!(command, TpCommand::TpEntityToPos { .. }));
+    assert!(matches!(command, TpCommand::EntityToPos { .. }));
 }
 
 #[test]

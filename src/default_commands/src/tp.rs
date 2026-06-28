@@ -16,17 +16,17 @@ use tracing::info;
 #[derive(Command)]
 #[command("tp")]
 enum TpCommand {
-    TpToPos {
+    ToPos {
         location: PositionArg,
     },
-    TpToEntity {
+    ToEntity {
         destination: EntityArg,
     },
-    TpEntityToPos {
+    EntityToPos {
         target: EntitiesArg,
         location: PositionArg,
     },
-    TpEntityToEntity {
+    EntityToEntity {
         target: EntitiesArg,
         destination: EntityArg,
     },
@@ -53,7 +53,7 @@ fn execute_tp(
     teleports: &mut MessageWriter<TeleportEntity>,
 ) {
     match command {
-        TpCommand::TpToPos { location } => {
+        TpCommand::ToPos { location } => {
             let Player(player) = source else {
                 send_message(source, "This command can only be used by players.".into());
                 return;
@@ -68,7 +68,7 @@ fn execute_tp(
             teleport_entity(player, *rotation, destination, teleports);
             send_message(source, format!("Teleported to ({}).", destination).into());
         }
-        TpCommand::TpToEntity { destination } => {
+        TpCommand::ToEntity { destination } => {
             let Player(player) = source else {
                 send_message(source, "This command can only be used by players.".into());
                 return;
@@ -99,7 +99,7 @@ fn execute_tp(
                 format!("Teleported to the entity at {}.", target_position).into(),
             );
         }
-        TpCommand::TpEntityToPos { target, location } => {
+        TpCommand::EntityToPos { target, location } => {
             let base_position = if let Player(entity) = source
                 && let Ok((_, position)) = positions.get(entity)
             {
@@ -127,7 +127,7 @@ fn execute_tp(
                 format!("Teleported entities to ({}).", destination).into(),
             );
         }
-        TpCommand::TpEntityToEntity {
+        TpCommand::EntityToEntity {
             target,
             destination,
         } => {

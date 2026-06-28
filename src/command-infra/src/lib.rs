@@ -29,7 +29,7 @@
 //! # }
 //! ```
 //!
-//! Then implement [crate::CommandHandler] for the command:
+//! Then implement [CommandHandler] for the command:
 //!
 //! ```rust
 //! # use bevy_ecs::prelude::{Query, Res};
@@ -84,7 +84,7 @@
 //!     ) {}
 //! }
 //! ```
-//! The entire system revolves around the [crate::CommandHandler] trait, which is implemented on the
+//! The entire system revolves around the [CommandHandler] trait, which is implemented on the
 //! command enum/struct. Under the hood the derive macro will generate all the code needed to have
 //! the command wired into the ECS, provide suggestions and parse the arguments. All you need to do
 //! is define what arguments a command needs and what it does with those args.
@@ -147,7 +147,7 @@
 //! players should not be able to use a command path they do not have permission for. Handlers should
 //! still validate any game-specific assumptions, such as whether a resolved entity actually exists.
 //!
-//! This is the general gist of using commands with existing argument types, check out [crate::args]
+//! This is the general gist of using commands with existing argument types, check out [args]
 //! for how to make your own argument types.
 
 pub mod args;
