@@ -333,11 +333,11 @@ impl CommandPath {
     }
 
     pub fn is_allowed_by(&self, can_use: impl Fn(Permissions) -> bool) -> bool {
-        self.permission.map_or(true, &can_use)
+        self.permission.is_none_or(&can_use)
             && self
                 .segments
                 .iter()
-                .all(|segment| segment.permission().map_or(true, &can_use))
+                .all(|segment| segment.permission().is_none_or(&can_use))
     }
 }
 
