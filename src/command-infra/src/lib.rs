@@ -1,53 +1,76 @@
-//! # Commands in Temper (strap in chucklefucks)
+//! # Commands in Temper
 //!
-//! Defining commands is pretty simple, simple define an enum (or struct) and slap the derive macro on it:
-//! ```
+//! Defining commands is pretty simple: define an enum or struct, derive `Command`, and give it a
+//! root command name.
+//!
+//! ```rust
 //! # use temper_command_infra::args::{EntityArg, PositionArg};
+//! # use temper_command_infra::{CommandHandler, CommandSource};
+//! # use temper_macros::Command;
 //!
 //! #[derive(Command)]
 //! #[command("example")]
 //! enum ExampleCommand {
-//!     WithEntity{ entity: EntityArg},
+//!     WithEntity { entity: EntityArg },
 //!     WithoutEntity,
 //!     #[subcommand("sub")]
 //!     Subcommand(ExampleSingleSubcommand),
-//!     
 //! }
 //!
 //! #[derive(Command)]
 //! #[command(subcommand)]
 //! struct ExampleSingleSubcommand {
-//!     WithPos: PositionArg
+//!     location: PositionArg,
 //! }
+//! # impl CommandHandler for ExampleCommand {
+//! #     type SystemParam<'w, 's> = ();
+//! #
+//! #     fn handle(self, _source: CommandSource, _params: &mut Self::SystemParam<'_, '_>) {}
+//! # }
 //! ```
-//! and then implementing the [crate::CommandHandler] trait on it:
-//! ```
+//!
+//! Then implement [crate::CommandHandler] for the command:
+//!
+//! ```rust
 //! # use bevy_ecs::prelude::{Query, Res};
-//! # use temper_command_infra::CommandHandler;
+//! # use temper_command_infra::{CommandHandler, CommandSource, ParseError};
+//! # use temper_command_infra::args::{EntityArg, PositionArg};
 //! # use temper_components::player::position::Position;
 //! # use temper_components::player::rotation::Rotation;
-//!
-//! # use temper_state::GlobalState;
+//! # use temper_macros::Command;
+//! # use temper_state::GlobalStateResource;
+//! # #[derive(Command)]
+//! # #[command(subcommand)]
+//! # struct ExampleSingleSubcommand { location: PositionArg }
+//! # #[derive(Command)]
+//! # #[command("example")]
+//! # enum ExampleCommand {
+//! #     WithEntity { entity: EntityArg },
+//! #     WithoutEntity,
+//! #     #[subcommand("sub")]
+//! #     Subcommand(ExampleSingleSubcommand),
+//! # }
 //!
 //! impl CommandHandler for ExampleCommand {
 //!     // These can be whatever ECS params you need
 //!     type SystemParam<'w, 's> = (
-//!         Res<'w, GlobalState>,
-//!         Query<'w, 's, &'static Position, &'static Rotation>,
+//!         Res<'w, GlobalStateResource>,
+//!         Query<'w, 's, (&'static Position, &'static Rotation)>,
 //!     );
 //!
 //!     fn handle(self, source: CommandSource, params: &mut Self::SystemParam<'_, '_>) {
-//!         let (state: GlobalState, query: Query<'_, '_, &'static Position, &'static Rotation>) = params;
+//!         let (_state, _positions) = params;
+//!
 //!         match self {
-//!             WithEntity{ entity } => {
+//!             ExampleCommand::WithEntity { entity } => {
 //!                 // do something with the entity name/uuid/selector the player gave in the first argument
 //!             },
-//!             WithoutEntity => {
+//!             ExampleCommand::WithoutEntity => {
 //!                 // do something without an entity
 //!             },
-//!             Subcommand(subcommand) => {
+//!             ExampleCommand::Subcommand(subcommand) => {
 //!                 // do something with the subcommand
-//!                 let sub_entity = subcommand.WithPos;
+//!                 let location = subcommand.location;
 //!                 // do something with the position the player gave in the first argument of the subcommand
 //!             }
 //!         }
@@ -66,36 +89,63 @@
 //! the command wired into the ECS, provide suggestions and parse the arguments. All you need to do
 //! is define what arguments a command needs and what it does with those args.
 //!
-//! There are several attribute macros available including literal args:
-//! ```
+//! There are several attributes available including literal args:
+//!
+//! ```rust
+//! # use temper_command_infra::{CommandHandler, CommandSource};
+//! # use temper_macros::Command;
 //! #[derive(Command)]
 //! #[command("example")]
 //! enum ExampleCommand {
 //!     #[literal("literal")]
 //!     LiteralCommand,
 //! }
+//! # impl CommandHandler for ExampleCommand {
+//! #     type SystemParam<'w, 's> = ();
+//! #
+//! #     fn handle(self, _source: CommandSource, _params: &mut Self::SystemParam<'_, '_>) {}
+//! # }
 //! ```
 //! that skip the hassle of parsing and verifying an argument when you only allow a specific set of
 //! options, aliases on both commands and literals:
-//! ```
+//!
+//! ```rust
+//! # use temper_command_infra::{CommandHandler, CommandSource};
+//! # use temper_macros::Command;
 //! #[derive(Command)]
-//! #[command("example", aliases = ["ex", "exmpl"])]
+//! #[command(name = "example", aliases = ["ex", "exmpl"])]
 //! enum ExampleCommand {
 //!     #[literal("literal", aliases = ["lit", "l"])]
 //!     LiteralCommand,
 //! }
+//! # impl CommandHandler for ExampleCommand {
+//! #     type SystemParam<'w, 's> = ();
+//! #
+//! #     fn handle(self, _source: CommandSource, _params: &mut Self::SystemParam<'_, '_>) {}
+//! # }
 //! ```
 //! and permissions:
-//! ```
+//!
+//! ```rust
+//! # use temper_command_infra::{CommandHandler, CommandSource};
+//! # use temper_command_infra::Permissions;
+//! # use temper_macros::Command;
 //! #[derive(Command)]
-//! #[command("example", permission = Permissions::ExamplePermission)]
+//! #[command(name = "example", permission = Permissions::Op)]
 //! enum ExampleCommand {
-//!     #[literal("literal", permission = Permissions::LiteralExamplePermission)]
+//!     #[literal("literal")]
+//!     #[permission(Permissions::Kill)]
 //!     LiteralCommand,
 //! }
+//! # impl CommandHandler for ExampleCommand {
+//! #     type SystemParam<'w, 's> = ();
+//! #
+//! #     fn handle(self, _source: CommandSource, _params: &mut Self::SystemParam<'_, '_>) {}
+//! # }
 //! ```
-//! (Note that this only limits what gets suggested to the client, you still need to verify
-//! permissions in handlers to prevent manually typed commands being run when they shouldn't)
+//! Permissions are used when building the command graph and when parsing/dispatching commands, so
+//! players should not be able to use a command path they do not have permission for. Handlers should
+//! still validate any game-specific assumptions, such as whether a resolved entity actually exists.
 //!
 //! This is the general gist of using commands with existing argument types, check out [crate::args]
 //! for how to make your own argument types.

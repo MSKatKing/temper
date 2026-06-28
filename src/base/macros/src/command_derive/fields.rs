@@ -114,7 +114,7 @@ impl FieldParse {
                     let mut __spec = <#ty as ::temper_command_infra::CommandArg>::argument_spec();
                     match <#ty as ::temper_command_infra::CommandArg>::SUGGESTIONS {
                         ::temper_command_infra::SuggestionProviderKind::None => {}
-                        ::temper_command_infra::SuggestionProviderKind::Client(__provider) => {
+                        ::temper_command_infra::SuggestionProviderKind::Protocol(__provider) => {
                             __spec = __spec.with_protocol_suggestions(__provider);
                         }
                         ::temper_command_infra::SuggestionProviderKind::Server => {

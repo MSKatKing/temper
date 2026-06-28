@@ -166,7 +166,7 @@ impl CommandArg for ClientSuggestedArg {
     type Raw<'a> = &'a str;
 
     const SUGGESTIONS: SuggestionProviderKind =
-        SuggestionProviderKind::Client("minecraft:available_sounds");
+        SuggestionProviderKind::Protocol("minecraft:available_sounds");
 
     fn recognize<'a>(reader: &mut CommandReader<'a>) -> Result<Self::Raw<'a>, ParseError> {
         reader.read_word_span()
