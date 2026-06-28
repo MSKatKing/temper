@@ -339,13 +339,28 @@ fn candidate_segment<'a>(
 ) -> Option<&'a CommandPathSegment> {
     let mut token_index = 0;
 
-    for segment in segments {
+    for (segment_index, segment) in segments.iter().enumerate() {
         let Some(token) = completed_tokens.get(token_index) else {
             return Some(segment);
         };
 
         if !segment_accepts_token(segment, token) {
             return None;
+        }
+
+        if segment_index == segments.len() - 1
+            && matches!(
+                segment,
+                CommandPathSegment::Argument {
+                    spec: temper_command_infra::ArgumentSpec {
+                        server_suggestions: Some(_),
+                        ..
+                    },
+                    ..
+                }
+            )
+        {
+            return Some(segment);
         }
 
         token_index += segment_width(segment);
@@ -396,7 +411,7 @@ fn segment_suggestions(
         CommandPathSegment::Argument { spec, .. } if spec.server_suggestions.is_some() => {
             Some(SegmentSuggestions::Provider(ProviderSuggestions {
                 id: spec.server_suggestions.unwrap(),
-                fallback: entity_fallback_suggestions(*spec, state),
+                fallback: provider_fallback_suggestions(*spec, state),
             }))
         }
         CommandPathSegment::Argument { spec, .. } if is_ask_server(spec.protocol_suggestions) => {
@@ -413,6 +428,16 @@ fn segment_suggestions(
 
 fn is_ask_server(suggestions: Option<&str>) -> bool {
     matches!(suggestions, Some("ask_server" | "minecraft:ask_server"))
+}
+
+fn provider_fallback_suggestions(
+    spec: temper_command_infra::ArgumentSpec,
+    state: &GlobalStateResource,
+) -> Vec<String> {
+    match spec.parser {
+        ParserKind::Entity => entity_fallback_suggestions(spec, state),
+        _ => Vec::new(),
+    }
 }
 
 fn entity_fallback_suggestions(
@@ -562,6 +587,25 @@ mod tests {
         registry
     }
 
+    fn server_suggested_word_registry() -> CommandRegistry {
+        let mut registry = CommandRegistry::default();
+        registry.register_command(RegisteredCommand {
+            name: "custom",
+            aliases: &[],
+            permission: None,
+            paths: vec![CommandPath::new(
+                "custom",
+                vec![CommandPathSegment::argument(
+                    "value",
+                    ArgumentSpec::new(ParserKind::String)
+                        .with_protocol_suggestions("minecraft:ask_server")
+                        .with_server_suggestions("test:value"),
+                )],
+            )],
+        });
+        registry
+    }
+
     #[test]
     fn new_command_suggestions_include_entities_for_first_tp_arg() {
         let (state, _temp_dir) = create_test_state();
@@ -643,6 +687,22 @@ mod tests {
         assert_eq!(suggestions.start, 10);
         assert_eq!(suggestions.length, 0);
         assert_eq!(matches, vec!["day", "d"]);
+    }
+
+    #[test]
+    fn server_suggested_non_entity_args_do_not_get_entity_fallbacks() {
+        let (state, _temp_dir) = create_test_state();
+        state
+            .0
+            .players
+            .player_list
+            .insert(Entity::PLACEHOLDER, (0, "Alex".to_string()));
+
+        let suggestions =
+            new_command_suggestions("/custom ", &server_suggested_word_registry(), &state, None)
+                .unwrap();
+
+        assert!(suggestions.matches.is_empty());
     }
 
     #[test]

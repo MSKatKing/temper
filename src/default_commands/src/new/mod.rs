@@ -1,3 +1,4 @@
+mod bossbar;
 mod echo;
 mod stop;
 mod time;

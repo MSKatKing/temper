@@ -16,6 +16,7 @@ fn default_commands_register_new_metadata() {
     assert!(paths.iter().any(|path| path.root == "stop"));
     assert!(paths.iter().any(|path| path.root == "echo"));
     assert!(paths.iter().any(|path| path.root == "time"));
+    assert!(paths.iter().any(|path| path.root == "bossbar"));
 
     let stop = paths.iter().find(|path| path.root == "stop").unwrap();
     let echo = paths.iter().find(|path| path.root == "echo").unwrap();
