@@ -9,6 +9,7 @@ ctor = { workspace = true }
 temper-core = { workspace = true }
 temper-components = { workspace = true }
 temper-permissions = { workspace = true }
+temper-state = { workspace = true }
 temper-text = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }

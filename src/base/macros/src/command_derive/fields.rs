@@ -74,6 +74,7 @@ pub struct FieldParse {
     pub named_values: Vec<proc_macro2::TokenStream>,
     pub segments: Vec<proc_macro2::TokenStream>,
     pub greedy_assertions: Vec<proc_macro2::TokenStream>,
+    pub suggestion_registrations: Vec<proc_macro2::TokenStream>,
 }
 
 impl FieldParse {
@@ -84,6 +85,7 @@ impl FieldParse {
         let mut named_values = Vec::new();
         let mut segments = Vec::new();
         let mut greedy_assertions = Vec::new();
+        let mut suggestion_registrations = Vec::new();
 
         for (idx, command_field) in fields.iter().enumerate() {
             let arg_name = arg_name(command_field)?;
@@ -108,10 +110,27 @@ impl FieldParse {
             }
 
             let mut segment = quote! {
+                {
+                    let mut __spec = <#ty as ::temper_command_infra::CommandArg>::argument_spec();
+                    match <#ty as ::temper_command_infra::CommandArg>::SUGGESTIONS {
+                        ::temper_command_infra::SuggestionProviderKind::None => {}
+                        ::temper_command_infra::SuggestionProviderKind::Client(__provider) => {
+                            __spec = __spec.with_protocol_suggestions(__provider);
+                        }
+                        ::temper_command_infra::SuggestionProviderKind::Server => {
+                            __spec = __spec
+                                .with_protocol_suggestions("minecraft:ask_server")
+                                .with_server_suggestions(
+                                    ::temper_command_infra::command_arg_suggestion_id::<#ty>(),
+                                );
+                        }
+                    }
+
                 ::temper_command_infra::CommandPathSegment::argument(
                     #arg_name,
-                    <#ty as ::temper_command_infra::CommandArg>::argument_spec(),
+                        __spec,
                 )
+                }
             };
 
             if let Some(permission) = &command_field.permission {
@@ -121,6 +140,9 @@ impl FieldParse {
             }
 
             segments.push(segment);
+            suggestion_registrations.push(quote! {
+                ::temper_command_infra::register_command_arg_suggestions::<#ty>();
+            });
 
             if idx != last_field_idx {
                 greedy_assertions.push(quote_spanned! { ty.span() =>
@@ -141,6 +163,7 @@ impl FieldParse {
             named_values,
             segments,
             greedy_assertions,
+            suggestion_registrations,
         })
     }
 }

@@ -26,6 +26,7 @@ fn expand_enum(
     let mut parse_arms = Vec::new();
     let mut segment_entries = Vec::new();
     let mut greedy_assertions = Vec::new();
+    let mut suggestion_registrations = Vec::new();
 
     for variant in data_enum.variants {
         let variant_ident = variant.ident;
@@ -69,6 +70,7 @@ fn expand_enum(
             _ => {
                 let field_parse = FieldParse::new(fields.fields())?;
                 greedy_assertions.extend(field_parse.greedy_assertions.clone());
+                suggestion_registrations.extend(field_parse.suggestion_registrations.clone());
                 let constructor = constructor(ident, &variant_ident, &fields, &field_parse);
                 let raw_bindings = &field_parse.raw_bindings;
                 let permission_parse = permission_parse(variant_attrs.permission.as_ref());
@@ -124,6 +126,7 @@ fn expand_enum(
         parse_body,
         segment_entries,
         greedy_assertions,
+        suggestion_registrations,
     ))
 }
 
@@ -154,6 +157,7 @@ fn expand_struct(
         parse_body,
         segment_entries,
         field_parse.greedy_assertions,
+        field_parse.suggestion_registrations,
     ))
 }
 
@@ -163,6 +167,7 @@ fn expand_impl(
     parse_body: proc_macro2::TokenStream,
     segment_entries: Vec<proc_macro2::TokenStream>,
     greedy_assertions: Vec<proc_macro2::TokenStream>,
+    suggestion_registrations: Vec<proc_macro2::TokenStream>,
 ) -> proc_macro2::TokenStream {
     let segment_builder = quote! {
         let mut __segments = Vec::new();
@@ -178,7 +183,7 @@ fn expand_impl(
             let aliases = command_attrs.aliases;
             let command_permission_parse = permission_parse(command_attrs.permission.as_ref());
             let permission_fn = permission_fn(command_attrs.permission.as_ref());
-            let registration = expand_registration(ident);
+            let registration = expand_registration(ident, &suggestion_registrations);
 
             quote! {
                 #(#greedy_assertions)*
@@ -226,6 +231,8 @@ fn expand_impl(
                 subcommand_attrs.permission.as_ref(),
                 segment_builder,
             );
+            let suggestion_registration =
+                expand_suggestion_registration(ident, &suggestion_registrations);
 
             quote! {
                 #(#greedy_assertions)*
@@ -250,14 +257,20 @@ fn expand_impl(
                         #subcommand_segments
                     }
                 }
+
+                #suggestion_registration
             }
         }
     }
 }
 
-fn expand_registration(ident: &Ident) -> proc_macro2::TokenStream {
+fn expand_registration(
+    ident: &Ident,
+    suggestion_registrations: &[proc_macro2::TokenStream],
+) -> proc_macro2::TokenStream {
     let register_fn = format_ident!("__{}_register_command", ident);
     let register_system_fn = format_ident!("__{}_register_command_system", ident);
+    let suggestion_registration = expand_suggestion_registration(ident, suggestion_registrations);
 
     quote! {
         #[::temper_command_infra::ctor::ctor(unsafe)]
@@ -276,6 +289,24 @@ fn expand_registration(ident: &Ident) -> proc_macro2::TokenStream {
             ::temper_command_infra::add_system(
                 ::temper_command_infra::dispatch_command::<#ident>,
             );
+        }
+
+        #suggestion_registration
+    }
+}
+
+fn expand_suggestion_registration(
+    ident: &Ident,
+    suggestion_registrations: &[proc_macro2::TokenStream],
+) -> proc_macro2::TokenStream {
+    let register_suggestions_fn = format_ident!("__{}_register_command_arg_suggestions", ident);
+
+    quote! {
+        #[::temper_command_infra::ctor::ctor(unsafe)]
+        #[allow(non_snake_case)]
+        #[doc(hidden)]
+        fn #register_suggestions_fn() {
+            #(#suggestion_registrations)*
         }
     }
 }

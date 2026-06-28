@@ -100,7 +100,11 @@ fn convert_node(node: &InfraCommandNode) -> CommandNode {
         flags |= 0x04;
     }
 
-    if node.argument.and_then(|arg| arg.suggestions).is_some() {
+    if node
+        .argument
+        .and_then(|arg| arg.protocol_suggestions)
+        .is_some()
+    {
         flags |= 0x10;
     }
 
@@ -118,7 +122,7 @@ fn convert_node(node: &InfraCommandNode) -> CommandNode {
         properties: node.argument.and_then(parser_properties),
         suggestions_type: node
             .argument
-            .and_then(|argument| argument.suggestions)
+            .and_then(|argument| argument.protocol_suggestions)
             .map(str::to_string),
     }
 }
@@ -178,7 +182,8 @@ mod tests {
             "tp",
             vec![CommandPathSegment::argument(
                 "target",
-                ArgumentSpec::entity(false, false),
+                ArgumentSpec::entity(false, false)
+                    .with_protocol_suggestions("minecraft:ask_server"),
             )],
         )]);
 

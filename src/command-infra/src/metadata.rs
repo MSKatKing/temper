@@ -1,3 +1,6 @@
+use bevy_ecs::world::World;
+
+use crate::SuggestionInput;
 use crate::{CommandReader, ParseError};
 use temper_permissions::Permissions;
 
@@ -43,10 +46,18 @@ pub enum ParserKind {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SuggestionProviderKind {
+    None,
+    Client(&'static str),
+    Server,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ArgumentSpec {
     pub parser: ParserKind,
     pub properties: Option<ParserProperties>,
-    pub suggestions: Option<&'static str>,
+    pub protocol_suggestions: Option<&'static str>,
+    pub server_suggestions: Option<&'static str>,
 }
 
 impl ArgumentSpec {
@@ -54,7 +65,8 @@ impl ArgumentSpec {
         Self {
             parser,
             properties: None,
-            suggestions: None,
+            protocol_suggestions: None,
+            server_suggestions: None,
         }
     }
 
@@ -62,12 +74,23 @@ impl ArgumentSpec {
         Self {
             parser,
             properties: Some(properties),
-            suggestions: None,
+            protocol_suggestions: None,
+            server_suggestions: None,
         }
     }
 
     pub const fn with_suggestions(mut self, suggestions: &'static str) -> ArgumentSpec {
-        self.suggestions = Some(suggestions);
+        self.protocol_suggestions = Some(suggestions);
+        self
+    }
+
+    pub const fn with_protocol_suggestions(mut self, suggestions: &'static str) -> ArgumentSpec {
+        self.protocol_suggestions = Some(suggestions);
+        self
+    }
+
+    pub const fn with_server_suggestions(mut self, suggestions: &'static str) -> ArgumentSpec {
+        self.server_suggestions = Some(suggestions);
         self
     }
 
@@ -79,7 +102,6 @@ impl ArgumentSpec {
                 players_only,
             }),
         )
-        .with_suggestions("minecraft:ask_server")
     }
 }
 
@@ -87,12 +109,17 @@ pub trait CommandArg: Sized {
     type Raw<'a>;
 
     const KIND: ArgKind = ArgKind::Normal;
+    const SUGGESTIONS: SuggestionProviderKind;
 
     fn recognize<'a>(reader: &mut CommandReader<'a>) -> Result<Self::Raw<'a>, ParseError>;
 
     fn parse(raw: Self::Raw<'_>) -> Result<Self, ParseError>;
 
     fn argument_spec() -> ArgumentSpec;
+
+    fn suggest(_input: SuggestionInput<'_>, _world: &mut World) -> Vec<String> {
+        Vec::new()
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -1,10 +1,12 @@
+use bevy_ecs::prelude::{Entity, Resource, World};
 use temper_command_infra::args::{
     EntitiesArg, EntityArg, GreedyStringArg, IntegerArg, PlayerArg, PlayersArg, PositionArg,
     SingleWordArg,
 };
 use temper_command_infra::{
-    CommandGraph, CommandHandler, CommandNodeKind, CommandReader, CommandSource, CommandSpec,
-    ParserProperties, Permissions,
+    ArgumentSpec, CommandArg, CommandGraph, CommandHandler, CommandNodeKind, CommandReader,
+    CommandSource, CommandSpec, ParseError, ParserKind, ParserProperties, Permissions,
+    SuggestionInput, SuggestionProviderKind,
 };
 use temper_macros::Command;
 
@@ -108,6 +110,68 @@ enum SetTimeCommand {
 )]
 struct AliasCommand;
 
+#[derive(Debug, PartialEq, Command)]
+#[command("suggested")]
+struct SuggestedCommand {
+    value: SuggestedWordArg,
+}
+
+#[derive(Debug, PartialEq, Command)]
+#[command("client-suggested")]
+struct ClientSuggestedCommand {
+    value: ClientSuggestedArg,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct SuggestedWordArg(String);
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ClientSuggestedArg(String);
+
+#[derive(Resource)]
+struct SuggestedWords(Vec<String>);
+
+impl CommandArg for SuggestedWordArg {
+    type Raw<'a> = &'a str;
+
+    const SUGGESTIONS: SuggestionProviderKind = SuggestionProviderKind::Server;
+
+    fn recognize<'a>(reader: &mut CommandReader<'a>) -> Result<Self::Raw<'a>, ParseError> {
+        reader.read_word_span()
+    }
+
+    fn parse(raw: Self::Raw<'_>) -> Result<Self, ParseError> {
+        Ok(Self(raw.to_string()))
+    }
+
+    fn argument_spec() -> ArgumentSpec {
+        ArgumentSpec::new(ParserKind::Word)
+    }
+
+    fn suggest(_input: SuggestionInput<'_>, world: &mut World) -> Vec<String> {
+        world.resource::<SuggestedWords>().0.clone()
+    }
+}
+
+impl CommandArg for ClientSuggestedArg {
+    type Raw<'a> = &'a str;
+
+    const SUGGESTIONS: SuggestionProviderKind =
+        SuggestionProviderKind::Client("minecraft:available_sounds");
+
+    fn recognize<'a>(reader: &mut CommandReader<'a>) -> Result<Self::Raw<'a>, ParseError> {
+        reader.read_word_span()
+    }
+
+    fn parse(raw: Self::Raw<'_>) -> Result<Self, ParseError> {
+        Ok(Self(raw.to_string()))
+    }
+
+    fn argument_spec() -> ArgumentSpec {
+        ArgumentSpec::new(ParserKind::Word)
+    }
+}
+
 macro_rules! impl_noop_handler {
     ($($command:ty),* $(,)?) => {
         $(
@@ -136,6 +200,8 @@ impl_noop_handler!(
     TimeCommand,
     AliasCommand,
     EntityFlagsCommand,
+    SuggestedCommand,
+    ClientSuggestedCommand,
 );
 
 #[test]
@@ -235,7 +301,7 @@ fn graph_generation_merges_shared_prefixes() {
         .map(|idx| graph.nodes[*idx].name.as_deref().unwrap())
         .collect::<Vec<_>>();
 
-    assert_eq!(child_names, vec!["destination", "target", "location"]);
+    assert_eq!(child_names, vec!["target", "location", "destination"]);
 
     let destination_idx = tp
         .children
@@ -285,6 +351,80 @@ fn entity_arg_types_generate_entity_flags() {
     assert_entity_flags(&paths, "targets", false, false);
     assert_entity_flags(&paths, "player", true, true);
     assert_entity_flags(&paths, "players", false, true);
+}
+
+#[test]
+fn arg_suggestions_are_registered_from_field_types() {
+    let paths = SuggestedCommand::paths();
+    let spec = paths
+        .iter()
+        .filter_map(|path| path.segments.first())
+        .find_map(|segment| match segment {
+            temper_command_infra::CommandPathSegment::Argument { spec, .. } => Some(*spec),
+            _ => None,
+        })
+        .unwrap();
+    let provider = temper_command_infra::command_arg_suggestion_id::<SuggestedWordArg>();
+
+    assert_eq!(spec.protocol_suggestions, Some("minecraft:ask_server"));
+    assert_eq!(spec.server_suggestions, Some(provider));
+
+    let mut world = World::new();
+    world.insert_resource(SuggestedWords(vec!["alpha".into(), "beta".into()]));
+    temper_command_infra::register_command_arg_suggestions::<SuggestedWordArg>();
+
+    let suggestions = temper_command_infra::suggest_command_arg(
+        provider,
+        &mut world,
+        SuggestionInput {
+            full_input: "/suggested a",
+            current_token: "a",
+            source: Entity::PLACEHOLDER,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(suggestions, vec!["alpha", "beta"]);
+}
+
+#[test]
+fn position_args_use_client_parser_suggestions() {
+    let paths = TpCommand::paths();
+    let spec = paths
+        .iter()
+        .flat_map(|path| path.segments.iter())
+        .find_map(|segment| match segment {
+            temper_command_infra::CommandPathSegment::Argument {
+                name: "location",
+                spec,
+                ..
+            } => Some(*spec),
+            _ => None,
+        })
+        .unwrap();
+
+    assert_eq!(spec.parser, ParserKind::Position);
+    assert_eq!(spec.protocol_suggestions, None);
+    assert_eq!(spec.server_suggestions, None);
+}
+
+#[test]
+fn client_suggestions_only_set_protocol_provider() {
+    let paths = ClientSuggestedCommand::paths();
+    let spec = paths
+        .iter()
+        .filter_map(|path| path.segments.first())
+        .find_map(|segment| match segment {
+            temper_command_infra::CommandPathSegment::Argument { spec, .. } => Some(*spec),
+            _ => None,
+        })
+        .unwrap();
+
+    assert_eq!(
+        spec.protocol_suggestions,
+        Some("minecraft:available_sounds")
+    );
+    assert_eq!(spec.server_suggestions, None);
 }
 
 #[test]

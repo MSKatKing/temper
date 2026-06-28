@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use crate::{
     ArgKind, ArgumentSpec, CommandArg, CommandReader, ParseError, ParserKind, ParserProperties,
-    StringMode, reader::StringSpan,
+    StringMode, SuggestionProviderKind, reader::StringSpan,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -18,6 +18,8 @@ impl Deref for SingleWordArg {
 
 impl CommandArg for SingleWordArg {
     type Raw<'a> = &'a str;
+
+    const SUGGESTIONS: SuggestionProviderKind = SuggestionProviderKind::None;
 
     fn recognize<'a>(reader: &mut CommandReader<'a>) -> Result<Self::Raw<'a>, ParseError> {
         reader.read_word_span()
@@ -48,6 +50,8 @@ impl Deref for QuotableStringArg {
 
 impl CommandArg for QuotableStringArg {
     type Raw<'a> = StringSpan<'a>;
+
+    const SUGGESTIONS: SuggestionProviderKind = SuggestionProviderKind::None;
 
     fn recognize<'a>(reader: &mut CommandReader<'a>) -> Result<Self::Raw<'a>, ParseError> {
         reader.read_string_span()
@@ -85,6 +89,7 @@ impl CommandArg for GreedyStringArg {
     type Raw<'a> = &'a str;
 
     const KIND: ArgKind = ArgKind::GreedyTail;
+    const SUGGESTIONS: SuggestionProviderKind = SuggestionProviderKind::None;
 
     fn recognize<'a>(reader: &mut CommandReader<'a>) -> Result<Self::Raw<'a>, ParseError> {
         reader.read_remaining_span()

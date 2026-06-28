@@ -6,7 +6,7 @@ use temper_components::entity_identity::Identity;
 use temper_components::player::player_marker::PlayerMarker;
 use uuid::Uuid;
 
-use crate::{ArgumentSpec, CommandArg, CommandReader, ParseError};
+use crate::{ArgumentSpec, CommandArg, CommandReader, ParseError, SuggestionProviderKind};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct EntitySelector(String);
@@ -47,6 +47,8 @@ macro_rules! entity_arg {
             fn argument_spec() -> ArgumentSpec {
                 ArgumentSpec::entity($single, $players_only)
             }
+
+            const SUGGESTIONS: SuggestionProviderKind = SuggestionProviderKind::None;
         }
     };
 }

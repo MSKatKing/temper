@@ -1,4 +1,4 @@
-use crate::{ArgumentSpec, CommandPath, CommandPathSegment};
+use crate::{ArgumentSpec, CommandPath, CommandPathSegment, EntityProperties, ParserProperties};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CommandNodeKind {
@@ -62,12 +62,26 @@ impl CommandNode {
         match self.kind {
             CommandNodeKind::Literal => 0,
             CommandNodeKind::Argument
-                if self.argument.and_then(|arg| arg.suggestions).is_some() =>
+                if matches!(
+                    self.argument.and_then(|arg| arg.properties),
+                    Some(ParserProperties::Entity(EntityProperties {
+                        single: false,
+                        ..
+                    }))
+                ) =>
             {
                 1
             }
-            CommandNodeKind::Argument => 2,
-            CommandNodeKind::Root => 3,
+            CommandNodeKind::Argument
+                if self
+                    .argument
+                    .and_then(|arg| arg.protocol_suggestions)
+                    .is_some() =>
+            {
+                2
+            }
+            CommandNodeKind::Argument => 3,
+            CommandNodeKind::Root => 4,
         }
     }
 }

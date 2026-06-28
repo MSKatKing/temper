@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use crate::{
     ArgumentSpec, CommandArg, CommandReader, IntegerProperties, ParseError, ParserKind,
-    ParserProperties,
+    ParserProperties, SuggestionProviderKind,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -18,6 +18,8 @@ impl<const MIN: i32, const MAX: i32> Deref for IntegerArg<MIN, MAX> {
 
 impl<const MIN: i32, const MAX: i32> CommandArg for IntegerArg<MIN, MAX> {
     type Raw<'a> = i32;
+
+    const SUGGESTIONS: SuggestionProviderKind = SuggestionProviderKind::None;
 
     fn recognize<'a>(reader: &mut CommandReader<'a>) -> Result<Self::Raw<'a>, ParseError> {
         let cursor = reader.cursor();

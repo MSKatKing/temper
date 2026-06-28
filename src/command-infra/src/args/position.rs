@@ -1,6 +1,8 @@
 use temper_components::player::position::Position;
 
-use crate::{ArgumentSpec, CommandArg, CommandReader, ParseError, ParserKind};
+use crate::{
+    ArgumentSpec, CommandArg, CommandReader, ParseError, ParserKind, SuggestionProviderKind,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PositionArg {
@@ -21,6 +23,8 @@ impl PositionArg {
 
 impl CommandArg for PositionArg {
     type Raw<'a> = (&'a str, &'a str, &'a str);
+
+    const SUGGESTIONS: SuggestionProviderKind = SuggestionProviderKind::None;
 
     fn recognize<'a>(reader: &mut CommandReader<'a>) -> Result<Self::Raw<'a>, ParseError> {
         let x = read_coord(reader, "x coordinate")?;

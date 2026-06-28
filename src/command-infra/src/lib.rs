@@ -4,6 +4,7 @@ pub mod error;
 pub mod graph;
 pub mod metadata;
 pub mod reader;
+pub mod suggestions;
 
 pub use ctor;
 pub use ecs::{
@@ -20,6 +21,11 @@ pub use metadata::SubcommandSpec;
 pub use metadata::{
     ArgKind, ArgumentSpec, CommandArg, CommandPath, CommandPathSegment, CommandSpec,
     EntityProperties, IntegerProperties, ParserKind, ParserProperties, StringMode,
+    SuggestionProviderKind,
 };
 pub use reader::{Checkpoint, CommandReader};
+pub use suggestions::{
+    SuggestionInput, command_arg_suggestion_id, register_command_arg_suggestions,
+    suggest_command_arg,
+};
 pub use temper_permissions::Permissions;

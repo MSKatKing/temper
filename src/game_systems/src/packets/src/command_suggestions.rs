@@ -1,10 +1,14 @@
 use std::{collections::HashSet, sync::Arc};
 
 use bevy_ecs::prelude::*;
+use bevy_ecs::system::SystemState;
 use temper_codec::net_types::{
     length_prefixed_vec::LengthPrefixedVec, prefixed_optional::PrefixedOptional, var_int::VarInt,
 };
-use temper_command_infra::{CommandPathSegment, CommandRegistry, ParserKind};
+use temper_command_infra::{
+    CommandPathSegment, CommandRegistry, EntityProperties, ParserKind, ParserProperties,
+    SuggestionInput, suggest_command_arg,
+};
 use temper_commands::{Command, CommandContext, CommandInput, ROOT_COMMAND, Sender};
 use temper_net_runtime::connection::StreamWriter;
 use temper_permissions::player::PlayerPermission;
@@ -67,87 +71,44 @@ fn create_ctx(
     }
 }
 
-pub fn handle(
-    receiver: Res<CommandSuggestionRequestReceiver>,
-    query: Query<&StreamWriter>,
-    permissions: Query<&PlayerPermission>,
-    registry: Res<CommandRegistry>,
-    state: Res<GlobalStateResource>,
-) {
-    for (request, entity) in receiver.0.try_iter() {
-        if !state.0.players.is_connected(entity) {
-            return;
-        }
+pub fn handle(world: &mut World) {
+    let requests = {
+        let mut system_state = SystemState::<Res<CommandSuggestionRequestReceiver>>::new(world);
+        let receiver = system_state.get(world);
+        receiver.0.try_iter().collect::<Vec<_>>()
+    };
 
-        let input = request.input;
+    for (request, entity) in requests {
+        let Some(suggestions) = suggestion_plan(world, &request.input, entity) else {
+            continue;
+        };
+
+        let response = match suggestions {
+            SuggestionPlanResult::New(plan) => {
+                let input = request.input.clone();
+                plan.into_response(|provider, current_token| {
+                    suggest_command_arg(
+                        provider,
+                        world,
+                        SuggestionInput {
+                            full_input: &input,
+                            current_token,
+                            source: entity,
+                        },
+                    )
+                    .unwrap_or_default()
+                })
+            }
+            SuggestionPlanResult::Old(response) => response,
+        };
+
+        let mut system_state = SystemState::<Query<&StreamWriter>>::new(world);
+        let query = system_state.get(world);
         let Ok(writer) = query.get(entity) else {
             continue;
         };
 
-        if let Some(response) =
-            new_command_suggestions(&input, &registry, &state, permissions.get(entity).ok())
-        {
-            send_suggestions(writer, request.transaction_id, response);
-            continue;
-        }
-
-        let command = find_command(input.clone());
-        let command_arg = input
-            .clone()
-            .strip_prefix(&format!(
-                "/{} ",
-                command.clone().map(|c| c.name).unwrap_or_default()
-            ))
-            .unwrap_or(&input)
-            .to_string();
-        let mut ctx = create_ctx(
-            command_arg.clone(),
-            command.clone(),
-            Sender::Player(entity),
-            state.0.clone(),
-        );
-        let command_arg = command_arg.clone();
-        let tokens = command_arg.split(" ").collect::<Vec<&str>>();
-        let Some(current_token) = tokens.last() else {
-            return; // whitespace
-        };
-
-        let mut suggestions = Vec::new();
-
-        if let Some(command) = command {
-            for arg in command.args.clone() {
-                let arg_suggestions = (arg.suggester)(&mut ctx);
-                ctx.input.skip_whitespace(u32::MAX, true);
-                if !ctx.input.has_remaining_input() {
-                    suggestions = arg_suggestions;
-                    break;
-                }
-            }
-        }
-
-        let start = input.len() - current_token.len();
-        let length = current_token.len();
-
-        send_suggestions(
-            writer,
-            request.transaction_id,
-            SuggestionResponse {
-                start,
-                length,
-                matches: suggestions
-                    .into_iter()
-                    .filter(|sug| {
-                        sug.content
-                            .to_lowercase()
-                            .starts_with(&current_token.to_lowercase())
-                    })
-                    .map(|sug| Match {
-                        content: sug.content,
-                        tooltip: PrefixedOptional::new(sug.tooltip),
-                    })
-                    .collect(),
-            },
-        );
+        send_suggestions(writer, request.transaction_id, response);
     }
 }
 
@@ -157,12 +118,108 @@ struct SuggestionResponse {
     matches: Vec<Match>,
 }
 
+enum SuggestionPlanResult {
+    New(SuggestionPlan),
+    Old(SuggestionResponse),
+}
+
+struct SuggestionPlan {
+    start: usize,
+    length: usize,
+    current_token: String,
+    candidates: Vec<String>,
+    providers: Vec<ProviderSuggestions>,
+}
+
+impl SuggestionPlan {
+    fn into_response(
+        self,
+        mut provider_suggestions: impl FnMut(&'static str, &str) -> Vec<String>,
+    ) -> SuggestionResponse {
+        let current_token_lower = self.current_token.to_lowercase();
+        let mut seen = HashSet::new();
+        let provider_candidates = self.providers.into_iter().flat_map(|provider| {
+            let suggestions = provider_suggestions(provider.id, &self.current_token);
+
+            provider.suggest(suggestions).collect::<Vec<_>>()
+        });
+
+        let matches = self
+            .candidates
+            .into_iter()
+            .chain(provider_candidates)
+            .filter(|suggestion| suggestion.to_lowercase().starts_with(&current_token_lower))
+            .filter(|suggestion| seen.insert(suggestion.clone()))
+            .map(|content| Match {
+                content,
+                tooltip: PrefixedOptional::new(None),
+            })
+            .collect();
+
+        SuggestionResponse {
+            start: self.start,
+            length: self.length,
+            matches,
+        }
+    }
+}
+
+struct ProviderSuggestions {
+    id: &'static str,
+    fallback: Vec<String>,
+}
+
+impl ProviderSuggestions {
+    fn suggest(self, suggestions: Vec<String>) -> impl Iterator<Item = String> {
+        suggestions.into_iter().chain(self.fallback)
+    }
+}
+
+fn suggestion_plan(world: &mut World, input: &str, entity: Entity) -> Option<SuggestionPlanResult> {
+    let mut system_state = SystemState::<(
+        Query<&StreamWriter>,
+        Query<&PlayerPermission>,
+        Res<CommandRegistry>,
+        Res<GlobalStateResource>,
+    )>::new(world);
+    let (query, permissions, registry, state) = system_state.get(world);
+
+    if !state.0.players.is_connected(entity) {
+        return None;
+    }
+
+    if query.get(entity).is_err() {
+        return None;
+    }
+
+    if let Some(plan) =
+        new_command_suggestion_plan(input, &registry, &state, permissions.get(entity).ok())
+    {
+        return Some(SuggestionPlanResult::New(plan));
+    }
+
+    old_command_suggestions(input, entity, &state).map(SuggestionPlanResult::Old)
+}
+
+#[cfg(test)]
 fn new_command_suggestions(
     input: &str,
     registry: &CommandRegistry,
     state: &GlobalStateResource,
     permissions: Option<&PlayerPermission>,
 ) -> Option<SuggestionResponse> {
+    Some(
+        new_command_suggestion_plan(input, registry, state, permissions)?
+            .into_response(|_provider, _current_token| Vec::new()),
+    )
+}
+
+fn new_command_suggestion_plan(
+    input: &str,
+    registry: &CommandRegistry,
+    state: &GlobalStateResource,
+    permissions: Option<&PlayerPermission>,
+) -> Option<SuggestionPlan> {
     let command_input = input.strip_prefix('/').unwrap_or(input);
     let root_end = command_input
         .find(char::is_whitespace)
@@ -175,10 +232,11 @@ fn new_command_suggestions(
     let rest = command_input[root_end..].trim_start();
     let current_token = current_token(rest);
     let completed_tokens = completed_tokens(rest);
-    let current_token_lower = current_token.to_lowercase();
-    let mut seen = HashSet::new();
 
-    let matches = command
+    let mut candidates = Vec::new();
+    let mut providers = Vec::new();
+
+    for segment in command
         .paths
         .iter()
         .filter(|path| path.root == root)
@@ -186,20 +244,74 @@ fn new_command_suggestions(
             path.is_allowed_by(|permission| permissions.is_some_and(|p| p.can(permission)))
         })
         .filter_map(|path| candidate_segment(&path.segments, &completed_tokens))
-        .filter_map(|segment| segment_suggestions(segment, state))
-        .flatten()
-        .filter(|suggestion| suggestion.to_lowercase().starts_with(&current_token_lower))
-        .filter(|suggestion| seen.insert(suggestion.clone()))
-        .map(|content| Match {
-            content,
-            tooltip: PrefixedOptional::new(None),
-        })
-        .collect();
+    {
+        match segment_suggestions(segment, state) {
+            Some(SegmentSuggestions::Candidates(next_candidates)) => {
+                candidates.extend(next_candidates);
+            }
+            Some(SegmentSuggestions::Provider(provider)) => providers.push(provider),
+            None => {}
+        }
+    }
+
+    Some(SuggestionPlan {
+        start: input.len() - current_token.len(),
+        length: current_token.len(),
+        current_token: current_token.to_string(),
+        candidates,
+        providers,
+    })
+}
+
+fn old_command_suggestions(
+    input: &str,
+    entity: Entity,
+    state: &GlobalStateResource,
+) -> Option<SuggestionResponse> {
+    let command = find_command(input.to_string());
+    let command_arg = input
+        .strip_prefix(&format!(
+            "/{} ",
+            command.clone().map(|c| c.name).unwrap_or_default()
+        ))
+        .unwrap_or(input)
+        .to_string();
+    let mut ctx = create_ctx(
+        command_arg.clone(),
+        command.clone(),
+        Sender::Player(entity),
+        state.0.clone(),
+    );
+    let tokens = command_arg.split(' ').collect::<Vec<&str>>();
+    let current_token = tokens.last()?;
+    let mut suggestions = Vec::new();
+
+    if let Some(command) = command {
+        for arg in command.args.clone() {
+            let arg_suggestions = (arg.suggester)(&mut ctx);
+            ctx.input.skip_whitespace(u32::MAX, true);
+            if !ctx.input.has_remaining_input() {
+                suggestions = arg_suggestions;
+                break;
+            }
+        }
+    }
 
     Some(SuggestionResponse {
         start: input.len() - current_token.len(),
         length: current_token.len(),
-        matches,
+        matches: suggestions
+            .into_iter()
+            .filter(|sug| {
+                sug.content
+                    .to_lowercase()
+                    .starts_with(&current_token.to_lowercase())
+            })
+            .map(|sug| Match {
+                content: sug.content,
+                tooltip: PrefixedOptional::new(sug.tooltip),
+            })
+            .collect(),
     })
 }
 
@@ -268,16 +380,31 @@ fn is_coordinate_token(token: &str) -> bool {
     }
 }
 
+enum SegmentSuggestions {
+    Candidates(Vec<String>),
+    Provider(ProviderSuggestions),
+}
+
 fn segment_suggestions(
     segment: &CommandPathSegment,
     state: &GlobalStateResource,
-) -> Option<Vec<String>> {
+) -> Option<SegmentSuggestions> {
     match segment {
-        CommandPathSegment::Literal { name, .. } => Some(vec![(*name).to_string()]),
-        CommandPathSegment::Argument { spec, .. } if is_ask_server(spec.suggestions) => {
+        CommandPathSegment::Literal { name, .. } => {
+            Some(SegmentSuggestions::Candidates(vec![(*name).to_string()]))
+        }
+        CommandPathSegment::Argument { spec, .. } if spec.server_suggestions.is_some() => {
+            Some(SegmentSuggestions::Provider(ProviderSuggestions {
+                id: spec.server_suggestions.unwrap(),
+                fallback: entity_fallback_suggestions(*spec, state),
+            }))
+        }
+        CommandPathSegment::Argument { spec, .. } if is_ask_server(spec.protocol_suggestions) => {
             match spec.parser {
-                ParserKind::Entity => Some(entity_suggestions(state)),
-                _ => Some(Vec::new()),
+                ParserKind::Entity => Some(SegmentSuggestions::Candidates(
+                    entity_fallback_suggestions(*spec, state),
+                )),
+                _ => Some(SegmentSuggestions::Candidates(Vec::new())),
             }
         }
         _ => None,
@@ -288,8 +415,28 @@ fn is_ask_server(suggestions: Option<&str>) -> bool {
     matches!(suggestions, Some("ask_server" | "minecraft:ask_server"))
 }
 
-fn entity_suggestions(state: &GlobalStateResource) -> Vec<String> {
-    let mut suggestions = vec!["@e".to_string(), "@r".to_string(), "@a".to_string()];
+fn entity_fallback_suggestions(
+    spec: temper_command_infra::ArgumentSpec,
+    state: &GlobalStateResource,
+) -> Vec<String> {
+    let players_only = matches!(
+        spec.properties,
+        Some(ParserProperties::Entity(EntityProperties {
+            players_only: true,
+            ..
+        }))
+    );
+
+    entity_suggestions(state, players_only)
+}
+
+fn entity_suggestions(state: &GlobalStateResource, players_only: bool) -> Vec<String> {
+    let mut suggestions = if players_only {
+        vec!["@r".to_string(), "@a".to_string()]
+    } else {
+        vec!["@e".to_string(), "@r".to_string(), "@a".to_string()]
+    };
+
     suggestions.extend(
         state
             .0
@@ -338,7 +485,8 @@ mod tests {
                     vec![CommandPathSegment::argument(
                         "destination",
                         ArgumentSpec::new(ParserKind::Entity)
-                            .with_suggestions("minecraft:ask_server"),
+                            .with_protocol_suggestions("minecraft:ask_server")
+                            .with_server_suggestions("test:entity"),
                     )],
                 ),
                 CommandPath::new(
@@ -347,7 +495,8 @@ mod tests {
                         CommandPathSegment::argument(
                             "target",
                             ArgumentSpec::new(ParserKind::Entity)
-                                .with_suggestions("minecraft:ask_server"),
+                                .with_protocol_suggestions("minecraft:ask_server")
+                                .with_server_suggestions("test:entities"),
                         ),
                         CommandPathSegment::argument(
                             "location",
@@ -361,12 +510,14 @@ mod tests {
                         CommandPathSegment::argument(
                             "target",
                             ArgumentSpec::new(ParserKind::Entity)
-                                .with_suggestions("minecraft:ask_server"),
+                                .with_protocol_suggestions("minecraft:ask_server")
+                                .with_server_suggestions("test:entities"),
                         ),
                         CommandPathSegment::argument(
                             "destination",
                             ArgumentSpec::new(ParserKind::Entity)
-                                .with_suggestions("minecraft:ask_server"),
+                                .with_protocol_suggestions("minecraft:ask_server")
+                                .with_server_suggestions("test:entity"),
                         ),
                     ],
                 ),
@@ -428,6 +579,28 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(suggestions.start, 4);
+        assert_eq!(suggestions.length, 0);
+        assert!(matches.contains(&"@a"));
+        assert!(matches.contains(&"Alex"));
+    }
+
+    #[test]
+    fn new_command_suggestions_include_entities_for_bare_tp() {
+        let (state, _temp_dir) = create_test_state();
+        state
+            .0
+            .players
+            .player_list
+            .insert(Entity::PLACEHOLDER, (0, "Alex".to_string()));
+
+        let suggestions = new_command_suggestions("/tp", &registry(), &state, None).unwrap();
+        let matches = suggestions
+            .matches
+            .iter()
+            .map(|suggestion| suggestion.content.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(suggestions.start, 3);
         assert_eq!(suggestions.length, 0);
         assert!(matches.contains(&"@a"));
         assert!(matches.contains(&"Alex"));

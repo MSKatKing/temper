@@ -2,7 +2,7 @@ use bevy_ecs::prelude::{Query, ResMut};
 use temper_command_infra::args::IntegerArg;
 use temper_command_infra::{
     ArgumentSpec, CommandArg, CommandHandler, CommandReader, CommandSource, ParseError, ParserKind,
-    ParserProperties, StringMode,
+    ParserProperties, StringMode, SuggestionProviderKind,
 };
 use temper_components::player::time::LastSentTimeUpdate;
 use temper_core::mq;
@@ -47,6 +47,8 @@ struct TimeSetArg(u32);
 
 impl CommandArg for TimeSetArg {
     type Raw<'a> = u32;
+
+    const SUGGESTIONS: SuggestionProviderKind = SuggestionProviderKind::None;
 
     fn recognize<'a>(reader: &mut CommandReader<'a>) -> Result<Self::Raw<'a>, ParseError> {
         let cursor = reader.cursor();
