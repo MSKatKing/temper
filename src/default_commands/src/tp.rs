@@ -1,79 +1,184 @@
 use bevy_ecs::entity::Entity;
 use bevy_ecs::prelude::{MessageWriter, Query};
-use temper_commands::Sender;
-use temper_commands::Sender::Player;
-use temper_commands::arg::entities::EntityArgument;
-use temper_commands::arg::position::CommandPosition;
+use temper_command_infra::CommandSource::*;
+use temper_command_infra::args::{EntitiesArg, EntityArg, PositionArg};
+use temper_command_infra::{CommandHandler, CommandSource};
 use temper_components::entity_identity::Identity;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
-use temper_macros::command;
+use temper_core::mq;
+use temper_macros::Command;
 use temper_messages::teleport_entity::TeleportEntity;
+use temper_text::TextComponent;
+use tracing::info;
 
-#[command("tp pos")]
-fn tp_command(
-    #[sender] sender: Sender,
-    #[arg] pos: CommandPosition,
-    args: (Query<(&Rotation, &Position)>, MessageWriter<TeleportEntity>),
-) {
-    let (mut query, mut tp_player_msg) = args;
-    let Player(entity) = sender else {
-        sender.send_message("This command can only be used by players.".into(), false);
-        return;
-    };
-
-    let Ok((rot, position)) = query.get_mut(entity) else {
-        sender.send_message("Could not find your player entity.".into(), false);
-        return;
-    };
-    let resolved_pos = pos.resolve(position);
-
-    tp_player_msg.write(TeleportEntity::new(entity, resolved_pos, *rot));
-
-    sender.send_message(format!("Teleported to ({}).", resolved_pos).into(), false);
+#[derive(Command)]
+#[command("tp")]
+enum TpCommand {
+    TpToPos {
+        location: PositionArg,
+    },
+    TpToEntity {
+        destination: EntityArg,
+    },
+    TpEntityToPos {
+        target: EntitiesArg,
+        location: PositionArg,
+    },
+    TpEntityToEntity {
+        target: EntitiesArg,
+        destination: EntityArg,
+    },
 }
 
-#[command("tp entity")]
-fn tp_to_command(
-    #[sender] sender: Sender,
-    #[arg] target: EntityArgument,
-    args: (
-        Query<(&Rotation, &Position)>,
-        MessageWriter<TeleportEntity>,
-        Query<(Entity, &Identity, Option<&PlayerMarker>)>,
-    ),
-) {
-    let (query, mut tp_player_msg, resolve_q) = args;
-
-    let resolved_targets = target.resolve(resolve_q.iter());
-
-    if resolved_targets.len() != 1 {
-        sender.send_message(
-            "You must specify exactly one target to teleport to.".into(),
-            false,
-        );
-        return;
-    } else if matches!(sender, Sender::Server) {
-        sender.send_message("This command can only be used by players.".into(), false);
-        return;
-    }
-
-    let target_entity = resolved_targets.first().expect("Checked above; qed");
-
-    let Player(sender_e) = sender else {
-        unreachable!();
-    };
-
-    let Ok([(sender_rot, _), (_, target_pos)]) = query.get_many([sender_e, *target_entity]) else {
-        sender.send_message("Could not find player entities.".into(), false);
-        return;
-    };
-
-    tp_player_msg.write(TeleportEntity::new(sender_e, *target_pos, *sender_rot));
-
-    sender.send_message(
-        format!("Teleported to the entity at {}.", target_pos).into(),
-        false,
+impl CommandHandler for TpCommand {
+    type SystemParam<'w, 's> = (
+        Query<'w, 's, (&'static Rotation, &'static Position)>,
+        Query<'w, 's, (Entity, &'static Identity, Option<&'static PlayerMarker>)>,
+        MessageWriter<'w, TeleportEntity>,
     );
+
+    fn handle(self, source: CommandSource, params: &mut Self::SystemParam<'_, '_>) {
+        let (positions, identities, teleports) = params;
+        execute_tp(source, self, positions, identities, teleports);
+    }
+}
+
+fn execute_tp(
+    source: CommandSource,
+    command: TpCommand,
+    positions: &Query<(&Rotation, &Position)>,
+    identities: &Query<(Entity, &Identity, Option<&PlayerMarker>)>,
+    teleports: &mut MessageWriter<TeleportEntity>,
+) {
+    match command {
+        TpCommand::TpToPos { location } => {
+            let Player(player) = source else {
+                send_message(source, "This command can only be used by players.".into());
+                return;
+            };
+
+            let Ok((rotation, base_position)) = positions.get(player) else {
+                send_message(source, "Could not find your player entity.".into());
+                return;
+            };
+
+            let destination = location.resolve(base_position);
+            teleport_entity(player, *rotation, destination, teleports);
+            send_message(source, format!("Teleported to ({}).", destination).into());
+        }
+        TpCommand::TpToEntity { destination } => {
+            let Player(player) = source else {
+                send_message(source, "This command can only be used by players.".into());
+                return;
+            };
+
+            let targets = destination.resolve(identities.iter());
+            if targets.len() != 1 {
+                send_message(
+                    source,
+                    "You must specify exactly one target to teleport to.".into(),
+                );
+                return;
+            }
+
+            let Ok((rotation, _)) = positions.get(player) else {
+                send_message(source, "Could not find your player entity.".into());
+                return;
+            };
+
+            let Ok((_, target_position)) = positions.get(targets[0]) else {
+                send_message(source, "Could not find target entity position.".into());
+                return;
+            };
+
+            teleport_entity(player, *rotation, *target_position, teleports);
+            send_message(
+                source,
+                format!("Teleported to the entity at {}.", target_position).into(),
+            );
+        }
+        TpCommand::TpEntityToPos { target, location } => {
+            let base_position = if let Player(entity) = source
+                && let Ok((_, position)) = positions.get(entity)
+            {
+                *position
+            } else {
+                Position::new(0.0, 0.0, 0.0)
+            };
+            let destination = location.resolve(&base_position);
+            let targets = target.resolve(identities.iter());
+
+            if targets.is_empty() {
+                send_message(source, "No entities matched the target.".into());
+                return;
+            }
+
+            for entity in targets {
+                let Ok((rotation, _)) = positions.get(entity) else {
+                    continue;
+                };
+                teleport_entity(entity, *rotation, destination, teleports);
+            }
+
+            send_message(
+                source,
+                format!("Teleported entities to ({}).", destination).into(),
+            );
+        }
+        TpCommand::TpEntityToEntity {
+            target,
+            destination,
+        } => {
+            let targets = target.resolve(identities.iter());
+            let destinations = destination.resolve(identities.iter());
+
+            if targets.is_empty() {
+                send_message(source, "No entities matched the target.".into());
+                return;
+            }
+
+            if destinations.len() != 1 {
+                send_message(
+                    source,
+                    "You must specify exactly one destination entity.".into(),
+                );
+                return;
+            }
+
+            let Ok((_, destination_position)) = positions.get(destinations[0]) else {
+                send_message(source, "Could not find destination entity position.".into());
+                return;
+            };
+
+            for entity in targets {
+                let Ok((rotation, _)) = positions.get(entity) else {
+                    continue;
+                };
+                teleport_entity(entity, *rotation, *destination_position, teleports);
+            }
+
+            send_message(
+                source,
+                format!("Teleported entities to {}.", destination_position).into(),
+            );
+        }
+    }
+}
+
+fn teleport_entity(
+    entity: Entity,
+    rotation: Rotation,
+    destination: Position,
+    teleports: &mut MessageWriter<TeleportEntity>,
+) {
+    teleports.write(TeleportEntity::new(entity, destination, rotation));
+}
+
+fn send_message(source: CommandSource, message: TextComponent) {
+    match source {
+        Player(entity) => mq::queue(message, false, entity),
+        Server => info!("{}", message.to_plain_text()),
+    }
 }

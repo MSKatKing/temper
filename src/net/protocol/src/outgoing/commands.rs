@@ -1,19 +1,137 @@
-use std::fmt;
+use std::{fmt, io::Write};
 
+use enum_ordinalize::Ordinalize;
+use temper_codec::encode::{NetEncode as NetEncodeTrait, NetEncodeOpts, errors::NetEncodeError};
 use temper_codec::net_types::{length_prefixed_vec::LengthPrefixedVec, var_int::VarInt};
 use temper_command_infra::{
     ArgumentSpec, CommandGraph as InfraCommandGraph, CommandNode as InfraCommandNode,
     CommandNodeKind as InfraCommandNodeKind, EntityProperties, IntegerProperties, ParserKind,
     ParserProperties, ResourceProperties, StringMode,
 };
-use temper_commands::{
-    arg::primitive::{
-        EntityArgumentFlags, PrimitiveArgumentFlags, PrimitiveArgumentType, int::IntArgumentFlags,
-        string::StringArgumentType,
-    },
-    graph::{CommandGraph, node::CommandNode as OldCommandNode},
-};
 use temper_macros::{NetEncode, packet};
+
+#[derive(Clone, Debug, PartialEq, NetEncode)]
+pub enum PrimitiveArgumentFlags {
+    Int(IntArgumentFlags),
+    String(StringArgumentType),
+    Entity(EntityArgumentFlags),
+    Resource(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct IntArgumentFlags {
+    pub min: Option<i32>,
+    pub max: Option<i32>,
+}
+
+impl NetEncodeTrait for IntArgumentFlags {
+    fn encode<W: Write>(&self, writer: &mut W, opts: &NetEncodeOpts) -> Result<(), NetEncodeError> {
+        let mut flags = 0u8;
+        if self.min.is_some() {
+            flags |= 0x01;
+        }
+        if self.max.is_some() {
+            flags |= 0x02;
+        }
+        flags.encode(writer, opts)?;
+        self.min.encode(writer, opts)?;
+        self.max.encode(writer, opts)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct EntityArgumentFlags {
+    pub single: bool,
+    pub players_only: bool,
+}
+
+impl NetEncodeTrait for EntityArgumentFlags {
+    fn encode<W: Write>(&self, writer: &mut W, opts: &NetEncodeOpts) -> Result<(), NetEncodeError> {
+        let mut flags = 0u8;
+        if self.single {
+            flags |= 0x01;
+        }
+        if self.players_only {
+            flags |= 0x02;
+        }
+        flags.encode(writer, opts)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Ordinalize, Default)]
+pub enum StringArgumentType {
+    #[default]
+    Word,
+    Quotable,
+    Greedy,
+}
+
+impl NetEncodeTrait for StringArgumentType {
+    fn encode<W: Write>(&self, writer: &mut W, opts: &NetEncodeOpts) -> Result<(), NetEncodeError> {
+        VarInt::new(i32::from(self.ordinal())).encode(writer, opts)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Ordinalize)]
+pub enum PrimitiveArgumentType {
+    Bool,
+    Float,
+    Double,
+    Int,
+    Long,
+    String,
+    Entity,
+    GameProfile,
+    BlockPos,
+    ColumnPos,
+    Vec3,
+    Vec2,
+    BlockState,
+    BlockPredicate,
+    ItemStack,
+    ItemPredicate,
+    Color,
+    Component,
+    Style,
+    Message,
+    Nbt,
+    NbtTag,
+    NbtPath,
+    Objective,
+    ObjectiveCriteria,
+    Operator,
+    Particle,
+    Angle,
+    Rotation,
+    ScoreboardDisplaySlot,
+    ScoreHolder,
+    UpTo3Axes,
+    Team,
+    ItemSlot,
+    ResourceLocation,
+    Function,
+    EntityAnchor,
+    IntRange,
+    FloatRange,
+    Dimension,
+    GameMode,
+    Time,
+    ResourceOrTag,
+    ResourceOrTagKey,
+    Resource,
+    ResourceKey,
+    TemplateMirror,
+    TemplateRotation,
+    Heightmap,
+    UUID,
+    Position,
+}
+
+impl NetEncodeTrait for PrimitiveArgumentType {
+    fn encode<W: Write>(&self, writer: &mut W, opts: &NetEncodeOpts) -> Result<(), NetEncodeError> {
+        VarInt::new(i32::from(self.ordinal())).encode(writer, opts)
+    }
+}
 
 #[derive(Clone, NetEncode)]
 pub struct CommandNode {
@@ -61,31 +179,11 @@ pub struct CommandsPacket {
 }
 
 impl CommandsPacket {
-    /// Creates a CommandsPacket from the provided command graph.
-    pub fn new(graph: CommandGraph) -> Self {
-        Self {
-            graph: LengthPrefixedVec::new(graph.nodes.iter().map(convert_old_node).collect()),
-            root_idx: VarInt::new(0),
-        }
-    }
-
     pub fn from_command_infra_graph(graph: &InfraCommandGraph) -> Self {
         Self {
             graph: LengthPrefixedVec::new(graph.nodes.iter().map(convert_node).collect()),
             root_idx: VarInt::new(graph.root_idx as i32),
         }
-    }
-}
-
-fn convert_old_node(node: &OldCommandNode) -> CommandNode {
-    CommandNode {
-        flags: node.flags,
-        children: node.children.clone(),
-        redirect_node: node.redirect_node.clone(),
-        name: node.name.clone(),
-        parser_id: node.parser_id.clone(),
-        properties: node.properties.clone(),
-        suggestions_type: node.suggestions_type.clone(),
     }
 }
 
@@ -176,11 +274,10 @@ fn string_mode(mode: StringMode) -> StringArgumentType {
 #[cfg(test)]
 mod tests {
     use temper_command_infra::{ArgumentSpec, CommandGraph, CommandPath, CommandPathSegment};
-    use temper_commands::arg::primitive::{
-        EntityArgumentFlags, PrimitiveArgumentFlags, PrimitiveArgumentType,
-    };
 
-    use super::CommandsPacket;
+    use super::{
+        CommandsPacket, EntityArgumentFlags, PrimitiveArgumentFlags, PrimitiveArgumentType,
+    };
 
     #[test]
     fn converts_command_infra_graph_to_protocol_nodes() {

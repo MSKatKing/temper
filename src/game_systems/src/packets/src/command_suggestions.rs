@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc};
+use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
@@ -9,67 +9,12 @@ use temper_command_infra::{
     CommandPathSegment, CommandRegistry, EntityProperties, ParserKind, ParserProperties,
     SuggestionInput, suggest_command_arg,
 };
-use temper_commands::{Command, CommandContext, CommandInput, ROOT_COMMAND, Sender};
 use temper_net_runtime::connection::StreamWriter;
 use temper_permissions::player::PlayerPermission;
 use temper_protocol::CommandSuggestionRequestReceiver;
 use temper_protocol::outgoing::command_suggestions::{CommandSuggestionsPacket, Match};
-use temper_state::{GlobalState, GlobalStateResource};
+use temper_state::GlobalStateResource;
 use tracing::error;
-
-fn find_command(input: String) -> Option<Arc<Command>> {
-    let mut input = input;
-    if input.starts_with("/") {
-        input.remove(0);
-    }
-
-    if let Some(command) = temper_commands::infrastructure::get_command_by_name(&input) {
-        return Some(command);
-    }
-
-    if let Some(command) = temper_commands::infrastructure::find_command(&input) {
-        return Some(command);
-    }
-
-    while !input.is_empty() {
-        // remove the last word and retry
-        if let Some(pos) = input.rfind(char::is_whitespace) {
-            input.truncate(pos);
-
-            if let Some(command) = temper_commands::infrastructure::get_command_by_name(&input) {
-                return Some(command);
-            }
-
-            if let Some(command) = temper_commands::infrastructure::find_command(&input) {
-                return Some(command);
-            }
-        } else {
-            break; // string does not have any further words, meaning it's just whitespace?
-        }
-    }
-
-    None
-}
-
-fn create_ctx(
-    input: String,
-    command: Option<Arc<Command>>,
-    sender: Sender,
-    state: GlobalState,
-) -> CommandContext {
-    let input = input
-        .strip_prefix(command.clone().map(|c| c.name).unwrap_or_default())
-        .unwrap_or(&input)
-        .trim_start();
-
-    let input = CommandInput::of(input.to_string());
-    CommandContext {
-        input: input.clone(),
-        command: command.unwrap_or(ROOT_COMMAND.clone()),
-        sender,
-        state,
-    }
-}
 
 pub fn handle(world: &mut World) {
     let requests = {
@@ -83,24 +28,19 @@ pub fn handle(world: &mut World) {
             continue;
         };
 
-        let response = match suggestions {
-            SuggestionPlanResult::New(plan) => {
-                let input = request.input.clone();
-                plan.into_response(|provider, current_token| {
-                    suggest_command_arg(
-                        provider,
-                        world,
-                        SuggestionInput {
-                            full_input: &input,
-                            current_token,
-                            source: entity,
-                        },
-                    )
-                    .unwrap_or_default()
-                })
-            }
-            SuggestionPlanResult::Old(response) => response,
-        };
+        let input = request.input.clone();
+        let response = suggestions.into_response(|provider, current_token| {
+            suggest_command_arg(
+                provider,
+                world,
+                SuggestionInput {
+                    full_input: &input,
+                    current_token,
+                    source: entity,
+                },
+            )
+            .unwrap_or_default()
+        });
 
         let mut system_state = SystemState::<Query<&StreamWriter>>::new(world);
         let query = system_state.get(world);
@@ -116,11 +56,6 @@ struct SuggestionResponse {
     start: usize,
     length: usize,
     matches: Vec<Match>,
-}
-
-enum SuggestionPlanResult {
-    New(SuggestionPlan),
-    Old(SuggestionResponse),
 }
 
 struct SuggestionPlan {
@@ -175,7 +110,7 @@ impl ProviderSuggestions {
     }
 }
 
-fn suggestion_plan(world: &mut World, input: &str, entity: Entity) -> Option<SuggestionPlanResult> {
+fn suggestion_plan(world: &mut World, input: &str, entity: Entity) -> Option<SuggestionPlan> {
     let mut system_state = SystemState::<(
         Query<&StreamWriter>,
         Query<&PlayerPermission>,
@@ -192,29 +127,23 @@ fn suggestion_plan(world: &mut World, input: &str, entity: Entity) -> Option<Sug
         return None;
     }
 
-    if let Some(plan) =
-        new_command_suggestion_plan(input, &registry, &state, permissions.get(entity).ok())
-    {
-        return Some(SuggestionPlanResult::New(plan));
-    }
-
-    old_command_suggestions(input, entity, &state).map(SuggestionPlanResult::Old)
+    command_suggestion_plan(input, &registry, &state, permissions.get(entity).ok())
 }
 
 #[cfg(test)]
-fn new_command_suggestions(
+fn command_suggestions(
     input: &str,
     registry: &CommandRegistry,
     state: &GlobalStateResource,
     permissions: Option<&PlayerPermission>,
 ) -> Option<SuggestionResponse> {
     Some(
-        new_command_suggestion_plan(input, registry, state, permissions)?
+        command_suggestion_plan(input, registry, state, permissions)?
             .into_response(|_provider, _current_token| Vec::new()),
     )
 }
 
-fn new_command_suggestion_plan(
+fn command_suggestion_plan(
     input: &str,
     registry: &CommandRegistry,
     state: &GlobalStateResource,
@@ -260,58 +189,6 @@ fn new_command_suggestion_plan(
         current_token: current_token.to_string(),
         candidates,
         providers,
-    })
-}
-
-fn old_command_suggestions(
-    input: &str,
-    entity: Entity,
-    state: &GlobalStateResource,
-) -> Option<SuggestionResponse> {
-    let command = find_command(input.to_string());
-    let command_arg = input
-        .strip_prefix(&format!(
-            "/{} ",
-            command.clone().map(|c| c.name).unwrap_or_default()
-        ))
-        .unwrap_or(input)
-        .to_string();
-    let mut ctx = create_ctx(
-        command_arg.clone(),
-        command.clone(),
-        Sender::Player(entity),
-        state.0.clone(),
-    );
-    let tokens = command_arg.split(' ').collect::<Vec<&str>>();
-    let current_token = tokens.last()?;
-    let mut suggestions = Vec::new();
-
-    if let Some(command) = command {
-        for arg in command.args.clone() {
-            let arg_suggestions = (arg.suggester)(&mut ctx);
-            ctx.input.skip_whitespace(u32::MAX, true);
-            if !ctx.input.has_remaining_input() {
-                suggestions = arg_suggestions;
-                break;
-            }
-        }
-    }
-
-    Some(SuggestionResponse {
-        start: input.len() - current_token.len(),
-        length: current_token.len(),
-        matches: suggestions
-            .into_iter()
-            .filter(|sug| {
-                sug.content
-                    .to_lowercase()
-                    .starts_with(&current_token.to_lowercase())
-            })
-            .map(|sug| Match {
-                content: sug.content,
-                tooltip: PrefixedOptional::new(sug.tooltip),
-            })
-            .collect(),
     })
 }
 
@@ -609,7 +486,7 @@ mod tests {
     }
 
     #[test]
-    fn new_command_suggestions_include_entities_for_first_tp_arg() {
+    fn command_suggestions_include_entities_for_first_tp_arg() {
         let (state, _temp_dir) = create_test_state();
         state
             .0
@@ -617,7 +494,7 @@ mod tests {
             .player_list
             .insert(Entity::PLACEHOLDER, (0, "Alex".to_string()));
 
-        let suggestions = new_command_suggestions("/tp ", &registry(), &state, None).unwrap();
+        let suggestions = command_suggestions("/tp ", &registry(), &state, None).unwrap();
         let matches = suggestions
             .matches
             .iter()
@@ -631,7 +508,7 @@ mod tests {
     }
 
     #[test]
-    fn new_command_suggestions_include_entities_for_bare_tp() {
+    fn command_suggestions_include_entities_for_bare_tp() {
         let (state, _temp_dir) = create_test_state();
         state
             .0
@@ -639,7 +516,7 @@ mod tests {
             .player_list
             .insert(Entity::PLACEHOLDER, (0, "Alex".to_string()));
 
-        let suggestions = new_command_suggestions("/tp", &registry(), &state, None).unwrap();
+        let suggestions = command_suggestions("/tp", &registry(), &state, None).unwrap();
         let matches = suggestions
             .matches
             .iter()
@@ -653,7 +530,7 @@ mod tests {
     }
 
     #[test]
-    fn new_command_suggestions_use_current_token_range() {
+    fn command_suggestions_use_current_token_range() {
         let (state, _temp_dir) = create_test_state();
         state
             .0
@@ -661,8 +538,7 @@ mod tests {
             .player_list
             .insert(Entity::PLACEHOLDER, (0, "Alex".to_string()));
 
-        let suggestions =
-            new_command_suggestions("/tp Steve A", &registry(), &state, None).unwrap();
+        let suggestions = command_suggestions("/tp Steve A", &registry(), &state, None).unwrap();
         let matches = suggestions
             .matches
             .iter()
@@ -675,11 +551,11 @@ mod tests {
     }
 
     #[test]
-    fn new_command_suggestions_include_time_literals() {
+    fn command_suggestions_include_time_literals() {
         let (state, _temp_dir) = create_test_state();
 
         let suggestions =
-            new_command_suggestions("/time set ", &time_registry(), &state, None).unwrap();
+            command_suggestions("/time set ", &time_registry(), &state, None).unwrap();
         let matches = suggestions
             .matches
             .iter()
@@ -701,17 +577,17 @@ mod tests {
             .insert(Entity::PLACEHOLDER, (0, "Alex".to_string()));
 
         let suggestions =
-            new_command_suggestions("/custom ", &server_suggested_word_registry(), &state, None)
+            command_suggestions("/custom ", &server_suggested_word_registry(), &state, None)
                 .unwrap();
 
         assert!(suggestions.matches.is_empty());
     }
 
     #[test]
-    fn old_command_suggestions_do_not_handle_new_roots() {
+    fn command_suggestions_use_command_registry_only() {
         let (state, _temp_dir) = create_test_state();
 
-        assert!(new_command_suggestions("/tp Unknown", &registry(), &state, None).is_some());
-        assert!(new_command_suggestions("/time set ", &registry(), &state, None).is_none());
+        assert!(command_suggestions("/tp Unknown", &registry(), &state, None).is_some());
+        assert!(command_suggestions("/time set ", &registry(), &state, None).is_none());
     }
 }

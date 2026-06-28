@@ -27,7 +27,6 @@ members = [
     "src/blocks/crates/data",
     "src/bin",
     "src/command-infra",
-    "src/commands",
     "src/components",
     "src/core",
     "src/dashboard",
@@ -130,7 +129,6 @@ temper-block-data = { path = "src/blocks/crates/data" }
 temper-config = { path = "src/config" }
 temper-core = { path = "src/core" }
 temper-default-commands = { path = "src/default_commands" }
-temper-commands = { path = "src/commands" }
 temper-general-purpose = { path = "src/base/general_purpose" }
 temper-logging = { path = "src/base/logging" }
 temper-macros = { path = "src/base/macros" }

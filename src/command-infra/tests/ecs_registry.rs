@@ -4,7 +4,7 @@ use bevy_ecs::prelude::{IntoScheduleConfigs, MessageWriter, ResMut, Resource, Sc
 use std::sync::Arc;
 use temper_command_infra::args::{EntityArg, PositionArg, SingleWordArg};
 use temper_command_infra::{
-    CommandHandler, CommandRegistry, CommandSource, CommandSpec, NewCommandDispatched, ParseError,
+    CommandDispatched, CommandHandler, CommandRegistry, CommandSource, CommandSpec, ParseError,
     dispatch_command, static_commands,
 };
 use temper_macros::Command;
@@ -56,16 +56,16 @@ impl CommandHandler for DemoCommand {
     }
 }
 
-fn emit_demo_commands(mut writer: MessageWriter<NewCommandDispatched>) {
-    writer.write(NewCommandDispatched {
+fn emit_demo_commands(mut writer: MessageWriter<CommandDispatched>) {
+    writer.write(CommandDispatched {
         input: Arc::from("demo hello"),
         source: CommandSource::Player(Entity::PLACEHOLDER),
     });
-    writer.write(NewCommandDispatched {
+    writer.write(CommandDispatched {
         input: Arc::from("demo"),
         source: CommandSource::Player(Entity::PLACEHOLDER),
     });
-    writer.write(NewCommandDispatched {
+    writer.write(CommandDispatched {
         input: Arc::from("other hello"),
         source: CommandSource::Player(Entity::PLACEHOLDER),
     });
@@ -94,7 +94,7 @@ fn registry_builds_graph_from_registered_commands() {
 #[test]
 fn dispatch_command_calls_handler_trait_methods() {
     let mut world = World::new();
-    MessageRegistry::register_message::<NewCommandDispatched>(&mut world);
+    MessageRegistry::register_message::<CommandDispatched>(&mut world);
     world.init_resource::<HandledCommands>();
 
     let mut schedule = Schedule::default();

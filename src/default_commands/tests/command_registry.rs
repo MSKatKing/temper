@@ -3,11 +3,10 @@ use temper_command_infra::{
     CommandGraph, CommandNodeKind, CommandPathSegment, CommandRegistry, EntityProperties,
     ParserKind, ParserProperties, ResourceProperties, SuggestionInput, suggest_command_arg,
 };
-use temper_commands::arg::primitive::PrimitiveArgumentType;
-use temper_protocol::outgoing::commands::CommandsPacket;
+use temper_protocol::outgoing::commands::{CommandsPacket, PrimitiveArgumentType};
 
 #[test]
-fn default_commands_register_new_metadata() {
+fn default_commands_register_metadata() {
     temper_default_commands::init();
 
     let registry = CommandRegistry::from_static_commands();

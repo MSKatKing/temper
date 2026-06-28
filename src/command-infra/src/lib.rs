@@ -50,9 +50,9 @@
 //!                 let sub_entity = subcommand.WithPos;
 //!                 // do something with the position the player gave in the first argument of the subcommand
 //!             }
-//!         }   
+//!         }
 //!     }
-//! 
+//!
 //!     // Optional error handler method
 //!     fn handle_parse_error(
 //!         source: CommandSource,
@@ -62,10 +62,10 @@
 //! }
 //! ```
 //! The entire system revolves around the [crate::CommandHandler] trait, which is implemented on the
-//! command enum/struct. Under the hood the derive macro will generate all the code needed to have 
-//! the command wired into the ECS, provide suggestions and parse the arguments. All you need to do 
+//! command enum/struct. Under the hood the derive macro will generate all the code needed to have
+//! the command wired into the ECS, provide suggestions and parse the arguments. All you need to do
 //! is define what arguments a command needs and what it does with those args.
-//! 
+//!
 //! There are several attribute macros available including literal args:
 //! ```
 //! #[derive(Command)]
@@ -75,7 +75,7 @@
 //!     LiteralCommand,
 //! }
 //! ```
-//! that skip the hassle of parsing and verifying an argument when you only allow a specific set of 
+//! that skip the hassle of parsing and verifying an argument when you only allow a specific set of
 //! options, aliases on both commands and literals:
 //! ```
 //! #[derive(Command)]
@@ -94,9 +94,9 @@
 //!     LiteralCommand,
 //! }
 //! ```
-//! (Note that this only limits what gets suggested to the client, you still need to verify 
+//! (Note that this only limits what gets suggested to the client, you still need to verify
 //! permissions in handlers to prevent manually typed commands being run when they shouldn't)
-//! 
+//!
 //! This is the general gist of using commands with existing argument types, check out [crate::args]
 //! for how to make your own argument types.
 
@@ -110,7 +110,7 @@ pub mod suggestions;
 
 pub use ctor;
 pub use ecs::{
-    CommandHandler, CommandRegistry, CommandSource, NewCommandDispatched, PlayerCommandGraph,
+    CommandDispatched, CommandHandler, CommandRegistry, CommandSource, PlayerCommandGraph,
     RebuildCommandGraph, RegisteredCommand,
 };
 pub use ecs::{

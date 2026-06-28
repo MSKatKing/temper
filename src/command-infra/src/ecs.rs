@@ -105,7 +105,7 @@ pub fn send_parse_error(source: CommandSource, error: &ParseError) {
 }
 
 pub fn dispatch_command<C: CommandHandler>(
-    mut commands: MessageReader<NewCommandDispatched>,
+    mut commands: MessageReader<CommandDispatched>,
     permissions: Query<&PlayerPermission>,
     mut params: C::SystemParam<'_, '_>,
 ) {
@@ -132,9 +132,10 @@ pub fn dispatch_command<C: CommandHandler>(
             && !can_use(permission)
         {
             let source = event.source;
-            let message = TextComponentBuilder::new("You don't have permission to use this command.")
-                .color(NamedColor::Red)
-                .build();
+            let message =
+                TextComponentBuilder::new("You don't have permission to use this command.")
+                    .color(NamedColor::Red)
+                    .build();
             source.send_message(message);
             continue;
         }
@@ -220,14 +221,16 @@ pub enum CommandSource {
 impl CommandSource {
     pub fn send_message(self, message: TextComponent) {
         match self {
-            CommandSource::Player(entity) => {mq::queue(message, false, entity)},
-            CommandSource::Server => {info!("{}", message.to_plain_text())}
+            CommandSource::Player(entity) => mq::queue(message, false, entity),
+            CommandSource::Server => {
+                info!("{}", message.to_plain_text())
+            }
         }
     }
 }
 
 #[derive(Message, Clone, Debug)]
-pub struct NewCommandDispatched {
+pub struct CommandDispatched {
     pub input: Arc<str>,
     pub source: CommandSource,
 }
