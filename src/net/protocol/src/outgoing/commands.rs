@@ -4,7 +4,7 @@ use temper_codec::net_types::{length_prefixed_vec::LengthPrefixedVec, var_int::V
 use temper_command_infra::{
     ArgumentSpec, CommandGraph as InfraCommandGraph, CommandNode as InfraCommandNode,
     CommandNodeKind as InfraCommandNodeKind, EntityProperties, IntegerProperties, ParserKind,
-    ParserProperties, StringMode,
+    ParserProperties, ResourceProperties, StringMode,
 };
 use temper_commands::{
     arg::primitive::{
@@ -133,6 +133,7 @@ fn parser_id(argument: ArgumentSpec) -> PrimitiveArgumentType {
         ParserKind::Integer => PrimitiveArgumentType::Int,
         ParserKind::Position => PrimitiveArgumentType::Vec3,
         ParserKind::Entity => PrimitiveArgumentType::Entity,
+        ParserKind::Resource => PrimitiveArgumentType::Resource,
     }
 }
 
@@ -151,6 +152,9 @@ fn parser_properties(argument: ArgumentSpec) -> Option<PrimitiveArgumentFlags> {
             single,
             players_only,
         })),
+        Some(ParserProperties::Resource(ResourceProperties { registry })) => {
+            Some(PrimitiveArgumentFlags::Resource(registry.to_string()))
+        }
         None if argument.parser == ParserKind::Word => {
             Some(PrimitiveArgumentFlags::String(StringArgumentType::Word))
         }
@@ -172,7 +176,9 @@ fn string_mode(mode: StringMode) -> StringArgumentType {
 #[cfg(test)]
 mod tests {
     use temper_command_infra::{ArgumentSpec, CommandGraph, CommandPath, CommandPathSegment};
-    use temper_commands::arg::primitive::{EntityArgumentFlags, PrimitiveArgumentFlags};
+    use temper_commands::arg::primitive::{
+        EntityArgumentFlags, PrimitiveArgumentFlags, PrimitiveArgumentType,
+    };
 
     use super::CommandsPacket;
 
@@ -223,5 +229,30 @@ mod tests {
                 players_only: true,
             }))
         ));
+    }
+
+    #[test]
+    fn converts_resource_args_to_protocol_resource_parser() {
+        let graph = CommandGraph::from_paths(&[CommandPath::new(
+            "summon",
+            vec![CommandPathSegment::argument(
+                "entity",
+                ArgumentSpec::resource("minecraft:entity_type"),
+            )],
+        )]);
+
+        let packet = CommandsPacket::from_command_infra_graph(&graph);
+
+        assert_eq!(
+            packet.graph.data[2].parser_id,
+            Some(PrimitiveArgumentType::Resource)
+        );
+        assert_eq!(
+            packet.graph.data[2].properties,
+            Some(PrimitiveArgumentFlags::Resource(
+                "minecraft:entity_type".to_string()
+            ))
+        );
+        assert_eq!(packet.graph.data[2].suggestions_type, None);
     }
 }

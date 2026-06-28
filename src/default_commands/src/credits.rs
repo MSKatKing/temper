@@ -6,8 +6,7 @@ use temper_nbt::NBT;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::show_dialog::{DialogBody, DialogContent, ShowDialog};
 use temper_text::TextComponent;
-
-pub(crate) static CREDITS_TEXT: &str = include_str!("../../../assets/data/credits.txt");
+// use crate::new::credits::CREDITS_TEXT;
 
 #[command("credits")]
 fn credits(#[sender] sender: Sender, query: Query<&StreamWriter>) {
@@ -18,7 +17,7 @@ fn credits(#[sender] sender: Sender, query: Query<&StreamWriter>) {
         }
         Sender::Player(entity) => query.get(entity).expect("sender does not exist"),
     };
-    let lines = CREDITS_TEXT
+    let lines = ""
         .lines()
         .map(|t| DialogBody {
             dialog_body_type: "minecraft:plain_message".to_string(),

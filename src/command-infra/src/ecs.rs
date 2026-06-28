@@ -85,12 +85,12 @@ pub fn register_command_systems(schedule: &mut Schedule) {
 pub trait CommandHandler: CommandSpec + Sized + Send + Sync + 'static {
     type SystemParam<'w, 's>: SystemParam;
 
-    fn handle<'w, 's>(self, source: CommandSource, params: &mut Self::SystemParam<'w, 's>);
+    fn handle(self, source: CommandSource, params: &mut Self::SystemParam<'_, '_>);
 
-    fn handle_parse_error<'w, 's>(
+    fn handle_parse_error(
         source: CommandSource,
         error: ParseError,
-        _params: &mut Self::SystemParam<'w, 's>,
+        _params: &mut Self::SystemParam<'_, '_>,
     ) {
         send_parse_error(source, &error);
     }
@@ -101,10 +101,7 @@ pub fn send_parse_error(source: CommandSource, error: &ParseError) {
         .color(NamedColor::Red)
         .build();
 
-    match source {
-        CommandSource::Player(entity) => mq::queue(message, false, entity),
-        CommandSource::Server => info!("{}", message.to_plain_text()),
-    }
+    source.send_message(message);
 }
 
 pub fn dispatch_command<C: CommandHandler>(
@@ -113,7 +110,8 @@ pub fn dispatch_command<C: CommandHandler>(
     mut params: C::SystemParam<'_, '_>,
 ) {
     for event in commands.read() {
-        let Some(root) = command_root(&event.input) else {
+        let input = &event.input;
+        let Some(root) = input.split_whitespace().next() else {
             continue;
         };
 
@@ -121,15 +119,28 @@ pub fn dispatch_command<C: CommandHandler>(
             continue;
         }
 
-        let can_use = |permission| source_can_use(event.source, &permissions, permission);
+        let can_use = |permission| {
+            let source = event.source;
+            match source {
+                CommandSource::Server => true,
+                CommandSource::Player(entity) => permissions
+                    .get(entity)
+                    .is_ok_and(|player_permissions| player_permissions.can(permission)),
+            }
+        };
         if let Some(permission) = C::permission()
             && !can_use(permission)
         {
-            send_permission_error(event.source);
+            let source = event.source;
+            let message = TextComponentBuilder::new("You don't have permission to use this command.")
+                .color(NamedColor::Red)
+                .build();
+            source.send_message(message);
             continue;
         }
 
-        let input = command_args(&event.input, root);
+        let input1 = &event.input;
+        let input = input1.strip_prefix(root).unwrap_or(input1).trim_start();
         let mut reader = crate::CommandReader::new(input);
         match C::parse_reader_with_permissions(&mut reader, &can_use) {
             Ok(command) => command.handle(event.source, &mut params),
@@ -163,7 +174,7 @@ impl CommandRegistry {
     }
 
     pub fn owns_input(&self, input: &str) -> bool {
-        command_root(input).is_some_and(|input_root| {
+        input.split_whitespace().next().is_some_and(|input_root| {
             self.commands
                 .iter()
                 .any(|command| command.matches_root(input_root))
@@ -198,34 +209,6 @@ impl CommandRegistry {
     pub fn build_graph_for_player(&self, player: Entity) -> CommandGraph {
         CommandGraph::from_paths(&self.paths_for_player(player))
     }
-}
-
-fn command_root(input: &str) -> Option<&str> {
-    input.split_whitespace().next()
-}
-
-fn command_args<'a>(input: &'a str, root: &str) -> &'a str {
-    input.strip_prefix(root).unwrap_or(input).trim_start()
-}
-
-fn source_can_use(
-    source: CommandSource,
-    permissions: &Query<&PlayerPermission>,
-    permission: Permissions,
-) -> bool {
-    match source {
-        CommandSource::Server => true,
-        CommandSource::Player(entity) => permissions
-            .get(entity)
-            .is_ok_and(|player_permissions| player_permissions.can(permission)),
-    }
-}
-
-fn send_permission_error(source: CommandSource) {
-    let message = TextComponentBuilder::new("You don't have permission to use this command.")
-        .color(NamedColor::Red)
-        .build();
-    source.send_message(message);
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

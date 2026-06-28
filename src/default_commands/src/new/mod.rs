@@ -1,9 +1,9 @@
 mod bossbar;
+mod credits;
 mod echo;
 mod gamemode;
+mod kill;
 mod stop;
+mod summon;
 mod time;
 mod tp;
-mod credits;
-mod kill;
-mod summon;

@@ -212,15 +212,15 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let call = if has_sender_arg && sender_arg_before_cmd_args {
         quote! {
-            #fn_name(#sender_param #(#arg_extractors)* #(#system_arg_pats)*);
+            #fn_name(#sender_param #(#arg_extractors)* #(#system_arg_pats,)*);
         }
     } else if has_sender_arg {
         quote! {
-            #fn_name(#(#arg_extractors)* #sender_param #(#system_arg_pats)*);
+            #fn_name(#(#arg_extractors)* #sender_param #(#system_arg_pats,)*);
         }
     } else {
         quote! {
-            #fn_name(#(#arg_extractors)* #(#system_arg_pats)*);
+            #fn_name(#(#arg_extractors)* #(#system_arg_pats,)*);
         }
     };
 

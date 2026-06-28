@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::World;
 use temper_command_infra::{
     CommandGraph, CommandNodeKind, CommandPathSegment, CommandRegistry, ParserKind,
-    SuggestionInput, suggest_command_arg,
+    ParserProperties, ResourceProperties, SuggestionInput, suggest_command_arg,
 };
 use temper_commands::arg::primitive::PrimitiveArgumentType;
 use temper_protocol::outgoing::commands::CommandsPacket;
@@ -19,6 +19,33 @@ fn default_commands_register_new_metadata() {
     assert!(paths.iter().any(|path| path.root == "time"));
     assert!(paths.iter().any(|path| path.root == "bossbar"));
     assert!(paths.iter().any(|path| path.root == "gamemode"));
+    assert!(paths.iter().any(|path| path.root == "summon"));
+    assert!(paths.iter().any(|path| path.root == "spawn"));
+
+    let summon = registry
+        .commands()
+        .iter()
+        .find(|command| command.name == "summon")
+        .unwrap();
+    assert!(summon.aliases.contains(&"spawn"));
+    assert!(summon.matches_root("spawn"));
+
+    let summon_entity_spec = paths
+        .iter()
+        .filter(|path| path.root == "summon")
+        .filter_map(|path| path.segments.first())
+        .find_map(|segment| match segment {
+            CommandPathSegment::Argument { spec, .. } => Some(*spec),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(summon_entity_spec.parser, ParserKind::Resource);
+    assert_eq!(
+        summon_entity_spec.properties,
+        Some(ParserProperties::Resource(ResourceProperties {
+            registry: "minecraft:entity_type",
+        }))
+    );
 
     let stop = paths.iter().find(|path| path.root == "stop").unwrap();
     let echo = paths.iter().find(|path| path.root == "echo").unwrap();

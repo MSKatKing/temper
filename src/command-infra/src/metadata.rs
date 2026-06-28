@@ -30,10 +30,16 @@ pub struct EntityProperties {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ResourceProperties {
+    pub registry: &'static str,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ParserProperties {
     String(StringMode),
     Integer(IntegerProperties),
     Entity(EntityProperties),
+    Resource(ResourceProperties),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -43,6 +49,7 @@ pub enum ParserKind {
     String,
     Position,
     Entity,
+    Resource,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -101,6 +108,13 @@ impl ArgumentSpec {
                 single,
                 players_only,
             }),
+        )
+    }
+
+    pub const fn resource(registry: &'static str) -> ArgumentSpec {
+        Self::with_properties(
+            ParserKind::Resource,
+            ParserProperties::Resource(ResourceProperties { registry }),
         )
     }
 }

@@ -375,7 +375,9 @@ fn segment_accepts_token(segment: &CommandPathSegment, token: &str) -> bool {
         CommandPathSegment::Argument { spec, .. } => match spec.parser {
             ParserKind::Integer => token.parse::<i32>().is_ok(),
             ParserKind::Position => is_coordinate_token(token),
-            ParserKind::Word | ParserKind::String | ParserKind::Entity => !token.is_empty(),
+            ParserKind::Word | ParserKind::String | ParserKind::Entity | ParserKind::Resource => {
+                !token.is_empty()
+            }
         },
     }
 }

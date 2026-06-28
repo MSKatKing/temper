@@ -1,12 +1,10 @@
 use bevy_ecs::prelude::Query;
-use temper_command_infra::CommandSource::*;
 use temper_command_infra::args::GreedyStringArg;
+use temper_command_infra::CommandSource::*;
 use temper_command_infra::{CommandHandler, CommandSource};
 use temper_components::entity_identity::Identity;
-use temper_core::mq;
 use temper_macros::Command;
 use temper_text::{TextComponent, TextComponentBuilder};
-use tracing::info;
 
 #[derive(Command)]
 #[command("echo")]
@@ -33,9 +31,6 @@ impl CommandHandler for EchoCommand {
             .extra(TextComponent::from(self.message.to_string()))
             .build();
 
-        match source {
-            Player(entity) => mq::queue(message, false, entity),
-            Server => info!("{}", message.to_plain_text()),
-        }
+        source.send_message(message);
     }
 }

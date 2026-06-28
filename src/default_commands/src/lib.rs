@@ -10,7 +10,6 @@ pub mod new;
 pub mod op;
 pub mod permissions;
 mod say;
-pub mod spawn;
 mod stop;
 mod tp;
 pub mod tps;

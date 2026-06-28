@@ -12,13 +12,11 @@ use temper_command_infra::{
 use temper_components::entity_identity::Identity;
 use temper_components::player::bossbar_sender::BossbarSender;
 use temper_components::player::player_marker::PlayerMarker;
-use temper_core::mq;
 use temper_macros::Command;
 use temper_resources::bossbar::{BossBarData, BossBarResource, BossbarColor, BossbarDividers};
 use temper_text::ClickEvent::CopyToClipboard;
 use temper_text::HoverEvent::ShowText;
 use temper_text::{TextComponent, TextComponentBuilder};
-use tracing::info;
 use uuid::Uuid;
 
 #[derive(Command)]
@@ -146,8 +144,7 @@ fn add_bossbar(source: CommandSource, bossbars: &mut BossBarResource, name: &str
         BossbarColor::Pink,
     ));
 
-    send_message(
-        source,
+    source.send_message(
         TextComponent::from(format!("Created bossbar with uuid: {uuid}"))
             .click_event(CopyToClipboard(uuid.to_string()))
             .hover_event(ShowText(TextComponent::from(uuid.to_string()).into())),
@@ -156,8 +153,7 @@ fn add_bossbar(source: CommandSource, bossbars: &mut BossBarResource, name: &str
 
 fn get_bossbar(source: CommandSource, bossbars: &BossBarResource, uuid: Uuid) {
     if let Some(bossbar) = bossbars.boss_bars.get(&uuid) {
-        send_message(
-            source,
+        source.send_message(
             TextComponentBuilder::new("Bossbar: ")
                 .extra(TextComponent::from(format!("{bossbar}")))
                 .build(),
@@ -169,16 +165,12 @@ fn get_bossbar(source: CommandSource, bossbars: &BossBarResource, uuid: Uuid) {
 
 fn list_bossbars(source: CommandSource, bossbars: &BossBarResource) {
     if bossbars.boss_bars.is_empty() {
-        send_message(
-            source,
-            TextComponentBuilder::new("No bossbars exist.").build(),
-        );
+        source.send_message(TextComponentBuilder::new("No bossbars exist.").build());
         return;
     }
 
     for uuid in bossbars.boss_bars.keys() {
-        send_message(
-            source,
+        source.send_message(
             TextComponentBuilder::new("Bossbar: ")
                 .extra(
                     TextComponent::from(uuid.to_string())
@@ -193,7 +185,7 @@ fn list_bossbars(source: CommandSource, bossbars: &BossBarResource) {
 fn remove_bossbar(source: CommandSource, bossbars: &mut BossBarResource, uuid: Uuid) {
     if bossbars.boss_bars.contains_key(&uuid) {
         bossbars.remove_bar(uuid);
-        send_message(source, TextComponentBuilder::new("removed bossbar").build());
+        source.send_message(TextComponentBuilder::new("removed bossbar").build());
     } else {
         send_missing_bossbar(source, uuid);
     }
@@ -218,12 +210,14 @@ fn set_bossbar(
                 sender.update(uuid);
             }
             bossbars.update_style(uuid, color, dividers);
+            source.send_message(TextComponentBuilder::new("Updated bossbar color").build());
         }
         BossbarSetOptionArg::Name(title) => {
             for (_, _, mut sender, _) in players.iter_mut() {
                 sender.update(uuid);
             }
             bossbars.update_title(uuid, TextComponent::from(title));
+            source.send_message(TextComponentBuilder::new("Updated bossbar name").build());
         }
         BossbarSetOptionArg::Players(target) => {
             set_bossbar_players(bossbars, players, uuid, &target)
@@ -233,6 +227,7 @@ fn set_bossbar(
                 sender.update(uuid);
             }
             bossbars.update_style(uuid, color, dividers);
+            source.send_message(TextComponentBuilder::new("Updated bossbar style").build());
         }
         BossbarSetOptionArg::Value(value) => {
             let max = bossbar.max;
@@ -240,6 +235,7 @@ fn set_bossbar(
                 sender.update(uuid);
             }
             bossbars.update_health(uuid, value, max);
+            source.send_message(TextComponentBuilder::new("Updated bossbar value").build());
         }
         BossbarSetOptionArg::Max(max) => {
             let health = bossbar.health;
@@ -247,6 +243,7 @@ fn set_bossbar(
                 sender.update(uuid);
             }
             bossbars.update_health(uuid, health, max);
+            source.send_message(TextComponentBuilder::new("Updated bossbar max").build());
         }
     }
 }
@@ -428,19 +425,11 @@ fn player_suggestions(world: &mut World) -> Vec<String> {
 }
 
 fn send_missing_bossbar(source: CommandSource, uuid: Uuid) {
-    send_message(
-        source,
+    source.send_message(
         TextComponentBuilder::new("Bossbar doesn't exist for uuid: ")
             .extra(TextComponent::from(uuid.to_string()))
             .build(),
     );
-}
-
-fn send_message(source: CommandSource, message: TextComponent) {
-    match source {
-        CommandSource::Player(entity) => mq::queue(message, false, entity),
-        CommandSource::Server => info!("{}", message.to_plain_text()),
-    }
 }
 
 #[cfg(test)]

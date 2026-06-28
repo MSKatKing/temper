@@ -60,7 +60,31 @@ impl CommandArg for QuotableStringArg {
     fn parse(raw: Self::Raw<'_>) -> Result<Self, ParseError> {
         let parsed = match raw {
             StringSpan::Bare(span) => span.to_string(),
-            StringSpan::Quoted(span) => unescape_quoted(span),
+            StringSpan::Quoted(span) => {
+                let mut result = String::new();
+                let mut escaped = false;
+                for c in span.chars() {
+                    if escaped {
+                        if matches!(c, '"' | '\\') {
+                            result.push(c);
+                        } else {
+                            result.push('\\');
+                            result.push(c);
+                        }
+                        escaped = false;
+                        continue;
+                    }
+                    if c == '\\' {
+                        escaped = true;
+                    } else {
+                        result.push(c);
+                    }
+                }
+                if escaped {
+                    result.push('\\');
+                }
+                result
+            }
         };
 
         Ok(Self(parsed))
@@ -105,34 +129,4 @@ impl CommandArg for GreedyStringArg {
             ParserProperties::String(StringMode::Greedy),
         )
     }
-}
-
-fn unescape_quoted(span: &str) -> String {
-    let mut result = String::new();
-    let mut escaped = false;
-
-    for c in span.chars() {
-        if escaped {
-            if matches!(c, '"' | '\\') {
-                result.push(c);
-            } else {
-                result.push('\\');
-                result.push(c);
-            }
-            escaped = false;
-            continue;
-        }
-
-        if c == '\\' {
-            escaped = true;
-        } else {
-            result.push(c);
-        }
-    }
-
-    if escaped {
-        result.push('\\');
-    }
-
-    result
 }

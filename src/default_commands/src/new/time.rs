@@ -5,11 +5,8 @@ use temper_command_infra::{
     ParserProperties, StringMode, SuggestionProviderKind,
 };
 use temper_components::player::time::LastSentTimeUpdate;
-use temper_core::mq;
 use temper_macros::Command;
 use temper_resources::time::WorldTime;
-use temper_text::TextComponent;
-use tracing::info;
 
 #[derive(Command)]
 #[command("time")]
@@ -80,22 +77,24 @@ impl CommandHandler for TimeCommand {
         match self {
             Self::Set(command) => {
                 let ticks = command.ticks();
-                set_time(source, world_time, last_sent_time, ticks);
+                world_time.set_time(ticks);
+
+                source.send_message(
+                    format!("Set the world time to {} ticks", world_time.current_time()).into(),
+                );
+                send_time_next_tick(last_sent_time);
             }
             Self::Add { time } => {
                 let ticks = *time as u16;
                 let new_time = world_time.current_time() + ticks;
 
                 world_time.set_time(new_time);
-                send_message(
-                    source,
-                    format!("Advanced the world time by {} ticks", *time).into(),
-                );
+
+                source.send_message(format!("Advanced the world time by {} ticks", *time).into());
                 send_time_next_tick(last_sent_time);
             }
             Self::Query => {
-                send_message(
-                    source,
+                source.send_message(
                     format!("The current world time is: {}", world_time.current_time()).into(),
                 );
             }
@@ -135,31 +134,9 @@ fn parse_time_number(raw: &str) -> Result<u32, &'static str> {
     raw.parse::<u32>().map_err(|_| "invalid time value")
 }
 
-fn set_time(
-    source: CommandSource,
-    world_time: &mut WorldTime,
-    last_sent_time: &mut Query<&mut LastSentTimeUpdate>,
-    ticks: u16,
-) {
-    world_time.set_time(ticks);
-
-    send_message(
-        source,
-        format!("Set the world time to {} ticks", world_time.current_time()).into(),
-    );
-    send_time_next_tick(last_sent_time);
-}
-
 fn send_time_next_tick(last_sent_time: &mut Query<&mut LastSentTimeUpdate>) {
     for mut last_sent in last_sent_time.iter_mut() {
         last_sent.send_next_tick();
-    }
-}
-
-fn send_message(source: CommandSource, message: TextComponent) {
-    match source {
-        CommandSource::Player(entity) => mq::queue(message, false, entity),
-        CommandSource::Server => info!("{}", message.to_plain_text()),
     }
 }
 

@@ -122,11 +122,20 @@ struct ClientSuggestedCommand {
     value: ClientSuggestedArg,
 }
 
+#[derive(Debug, PartialEq, Command)]
+#[command("summon")]
+struct SummonCommand {
+    entity: ResourceArg,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct SuggestedWordArg(String);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct ClientSuggestedArg(String);
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ResourceArg(String);
 
 #[derive(Resource)]
 struct SuggestedWords(Vec<String>);
@@ -172,6 +181,24 @@ impl CommandArg for ClientSuggestedArg {
     }
 }
 
+impl CommandArg for ResourceArg {
+    type Raw<'a> = &'a str;
+
+    const SUGGESTIONS: SuggestionProviderKind = SuggestionProviderKind::None;
+
+    fn recognize<'a>(reader: &mut CommandReader<'a>) -> Result<Self::Raw<'a>, ParseError> {
+        reader.read_word_span()
+    }
+
+    fn parse(raw: Self::Raw<'_>) -> Result<Self, ParseError> {
+        Ok(Self(raw.to_string()))
+    }
+
+    fn argument_spec() -> ArgumentSpec {
+        ArgumentSpec::resource("minecraft:entity_type")
+    }
+}
+
 macro_rules! impl_noop_handler {
     ($($command:ty),* $(,)?) => {
         $(
@@ -202,6 +229,7 @@ impl_noop_handler!(
     EntityFlagsCommand,
     SuggestedCommand,
     ClientSuggestedCommand,
+    SummonCommand,
 );
 
 #[test]
@@ -404,6 +432,31 @@ fn position_args_use_client_parser_suggestions() {
         .unwrap();
 
     assert_eq!(spec.parser, ParserKind::Position);
+    assert_eq!(spec.protocol_suggestions, None);
+    assert_eq!(spec.server_suggestions, None);
+}
+
+#[test]
+fn resource_args_generate_registry_parser_metadata() {
+    let paths = SummonCommand::paths();
+    let spec = paths
+        .iter()
+        .filter_map(|path| path.segments.first())
+        .find_map(|segment| match segment {
+            temper_command_infra::CommandPathSegment::Argument { spec, .. } => Some(*spec),
+            _ => None,
+        })
+        .unwrap();
+
+    assert_eq!(spec.parser, ParserKind::Resource);
+    assert_eq!(
+        spec.properties,
+        Some(ParserProperties::Resource(
+            temper_command_infra::ResourceProperties {
+                registry: "minecraft:entity_type",
+            }
+        ))
+    );
     assert_eq!(spec.protocol_suggestions, None);
     assert_eq!(spec.server_suggestions, None);
 }

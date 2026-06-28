@@ -7,6 +7,8 @@ use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::show_dialog::{DialogBody, DialogContent, ShowDialog};
 use temper_text::TextComponent;
 
+
+pub(crate) static CREDITS_TEXT: &str = include_str!("../../../../assets/data/credits.txt");
 #[derive(Command)]
 #[command("credits")]
 struct CreditsCommand;
@@ -22,7 +24,7 @@ impl CommandHandler for CreditsCommand {
             }
             CommandSource::Player(entity) => params.get(entity).expect("sender does not exist"),
         };
-        let lines = crate::credits::CREDITS_TEXT
+        let lines = CREDITS_TEXT
             .lines()
             .map(|t| DialogBody {
                 dialog_body_type: "minecraft:plain_message".to_string(),

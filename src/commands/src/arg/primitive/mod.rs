@@ -114,6 +114,7 @@ pub enum PrimitiveArgumentFlags {
     Long(LongArgumentFlags),
     String(StringArgumentType),
     Entity(EntityArgumentFlags),
+    Resource(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Ordinalize)]

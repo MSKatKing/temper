@@ -54,7 +54,11 @@ fn read_coord<'a>(
     let cursor = reader.cursor();
     let span = reader.read_word_span()?;
 
-    if is_coord(span) {
+    if let Some(relative) = span.strip_prefix('~')
+        && (relative.is_empty() || relative.parse::<f64>().is_ok())
+    {
+        Ok(span)
+    } else if span.parse::<f64>().is_ok() {
         Ok(span)
     } else {
         Err(ParseError::new(
@@ -62,14 +66,6 @@ fn read_coord<'a>(
             expected,
             format!("invalid {expected}: {span}"),
         ))
-    }
-}
-
-fn is_coord(span: &str) -> bool {
-    if let Some(relative) = span.strip_prefix('~') {
-        relative.is_empty() || relative.parse::<f64>().is_ok()
-    } else {
-        span.parse::<f64>().is_ok()
     }
 }
 
