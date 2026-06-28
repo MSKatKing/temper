@@ -7,7 +7,7 @@ use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::show_dialog::{DialogBody, DialogContent, ShowDialog};
 use temper_text::TextComponent;
 
-static CREDITS_TEXT: &str = include_str!("../../../assets/data/credits.txt");
+pub(crate) static CREDITS_TEXT: &str = include_str!("../../../assets/data/credits.txt");
 
 #[command("credits")]
 fn credits(#[sender] sender: Sender, query: Query<&StreamWriter>) {

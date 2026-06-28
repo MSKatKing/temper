@@ -9,7 +9,7 @@ use bevy_ecs::system::{ScheduleSystem, SystemParam};
 use temper_core::mq;
 use temper_permissions::Permissions;
 use temper_permissions::player::PlayerPermission;
-use temper_text::{NamedColor, TextComponentBuilder};
+use temper_text::{NamedColor, TextComponent, TextComponentBuilder};
 use tracing::info;
 
 use crate::{CommandGraph, CommandPath, CommandSpec, ParseError};
@@ -225,17 +225,22 @@ fn send_permission_error(source: CommandSource) {
     let message = TextComponentBuilder::new("You don't have permission to use this command.")
         .color(NamedColor::Red)
         .build();
-
-    match source {
-        CommandSource::Player(entity) => mq::queue(message, false, entity),
-        CommandSource::Server => info!("{}", message.to_plain_text()),
-    }
+    source.send_message(message);
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CommandSource {
     Player(Entity),
     Server,
+}
+
+impl CommandSource {
+    pub fn send_message(self, message: TextComponent) {
+        match self {
+            CommandSource::Player(entity) => {mq::queue(message, false, entity)},
+            CommandSource::Server => {info!("{}", message.to_plain_text())}
+        }
+    }
 }
 
 #[derive(Message, Clone, Debug)]

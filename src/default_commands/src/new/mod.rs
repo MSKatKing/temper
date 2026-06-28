@@ -4,3 +4,6 @@ mod gamemode;
 mod stop;
 mod time;
 mod tp;
+mod credits;
+mod kill;
+mod summon;
