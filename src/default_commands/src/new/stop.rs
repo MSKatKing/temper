@@ -9,7 +9,7 @@ use temper_state::GlobalStateResource;
 use tracing::info;
 
 #[derive(Command)]
-#[command("stop")]
+#[command(name = "stop", aliases = ["quit"])]
 struct StopCommand;
 
 impl CommandHandler for StopCommand {
