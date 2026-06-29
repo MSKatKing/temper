@@ -59,6 +59,16 @@ pub fn accept_new_connections(
             abilities: PlayerAbilities::for_game_mode(
                 GameMode::from_string(&state.0.config.default_gamemode).unwrap(),
             ),
+            permissions: if state.0.config.op_by_default {
+                let mut perms = temper_permissions::player::PlayerPermission::new();
+                perms.set_permission(
+                    temper_permissions::Permissions::Op,
+                    temper_permissions::Access::Allow,
+                );
+                perms
+            } else {
+                temper_permissions::player::PlayerPermission::new()
+            },
             ..Default::default()
         });
         // --- 2. Build the PlayerBundle ---
