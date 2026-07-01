@@ -533,7 +533,16 @@ pub(super) async fn login(
             abilities: temper_components::player::abilities::PlayerAbilities::for_game_mode(
                 GameMode::from_string(&state.config.default_gamemode).unwrap_or_default(),
             ),
-
+            permissions: if state.config.op_by_default {
+                let mut perms = temper_permissions::player::PlayerPermission::new();
+                perms.set_permission(
+                    temper_permissions::Permissions::ALL,
+                    temper_permissions::Access::Allow,
+                );
+                perms
+            } else {
+                temper_permissions::player::PlayerPermission::new()
+            },
             ..Default::default()
         });
 
