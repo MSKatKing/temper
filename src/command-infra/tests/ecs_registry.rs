@@ -4,8 +4,8 @@ use bevy_ecs::prelude::{IntoScheduleConfigs, MessageWriter, ResMut, Resource, Sc
 use std::sync::Arc;
 use temper_command_infra::args::{EntityArg, PositionArg, SingleWordArg};
 use temper_command_infra::{
-    CommandDispatched, CommandHandler, CommandRegistry, CommandSource, CommandSpec, ParseError,
-    dispatch_command, static_commands,
+    CommandDispatched, CommandHandler, CommandRegistry, CommandResult, CommandSource, CommandSpec,
+    ParseError, dispatch_command, static_commands,
 };
 use temper_macros::Command;
 
@@ -19,7 +19,13 @@ enum TpCommand {
 impl CommandHandler for TpCommand {
     type SystemParam<'w, 's> = ();
 
-    fn handle<'w, 's>(self, _source: CommandSource, _params: &mut Self::SystemParam<'w, 's>) {}
+    fn handle<'w, 's>(
+        self,
+        _source: CommandSource,
+        _params: &mut Self::SystemParam<'w, 's>,
+    ) -> CommandResult {
+        Ok(())
+    }
 }
 
 #[derive(Debug, PartialEq, Command)]
@@ -39,12 +45,18 @@ struct HandledCommands {
 impl CommandHandler for DemoCommand {
     type SystemParam<'w, 's> = ResMut<'w, HandledCommands>;
 
-    fn handle<'w, 's>(self, source: CommandSource, params: &mut Self::SystemParam<'w, 's>) {
+    fn handle<'w, 's>(
+        self,
+        source: CommandSource,
+        params: &mut Self::SystemParam<'w, 's>,
+    ) -> CommandResult {
         let DemoCommand::Word { value } = self;
 
         params.handled += 1;
         params.last_source = Some(source);
         params.last_value = Some(value.to_string());
+
+        Ok(())
     }
 
     fn handle_parse_error<'w, 's>(

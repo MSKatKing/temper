@@ -5,8 +5,8 @@ use temper_command_infra::args::{
 };
 use temper_command_infra::{
     ArgumentSpec, CommandArg, CommandGraph, CommandHandler, CommandNodeKind, CommandReader,
-    CommandSource, CommandSpec, ParseError, ParserKind, ParserProperties, Permissions,
-    SuggestionInput, SuggestionProviderKind,
+    CommandResult, CommandSource, CommandSpec, ParseError, ParserKind, ParserProperties,
+    Permissions, SuggestionInput, SuggestionProviderKind,
 };
 use temper_macros::Command;
 
@@ -209,7 +209,8 @@ macro_rules! impl_noop_handler {
                     self,
                     _source: CommandSource,
                     _params: &mut Self::SystemParam<'w, 's>,
-                ) {
+                ) -> CommandResult {
+                    Ok(())
                 }
             }
         )*

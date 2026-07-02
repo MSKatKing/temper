@@ -1,8 +1,8 @@
 use bevy_ecs::prelude::{Query, ResMut};
 use temper_command_infra::args::IntegerArg;
 use temper_command_infra::{
-    ArgumentSpec, CommandArg, CommandHandler, CommandReader, CommandSource, ParseError, ParserKind,
-    ParserProperties, StringMode, SuggestionProviderKind,
+    ArgumentSpec, CommandArg, CommandHandler, CommandReader, CommandResult, CommandSource,
+    ParseError, ParserKind, ParserProperties, StringMode, SuggestionProviderKind,
 };
 use temper_components::player::time::LastSentTimeUpdate;
 use temper_macros::Command;
@@ -71,7 +71,11 @@ impl CommandHandler for TimeCommand {
         Query<'w, 's, &'static mut LastSentTimeUpdate>,
     );
 
-    fn handle(self, source: CommandSource, params: &mut Self::SystemParam<'_, '_>) {
+    fn handle(
+        self,
+        source: CommandSource,
+        params: &mut Self::SystemParam<'_, '_>,
+    ) -> CommandResult {
         let (world_time, last_sent_time) = params;
 
         match self {
@@ -99,6 +103,8 @@ impl CommandHandler for TimeCommand {
                 );
             }
         }
+
+        Ok(())
     }
 }
 

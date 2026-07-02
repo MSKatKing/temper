@@ -85,7 +85,11 @@ pub fn register_command_systems(schedule: &mut Schedule) {
 pub trait CommandHandler: CommandSpec + Sized + Send + Sync + 'static {
     type SystemParam<'w, 's>: SystemParam;
 
-    fn handle(self, source: CommandSource, params: &mut Self::SystemParam<'_, '_>);
+    /// Execute a parsed command.
+    ///
+    /// Returning an error sends that error to the command source automatically.
+    fn handle(self, source: CommandSource, params: &mut Self::SystemParam<'_, '_>)
+    -> CommandResult;
 
     fn handle_parse_error(
         source: CommandSource,
@@ -96,12 +100,65 @@ pub trait CommandHandler: CommandSpec + Sized + Send + Sync + 'static {
     }
 }
 
+/// Result returned by command handlers.
+///
+/// `Ok(())` means the command handled its own success output. `Err(error)` means the dispatcher
+/// should send the error message to the command source.
+pub type CommandResult = Result<(), CommandError>;
+
+/// User-facing command failure.
+#[derive(Clone, Debug)]
+pub struct CommandError {
+    message: Box<TextComponent>,
+}
+
+impl CommandError {
+    /// Create a command error from a chat component or plain string.
+    pub fn new(message: impl Into<TextComponent>) -> Self {
+        Self {
+            message: Box::new(message.into()),
+        }
+    }
+
+    /// Borrow the message that will be sent to the command source.
+    pub fn message(&self) -> &TextComponent {
+        &self.message
+    }
+
+    /// Consume the error and return the message to send.
+    pub fn into_message(self) -> TextComponent {
+        *self.message
+    }
+}
+
+impl From<TextComponent> for CommandError {
+    fn from(message: TextComponent) -> Self {
+        Self::new(message)
+    }
+}
+
+impl From<String> for CommandError {
+    fn from(message: String) -> Self {
+        Self::new(message)
+    }
+}
+
+impl From<&str> for CommandError {
+    fn from(message: &str) -> Self {
+        Self::new(message)
+    }
+}
+
 pub fn send_parse_error(source: CommandSource, error: &ParseError) {
     let message = TextComponentBuilder::new(format!("failed parsing command: {}", error.message))
         .color(NamedColor::Red)
         .build();
 
     source.send_message(message);
+}
+
+pub fn send_command_error(source: CommandSource, error: CommandError) {
+    source.send_message(error.into_message());
 }
 
 pub fn dispatch_command<C: CommandHandler>(
@@ -144,7 +201,11 @@ pub fn dispatch_command<C: CommandHandler>(
         let input = input1.strip_prefix(root).unwrap_or(input1).trim_start();
         let mut reader = crate::CommandReader::new(input);
         match C::parse_reader_with_permissions(&mut reader, &can_use) {
-            Ok(command) => command.handle(event.source, &mut params),
+            Ok(command) => {
+                if let Err(error) = command.handle(event.source, &mut params) {
+                    send_command_error(event.source, error);
+                }
+            }
             Err(error) => C::handle_parse_error(event.source, error, &mut params),
         }
     }

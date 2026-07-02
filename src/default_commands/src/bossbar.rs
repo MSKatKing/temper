@@ -6,8 +6,8 @@ use bevy_ecs::world::World;
 use rand::seq::IteratorRandom;
 use temper_command_infra::args::GreedyStringArg;
 use temper_command_infra::{
-    ArgKind, ArgumentSpec, CommandArg, CommandHandler, CommandReader, CommandSource, ParseError,
-    ParserKind, ParserProperties, StringMode, SuggestionInput, SuggestionProviderKind,
+    ArgKind, ArgumentSpec, CommandArg, CommandHandler, CommandReader, CommandResult, CommandSource,
+    ParseError, ParserKind, ParserProperties, StringMode, SuggestionInput, SuggestionProviderKind,
 };
 use temper_components::entity_identity::Identity;
 use temper_components::player::bossbar_sender::BossbarSender;
@@ -123,7 +123,11 @@ impl CommandHandler for BossbarCommand {
         >,
     );
 
-    fn handle(self, source: CommandSource, params: &mut Self::SystemParam<'_, '_>) {
+    fn handle(
+        self,
+        source: CommandSource,
+        params: &mut Self::SystemParam<'_, '_>,
+    ) -> CommandResult {
         let (bossbars, players) = params;
 
         match self {
@@ -136,7 +140,7 @@ impl CommandHandler for BossbarCommand {
     }
 }
 
-fn add_bossbar(source: CommandSource, bossbars: &mut BossBarResource, name: &str) {
+fn add_bossbar(source: CommandSource, bossbars: &mut BossBarResource, name: &str) -> CommandResult {
     let uuid = bossbars.add_bar(BossBarData::new(
         TextComponent::from(name),
         0.0,
@@ -149,9 +153,11 @@ fn add_bossbar(source: CommandSource, bossbars: &mut BossBarResource, name: &str
             .click_event(CopyToClipboard(uuid.to_string()))
             .hover_event(ShowText(TextComponent::from(uuid.to_string()).into())),
     );
+
+    Ok(())
 }
 
-fn get_bossbar(source: CommandSource, bossbars: &BossBarResource, uuid: Uuid) {
+fn get_bossbar(source: CommandSource, bossbars: &BossBarResource, uuid: Uuid) -> CommandResult {
     if let Some(bossbar) = bossbars.boss_bars.get(&uuid) {
         source.send_message(
             TextComponentBuilder::new("Bossbar: ")
@@ -159,14 +165,16 @@ fn get_bossbar(source: CommandSource, bossbars: &BossBarResource, uuid: Uuid) {
                 .build(),
         );
     } else {
-        send_missing_bossbar(source, uuid);
+        return Err(missing_bossbar_message(uuid).into());
     }
+
+    Ok(())
 }
 
-fn list_bossbars(source: CommandSource, bossbars: &BossBarResource) {
+fn list_bossbars(source: CommandSource, bossbars: &BossBarResource) -> CommandResult {
     if bossbars.boss_bars.is_empty() {
         source.send_message(TextComponentBuilder::new("No bossbars exist.").build());
-        return;
+        return Ok(());
     }
 
     for uuid in bossbars.boss_bars.keys() {
@@ -180,15 +188,23 @@ fn list_bossbars(source: CommandSource, bossbars: &BossBarResource) {
                 .build(),
         );
     }
+
+    Ok(())
 }
 
-fn remove_bossbar(source: CommandSource, bossbars: &mut BossBarResource, uuid: Uuid) {
+fn remove_bossbar(
+    source: CommandSource,
+    bossbars: &mut BossBarResource,
+    uuid: Uuid,
+) -> CommandResult {
     if bossbars.boss_bars.contains_key(&uuid) {
         bossbars.remove_bar(uuid);
         source.send_message(TextComponentBuilder::new("removed bossbar").build());
     } else {
-        send_missing_bossbar(source, uuid);
+        return Err(missing_bossbar_message(uuid).into());
     }
+
+    Ok(())
 }
 
 fn set_bossbar(
@@ -197,10 +213,9 @@ fn set_bossbar(
     players: &mut Query<(Entity, &Identity, &mut BossbarSender, Option<&PlayerMarker>)>,
     uuid: Uuid,
     option: BossbarSetOptionArg,
-) {
+) -> CommandResult {
     let Some(bossbar) = bossbars.boss_bars.get(&uuid) else {
-        send_missing_bossbar(source, uuid);
-        return;
+        return Err(missing_bossbar_message(uuid).into());
     };
 
     match option {
@@ -246,6 +261,8 @@ fn set_bossbar(
             source.send_message(TextComponentBuilder::new("Updated bossbar max").build());
         }
     }
+
+    Ok(())
 }
 
 fn set_bossbar_players(
@@ -424,12 +441,10 @@ fn player_suggestions(world: &mut World) -> Vec<String> {
     suggestions
 }
 
-fn send_missing_bossbar(source: CommandSource, uuid: Uuid) {
-    source.send_message(
-        TextComponentBuilder::new("Bossbar doesn't exist for uuid: ")
-            .extra(TextComponent::from(uuid.to_string()))
-            .build(),
-    );
+fn missing_bossbar_message(uuid: Uuid) -> TextComponent {
+    TextComponentBuilder::new("Bossbar doesn't exist for uuid: ")
+        .extra(TextComponent::from(uuid.to_string()))
+        .build()
 }
 
 #[cfg(test)]

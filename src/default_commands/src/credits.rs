@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::Query;
 use temper_codec::net_types::adhoc_id::AdHocID;
-use temper_command_infra::{CommandHandler, CommandSource};
+use temper_command_infra::{CommandHandler, CommandResult, CommandSource};
 use temper_macros::Command;
 use temper_nbt::NBT;
 use temper_net_runtime::connection::StreamWriter;
@@ -16,13 +16,16 @@ struct CreditsCommand;
 impl CommandHandler for CreditsCommand {
     type SystemParam<'w, 's> = Query<'w, 's, &'static StreamWriter>;
 
-    fn handle(self, source: CommandSource, params: &mut Self::SystemParam<'_, '_>) {
+    fn handle(
+        self,
+        source: CommandSource,
+        params: &mut Self::SystemParam<'_, '_>,
+    ) -> CommandResult {
         let conn = match source {
-            CommandSource::Server => {
-                // Server cannot have credits
-                return;
+            CommandSource::Server => return Err("Only players can view credits.".into()),
+            CommandSource::Player(entity) => {
+                params.get(entity).map_err(|_| "sender does not exist")?
             }
-            CommandSource::Player(entity) => params.get(entity).expect("sender does not exist"),
         };
         let lines = CREDITS_TEXT
             .lines()
@@ -39,6 +42,9 @@ impl CommandHandler for CreditsCommand {
                 body: lines,
             })),
         };
-        conn.send_packet(packet).unwrap();
+        conn.send_packet(packet)
+            .map_err(|error| format!("failed to send credits dialog: {error}"))?;
+
+        Ok(())
     }
 }

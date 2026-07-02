@@ -2,8 +2,8 @@ use bevy_ecs::message::MessageWriter;
 use bevy_ecs::prelude::Query;
 use temper_command_infra::args::PositionArg;
 use temper_command_infra::{
-    ArgumentSpec, CommandArg, CommandHandler, CommandReader, CommandSource, ParseError,
-    SuggestionProviderKind,
+    ArgumentSpec, CommandArg, CommandHandler, CommandReader, CommandResult, CommandSource,
+    ParseError, SuggestionProviderKind,
 };
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
@@ -66,18 +66,21 @@ impl CommandHandler for SummonCommand {
         Query<'w, 's, (&'static Position, &'static Rotation)>,
     );
 
-    fn handle(self, source: CommandSource, params: &mut Self::SystemParam<'_, '_>) {
+    fn handle(
+        self,
+        source: CommandSource,
+        params: &mut Self::SystemParam<'_, '_>,
+    ) -> CommandResult {
         let (writer, query) = params;
         let CommandSource::Player(player_entity) = source else {
-            source.send_message("Only players can use this command.".into());
-            return;
+            return Err("Only players can use this command.".into());
         };
 
         let (entity_kind, entity_name, spawn_pos) = match self {
             SummonCommand::AtSelf { mob_type } => {
                 let (pos, rot) = query
                     .get(player_entity)
-                    .expect("player entity does not exist");
+                    .map_err(|_| "player entity does not exist")?;
                 (mob_type.kind, mob_type.name, pos.offset_forward(rot, 2.0))
             }
             SummonCommand::AtPos { mob_type, pos } => (
@@ -86,7 +89,7 @@ impl CommandHandler for SummonCommand {
                 pos.resolve(
                     query
                         .get(player_entity)
-                        .expect("player entity does not exist")
+                        .map_err(|_| "player entity does not exist")?
                         .0,
                 ),
             ),
@@ -97,6 +100,8 @@ impl CommandHandler for SummonCommand {
             location: spawn_pos,
         });
         source.send_message(format!("{} spawned!", entity_name).into());
+
+        Ok(())
     }
 }
 

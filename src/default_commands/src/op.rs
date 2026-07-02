@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::{Entity, Query};
 use temper_command_infra::CommandSource::Player;
 use temper_command_infra::args::EntitiesArg;
-use temper_command_infra::{CommandHandler, CommandSource};
+use temper_command_infra::{CommandHandler, CommandResult, CommandSource};
 use temper_components::entity_identity::Identity;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_macros::Command;
@@ -22,7 +22,11 @@ impl CommandHandler for OpCommand {
         Query<'w, 's, &'static mut PlayerPermission>,
     );
 
-    fn handle(self, source: CommandSource, params: &mut Self::SystemParam<'_, '_>) {
+    fn handle(
+        self,
+        source: CommandSource,
+        params: &mut Self::SystemParam<'_, '_>,
+    ) -> CommandResult {
         let (entities, permissions) = params;
 
         let is_permitted = match source {
@@ -33,8 +37,7 @@ impl CommandHandler for OpCommand {
         };
 
         if !is_permitted {
-            source.send_message("You don't have permission to use this command.".into());
-            return;
+            return Err("You don't have permission to use this command.".into());
         }
 
         for entity in self.target.resolve(entities.iter()) {
@@ -43,6 +46,8 @@ impl CommandHandler for OpCommand {
                 source.send_message(TextComponent::from("You have been opped".to_string()));
             }
         }
+
+        Ok(())
     }
 }
 
@@ -76,7 +81,9 @@ mod tests {
         let mut params =
             SystemState::<<OpCommand as CommandHandler>::SystemParam<'_, '_>>::new(&mut world);
         let mut system_params = params.get_mut(&mut world);
-        command.handle(CommandSource::Server, &mut system_params);
+        command
+            .handle(CommandSource::Server, &mut system_params)
+            .unwrap();
         params.apply(&mut world);
 
         assert!(
@@ -105,7 +112,11 @@ mod tests {
         let mut params =
             SystemState::<<OpCommand as CommandHandler>::SystemParam<'_, '_>>::new(&mut world);
         let mut system_params = params.get_mut(&mut world);
-        command.handle(CommandSource::Player(sender), &mut system_params);
+        assert!(
+            command
+                .handle(CommandSource::Player(sender), &mut system_params)
+                .is_err()
+        );
         params.apply(&mut world);
 
         assert!(!world.get::<PlayerPermission>(target).unwrap().can(ALL));

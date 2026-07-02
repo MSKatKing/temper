@@ -2,15 +2,14 @@ use bevy_ecs::message::MessageWriter;
 use bevy_ecs::prelude::{Entity, Query, With, World};
 use temper_command_infra::args::EntityArg;
 use temper_command_infra::{
-    ArgKind, ArgumentSpec, CommandArg, CommandHandler, CommandReader, CommandSource, ParseError,
-    ParserKind, ParserProperties, StringMode, SuggestionInput, SuggestionProviderKind,
+    ArgKind, ArgumentSpec, CommandArg, CommandHandler, CommandReader, CommandResult, CommandSource,
+    ParseError, ParserKind, ParserProperties, StringMode, SuggestionInput, SuggestionProviderKind,
 };
 use temper_components::entity_identity::Identity;
 use temper_components::player::gamemode::GameMode;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_macros::Command;
 use temper_messages::PlayerGameModeChanged;
-use tracing::info;
 
 #[derive(Command)]
 #[command("gamemode")]
@@ -40,13 +39,14 @@ impl CommandHandler for GamemodeCommand {
         >,
     );
 
-    fn handle(self, source: CommandSource, params: &mut Self::SystemParam<'_, '_>) {
+    fn handle(
+        self,
+        source: CommandSource,
+        params: &mut Self::SystemParam<'_, '_>,
+    ) -> CommandResult {
         let (writer, query) = params;
         let player_entity = match source {
-            CommandSource::Server => {
-                info!("Error: The server can't change gamemode.");
-                return;
-            }
+            CommandSource::Server => return Err("The server can't change gamemode.".into()),
             CommandSource::Player(entity) => entity,
         };
 
@@ -54,30 +54,31 @@ impl CommandHandler for GamemodeCommand {
             GamemodeCommand::SelfTarget(new_mode) => {
                 writer.write(PlayerGameModeChanged {
                     player: player_entity,
-                    new_mode: match new_mode {
-                        GamemodeArg::Survival => GameMode::Survival,
-                        GamemodeArg::Creative => GameMode::Creative,
-                        GamemodeArg::Adventure => GameMode::Adventure,
-                        GamemodeArg::Spectator => GameMode::Spectator,
-                    },
+                    new_mode: game_mode(new_mode),
                 });
             }
             GamemodeCommand::OtherTarget { target, gamemode } => {
+                let Some(target) = target.resolve(query.into_iter()).first().copied() else {
+                    return Err("No players matched the target.".into());
+                };
+
                 writer.write(PlayerGameModeChanged {
-                    player: target
-                        .resolve(query.into_iter())
-                        .first()
-                        .copied()
-                        .unwrap_or(player_entity),
-                    new_mode: match gamemode {
-                        GamemodeArg::Survival => GameMode::Survival,
-                        GamemodeArg::Creative => GameMode::Creative,
-                        GamemodeArg::Adventure => GameMode::Adventure,
-                        GamemodeArg::Spectator => GameMode::Spectator,
-                    },
+                    player: target,
+                    new_mode: game_mode(gamemode),
                 });
             }
         }
+
+        Ok(())
+    }
+}
+
+fn game_mode(gamemode: GamemodeArg) -> GameMode {
+    match gamemode {
+        GamemodeArg::Survival => GameMode::Survival,
+        GamemodeArg::Creative => GameMode::Creative,
+        GamemodeArg::Adventure => GameMode::Adventure,
+        GamemodeArg::Spectator => GameMode::Spectator,
     }
 }
 
