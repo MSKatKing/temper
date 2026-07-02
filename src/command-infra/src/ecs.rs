@@ -5,7 +5,7 @@ use bevy_ecs::prelude::{
     Component, Entity, IntoScheduleConfigs, Message, MessageReader, Query, Resource, Schedule,
 };
 use bevy_ecs::schedule::ScheduleConfigs;
-use bevy_ecs::system::{ScheduleSystem, SystemParam};
+use bevy_ecs::system::{ParamSet, ScheduleSystem, SystemParam, SystemParamItem};
 use temper_core::mq;
 use temper_permissions::Permissions;
 use temper_permissions::player::PlayerPermission;
@@ -88,13 +88,16 @@ pub trait CommandHandler: CommandSpec + Sized + Send + Sync + 'static {
     /// Execute a parsed command.
     ///
     /// Returning an error sends that error to the command source automatically.
-    fn handle(self, source: CommandSource, params: &mut Self::SystemParam<'_, '_>)
-    -> CommandResult;
+    fn handle(
+        self,
+        source: CommandSource,
+        params: &mut SystemParamItem<'_, '_, Self::SystemParam<'_, '_>>,
+    ) -> CommandResult;
 
     fn handle_parse_error(
         source: CommandSource,
         error: ParseError,
-        _params: &mut Self::SystemParam<'_, '_>,
+        _params: &mut SystemParamItem<'_, '_, Self::SystemParam<'_, '_>>,
     ) {
         send_parse_error(source, &error);
     }
@@ -163,8 +166,7 @@ pub fn send_command_error(source: CommandSource, error: CommandError) {
 
 pub fn dispatch_command<C: CommandHandler>(
     mut commands: MessageReader<CommandDispatched>,
-    permissions: Query<&PlayerPermission>,
-    mut params: C::SystemParam<'_, '_>,
+    mut params: ParamSet<(Query<&PlayerPermission>, C::SystemParam<'_, '_>)>,
 ) {
     for event in commands.read() {
         let input = &event.input;
@@ -176,37 +178,46 @@ pub fn dispatch_command<C: CommandHandler>(
             continue;
         }
 
-        let can_use = |permission| {
-            let source = event.source;
-            match source {
-                CommandSource::Server => true,
-                CommandSource::Player(entity) => permissions
-                    .get(entity)
-                    .is_ok_and(|player_permissions| player_permissions.can(permission)),
+        let parse_result = {
+            let permissions = params.p0();
+            let can_use = |permission| {
+                let source = event.source;
+                match source {
+                    CommandSource::Server => true,
+                    CommandSource::Player(entity) => permissions
+                        .get(entity)
+                        .is_ok_and(|player_permissions| player_permissions.can(permission)),
+                }
+            };
+            if let Some(permission) = C::permission()
+                && !can_use(permission)
+            {
+                let source = event.source;
+                let message =
+                    TextComponentBuilder::new("You don't have permission to use this command.")
+                        .color(NamedColor::Red)
+                        .build();
+                source.send_message(message);
+                continue;
             }
-        };
-        if let Some(permission) = C::permission()
-            && !can_use(permission)
-        {
-            let source = event.source;
-            let message =
-                TextComponentBuilder::new("You don't have permission to use this command.")
-                    .color(NamedColor::Red)
-                    .build();
-            source.send_message(message);
-            continue;
-        }
 
-        let input1 = &event.input;
-        let input = input1.strip_prefix(root).unwrap_or(input1).trim_start();
-        let mut reader = crate::CommandReader::new(input);
-        match C::parse_reader_with_permissions(&mut reader, &can_use) {
+            let input1 = &event.input;
+            let input = input1.strip_prefix(root).unwrap_or(input1).trim_start();
+            let mut reader = crate::CommandReader::new(input);
+            C::parse_reader_with_permissions(&mut reader, &can_use)
+        };
+
+        match parse_result {
             Ok(command) => {
-                if let Err(error) = command.handle(event.source, &mut params) {
+                let mut command_params = params.p1();
+                if let Err(error) = command.handle(event.source, &mut command_params) {
                     send_command_error(event.source, error);
                 }
             }
-            Err(error) => C::handle_parse_error(event.source, error, &mut params),
+            Err(error) => {
+                let mut command_params = params.p1();
+                C::handle_parse_error(event.source, error, &mut command_params);
+            }
         }
     }
 }
