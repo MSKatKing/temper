@@ -20,7 +20,11 @@ pub fn handle(world: &mut World) {
     let requests = {
         let mut system_state = SystemState::<Res<CommandSuggestionRequestReceiver>>::new(world);
         let receiver = system_state.get(world);
-        receiver.0.try_iter().collect::<Vec<_>>()
+        receiver
+            .expect("unable to get receiver from world")
+            .0
+            .try_iter()
+            .collect::<Vec<_>>()
     };
 
     for (request, entity) in requests {
@@ -43,7 +47,7 @@ pub fn handle(world: &mut World) {
         });
 
         let mut system_state = SystemState::<Query<&StreamWriter>>::new(world);
-        let query = system_state.get(world);
+        let query = system_state.get(world).expect("could not query world");
         let Ok(writer) = query.get(entity) else {
             continue;
         };
@@ -117,7 +121,8 @@ fn suggestion_plan(world: &mut World, input: &str, entity: Entity) -> Option<Sug
         Res<CommandRegistry>,
         Res<GlobalStateResource>,
     )>::new(world);
-    let (query, permissions, registry, state) = system_state.get(world);
+    let (query, permissions, registry, state) =
+        system_state.get(world).expect("could not get system state");
 
     if !state.0.players.is_connected(entity) {
         return None;

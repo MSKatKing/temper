@@ -74,7 +74,7 @@ mod tests {
 
         let mut params =
             SystemState::<<OpCommand as CommandHandler>::SystemParam<'_, '_>>::new(&mut world);
-        let mut system_params = params.get_mut(&mut world);
+        let mut system_params = params.get_mut(&mut world).unwrap();
         command
             .handle(CommandSource::Server, &mut system_params)
             .unwrap();
