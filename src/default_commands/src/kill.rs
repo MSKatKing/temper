@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::{Entity, MessageWriter, Query};
-use temper_command_infra::args::EntityArg;
 use temper_command_infra::CommandSource::Player;
+use temper_command_infra::args::EntityArg;
 use temper_command_infra::{CommandHandler, CommandResult, CommandSource};
 use temper_components::entity_identity::Identity;
 use temper_components::player::player_marker::PlayerMarker;
