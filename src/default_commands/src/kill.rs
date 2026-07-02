@@ -1,15 +1,15 @@
 use bevy_ecs::prelude::{Entity, MessageWriter, Query};
-use temper_command_infra::CommandSource::Player;
 use temper_command_infra::args::EntityArg;
+use temper_command_infra::CommandSource::Player;
 use temper_command_infra::{CommandHandler, CommandResult, CommandSource};
 use temper_components::entity_identity::Identity;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_macros::Command;
 use temper_messages::destroy_entity::DestroyEntity;
-use temper_permissions::player::PlayerPermission;
+use temper_permissions::Permissions;
 
 #[derive(Command)]
-#[command("kill")]
+#[command(name ="kill", permission = Permissions::Kill)]
 enum KillCommand {
     SelfTarget,
     OtherTarget { target: EntityArg },
@@ -19,7 +19,6 @@ impl CommandHandler for KillCommand {
     type SystemParam<'w, 's> = (
         Query<'w, 's, (Entity, &'static Identity, Option<&'static PlayerMarker>)>,
         MessageWriter<'w, DestroyEntity>,
-        Query<'w, 's, &'static PlayerPermission>,
     );
 
     fn handle(
@@ -27,22 +26,7 @@ impl CommandHandler for KillCommand {
         source: CommandSource,
         params: &mut Self::SystemParam<'_, '_>,
     ) -> CommandResult {
-        let &mut (query, ref mut writer, permissions) = params;
-
-        let is_permitted = match source {
-            Player(entity) => {
-                if let Ok(player_perm) = permissions.get(entity) {
-                    player_perm.can(temper_permissions::Permissions::Kill)
-                } else {
-                    false
-                }
-            }
-            _ => true,
-        };
-
-        if !is_permitted {
-            return Err("You don't have permission to use this command.".into());
-        }
+        let &mut (query, ref mut writer) = params;
 
         let selected_entities = match self {
             KillCommand::SelfTarget => {

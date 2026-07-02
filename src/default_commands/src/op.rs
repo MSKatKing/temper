@@ -1,17 +1,16 @@
 use bevy_ecs::prelude::{Entity, Query};
-use temper_command_infra::CommandSource::Player;
 use temper_command_infra::args::EntitiesArg;
 use temper_command_infra::{CommandHandler, CommandResult, CommandSource};
 use temper_components::entity_identity::Identity;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_macros::Command;
 use temper_permissions::Access::Allow;
-use temper_permissions::Permissions::{ALL, Op};
+use temper_permissions::Permissions;
 use temper_permissions::player::PlayerPermission;
 use temper_text::TextComponent;
 
 #[derive(Debug, Command)]
-#[command("op")]
+#[command(name = "op", permission = Permissions::Op)]
 struct OpCommand {
     target: EntitiesArg,
 }
@@ -29,20 +28,9 @@ impl CommandHandler for OpCommand {
     ) -> CommandResult {
         let (entities, permissions) = params;
 
-        let is_permitted = match source {
-            Player(entity) => permissions
-                .get(entity)
-                .is_ok_and(|player_perm| player_perm.can(Op)),
-            CommandSource::Server => true,
-        };
-
-        if !is_permitted {
-            return Err("You don't have permission to use this command.".into());
-        }
-
         for entity in self.target.resolve(entities.iter()) {
             if let Ok(mut player_permission) = permissions.get_mut(entity) {
-                player_permission.set_permission(ALL, Allow);
+                player_permission.set_permission(Permissions::ALL, Allow);
                 source.send_message(TextComponent::from("You have been opped".to_string()));
             }
         }
