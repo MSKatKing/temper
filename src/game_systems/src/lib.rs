@@ -1,5 +1,7 @@
 use bevy_ecs::prelude::ApplyDeferred;
-use bevy_ecs::schedule::{ExecutorKind, IntoScheduleConfigs, Schedule, SystemSet};
+use bevy_ecs::schedule::{
+    IntoScheduleConfigs, MultiThreadedExecutor, Schedule, SingleThreadedExecutor, SystemSet,
+};
 use std::time::Duration;
 use temper_scheduler::{MissedTickBehavior, Scheduler, TimedSchedule, drain_registered_schedules};
 
@@ -146,7 +148,7 @@ fn register_world_sync_schedule_systems(schedule: &mut Schedule) {
 }
 
 fn register_chunk_gc_schedule_systems(schedule: &mut Schedule) {
-    schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+    schedule.set_executor(MultiThreadedExecutor::new());
     schedule.configure_sets(
         (
             ChunkGcPhase::MarkForSave,
@@ -185,7 +187,7 @@ pub fn register_schedules(
     state: GlobalState,
 ) {
     let build_tick = |schedule: &mut Schedule| {
-        schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        schedule.set_executor(MultiThreadedExecutor::new());
         register_tick_systems(schedule);
     };
     let tick_period = Duration::from_secs(1) / state.config.tps;
@@ -222,7 +224,7 @@ pub fn register_schedules(
         .with_behavior(MissedTickBehavior::Skip)
         .with_phase(Duration::from_millis(250)),
     );
-    shutdown_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+    shutdown_schedule.set_executor(SingleThreadedExecutor::new());
 
     // Force the chunk-saving systems to run before the world flushing and shutdown packet sending systems;
     // otherwise we might end up with a world not fully saved if the server is killed at the wrong time during shutdown
