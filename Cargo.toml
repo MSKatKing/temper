@@ -63,6 +63,7 @@ members = [
     "src/world/db",
     "src/world/format",
     "src/world/gen",
+    "src/world/noise",
     "tests",
 ]
 
@@ -150,6 +151,7 @@ temper-utils = { path = "src/utils" }
 temper-world = { path = "src/world" }
 temper-world-gen = { path = "src/world/gen" }
 temper-world-format = { path = "src/world/format" }
+temper-world-noise = { path = "src/world/noise" }
 temper-inventories = { path = "src/inventories" }
 temper-data = { path = "src/data" }
 temper-components = { path = "src/components" }
