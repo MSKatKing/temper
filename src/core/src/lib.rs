@@ -9,4 +9,4 @@ pub mod color;
 pub mod dimension;
 pub mod mq;
 pub mod pos;
-mod random;
+pub mod random;
