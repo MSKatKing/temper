@@ -7,23 +7,24 @@ const SERVER_JAR_URL: &str =
 pub fn generate() {
     if let Ok((server_jar, assets_dir)) = setup() {
         if !server_jar {
-            download_jar(assets_dir.join("server.jar"))
+            download_jar(assets_dir.join("server.jar"));
+            let java_path = which::which("java").expect("Failed to find java in PATH");
+
+            let _ = std::process::Command::new(java_path)
+                .arg("-DbundlerMainClass=net.minecraft.data.Main")
+                .arg("-jar")
+                .arg("server.jar")
+                .arg("--all")
+                .current_dir(workspace_root::get_workspace_root_directory().expect("Failed to get workspace root directory").join("assets/generated"))
+                .output()
+                .expect("Failed to execute java command");
+            info!("Finished generating assets");
         }
     } else {
         println!("cargo:error=Setup failed");
-        return;
     }
     
-    let java_path = which::which("java").expect("Failed to find java in PATH");
     
-    let cmd = std::process::Command::new(java_path)
-        .arg("-DbundlerMainClass=net.minecraft.data.Main")
-        .arg("-jar")
-        .arg("server.jar")
-        .arg("--all")
-        .current_dir(workspace_root::get_workspace_root_directory().expect("Failed to get workspace root directory").join("assets/generated"))
-        .output()
-        .expect("Failed to execute java command");
 }
 fn download_jar(path: PathBuf) {
     info!(
@@ -49,7 +50,6 @@ fn setup() -> Result<(bool, PathBuf), ()> {
         .expect("Failed to get workspace root directory")
         .canonicalize()
         .expect("Failed to canonicalize root directory");
-    info!("Workspace root directory: {:?}", root);
     let generated_assets_dir = root.join("assets/generated");
     if !generated_assets_dir.exists() {
         return if generated_assets_dir
@@ -59,10 +59,6 @@ fn setup() -> Result<(bool, PathBuf), ()> {
         {
             std::fs::create_dir_all(&generated_assets_dir)
                 .expect("Failed to create generated assets directory");
-            info!(
-                "Created generated assets directory at {:?}",
-                generated_assets_dir
-            );
             Err(())
         } else {
             println!(
@@ -71,24 +67,11 @@ fn setup() -> Result<(bool, PathBuf), ()> {
             );
             Err(())
         };
-    } else {
-        info!(
-            "Generated assets directory already exists at {:?}",
-            generated_assets_dir
-        );
     }
 
     if generated_assets_dir.join("server.jar").exists() {
-        info!(
-            "Server jar already exists at {:?}",
-            generated_assets_dir.join("server.jar")
-        );
         Ok((true, generated_assets_dir))
     } else {
-        info!(
-            "Server jar does not exist at {:?}",
-            generated_assets_dir.join("server.jar")
-        );
         Ok((false, generated_assets_dir))
     }
 }

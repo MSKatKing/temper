@@ -129,12 +129,5 @@ fn check_version(path: PathBuf) -> Option<bool> {
         }
     };
 
-    build_print::info!(
-        "cargo:warning=Found java version {} at {:?}, minimum required is {}",
-        release_semver,
-        release_file,
-        MIN_JAVA_VERSION
-    );
-
     Some(release_semver >= MIN_JAVA_VERSION)
 }
