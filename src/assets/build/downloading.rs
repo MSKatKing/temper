@@ -1,3 +1,4 @@
+use crate::generate_source::generate_source;
 use build_print::info;
 use std::path::PathBuf;
 
@@ -24,6 +25,12 @@ pub fn generate() {
                 .expect("Failed to execute java command");
             info!("Finished generating assets");
         }
+        generate_source(assets_dir.clone());
+        std::fs::write(
+            assets_dir.join("DONT_USE_PLS_READ.txt"),
+            include_str!("notice.txt"),
+        )
+        .expect("Could not write notice file");
     } else {
         println!("cargo:error=Setup failed");
     }

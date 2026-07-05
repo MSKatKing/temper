@@ -1,4 +1,5 @@
 mod downloading;
+mod generate_source;
 
 use semver::Version;
 use std::path::PathBuf;
