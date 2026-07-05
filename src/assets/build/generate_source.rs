@@ -1,4 +1,5 @@
 use crate::item_to_block_mapping::write_item_to_block_mapping;
+use crate::registry_packets::write_registry_packets;
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
@@ -7,8 +8,10 @@ use std::path::{Path, PathBuf};
 pub fn generate_source(assets_path: PathBuf) {
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR missing"));
     let reports_dir = assets_path.join("generated").join("reports");
+    let data_dir = assets_path.join("generated").join("data");
     let blockstates_path = write_blockstates(&out_dir, &reports_dir);
     let item_to_block_mapping_path = write_item_to_block_mapping(&out_dir, &reports_dir);
+    let registry_packets_path = write_registry_packets(&out_dir, &reports_dir, &data_dir);
 
     let mut content = String::new();
     content.push_str("pub const BLOCKSTATES: &str = include_str!(");
@@ -19,6 +22,9 @@ pub fn generate_source(assets_path: PathBuf) {
         "{:?}",
         item_to_block_mapping_path.to_string_lossy()
     ));
+    content.push_str(");\n\n");
+    content.push_str("pub const REGISTRY_PACKETS: &str = include_str!(");
+    content.push_str(&format!("{:?}", registry_packets_path.to_string_lossy()));
     content.push_str(");\n\n");
     content.push_str("pub mod reports {\n");
     write_dir(&mut content, &reports_dir, 1);
