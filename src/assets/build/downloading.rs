@@ -1,13 +1,17 @@
 use crate::generate_source::generate_source;
 use build_print::info;
+use std::fs::File;
 use std::path::{Path, PathBuf};
 
 const SERVER_JAR_URL: &str =
     "https://piston-data.mojang.com/v1/objects/6bce4ef400e4efaa63a13d5e6f6b500be969ef81/server.jar";
 
 pub fn generate() {
-    if let Ok((generated_assets, assets_dir)) = setup() {
-        if !generated_assets {
+    if let Ok(assets_dir) = setup() {
+        // Gotta use file locking cos nexttest running multiple builds at doesn't play nice
+        let _lock = lock_generation(assets_dir.join(".generate.lock"));
+
+        if !generated_assets_exist(&assets_dir) {
             let server_jar_path = assets_dir.join("server.jar");
             if !server_jar_path.exists() {
                 download_jar(server_jar_path);
@@ -37,6 +41,14 @@ pub fn generate() {
                 );
             }
 
+            if !generated_assets_exist(&assets_dir) {
+                panic!(
+                    "Server jar finished without generating the expected reports\nstdout:\n{}\nstderr:\n{}",
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+
             info!("Finished generating assets");
         }
         generate_source(assets_dir.clone());
@@ -49,6 +61,24 @@ pub fn generate() {
         println!("cargo:error=Setup failed");
     }
 }
+
+fn lock_generation(path: PathBuf) -> File {
+    let file = File::options()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(&path)
+        .unwrap_or_else(|error| {
+            panic!("Failed to open asset generation lock at {path:?}: {error}")
+        });
+
+    file.lock()
+        .unwrap_or_else(|error| panic!("Failed to lock asset generation at {path:?}: {error}"));
+
+    file
+}
+
 fn download_jar(path: PathBuf) {
     info!(
         "Downloading server jar, this could take a sec. If this takes unusually long and network \
@@ -68,7 +98,7 @@ fn download_jar(path: PathBuf) {
     std::fs::write(path, server_jar_bytes).expect("Failed to write server jar to disk");
     info!("Wrote server jar to disk");
 }
-fn setup() -> Result<(bool, PathBuf), ()> {
+fn setup() -> Result<PathBuf, ()> {
     let root = workspace_root::get_workspace_root_directory()
         .expect("Failed to get workspace root directory")
         .canonicalize()
@@ -91,10 +121,7 @@ fn setup() -> Result<(bool, PathBuf), ()> {
         }
     }
 
-    Ok((
-        generated_assets_exist(&generated_assets_dir),
-        generated_assets_dir,
-    ))
+    Ok(generated_assets_dir)
 }
 
 fn generated_assets_exist(generated_assets_dir: &Path) -> bool {
