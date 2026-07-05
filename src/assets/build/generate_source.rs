@@ -1,3 +1,4 @@
+use crate::item_to_block_mapping::write_item_to_block_mapping;
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
@@ -7,10 +8,17 @@ pub fn generate_source(assets_path: PathBuf) {
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR missing"));
     let reports_dir = assets_path.join("generated").join("reports");
     let blockstates_path = write_blockstates(&out_dir, &reports_dir);
+    let item_to_block_mapping_path = write_item_to_block_mapping(&out_dir, &reports_dir);
 
     let mut content = String::new();
     content.push_str("pub const BLOCKSTATES: &str = include_str!(");
     content.push_str(&format!("{:?}", blockstates_path.to_string_lossy()));
+    content.push_str(");\n\n");
+    content.push_str("pub const ITEM_TO_BLOCK_MAPPING: &str = include_str!(");
+    content.push_str(&format!(
+        "{:?}",
+        item_to_block_mapping_path.to_string_lossy()
+    ));
     content.push_str(");\n\n");
     content.push_str("pub mod reports {\n");
     write_dir(&mut content, &reports_dir, 1);

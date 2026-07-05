@@ -1,5 +1,6 @@
 mod downloading;
 mod generate_source;
+mod item_to_block_mapping;
 
 use semver::Version;
 use std::path::PathBuf;

@@ -164,8 +164,7 @@ impl Default for BlockStateId {
     }
 }
 
-const ITEM_TO_BLOCK_MAPPING_FILE: &str =
-    include_str!("../../../assets/data/item_to_block_mapping.json");
+const ITEM_TO_BLOCK_MAPPING_FILE: &str = temper_assets::generated::ITEM_TO_BLOCK_MAPPING;
 pub static ITEM_TO_BLOCK_MAPPING: OnceCell<HashMap<i32, BlockStateId>> = OnceCell::new();
 
 pub fn create_item_to_block_mapping() -> HashMap<i32, BlockStateId> {
