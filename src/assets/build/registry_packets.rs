@@ -2,27 +2,37 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub fn write_registry_packets(out_dir: &Path, reports_dir: &Path, data_dir: &Path) -> PathBuf {
-    let datapack = read_json(&reports_dir.join("datapack.json"));
-    let registries = datapack
-        .get("registries")
-        .and_then(serde_json::Value::as_object)
-        .expect("Generated datapack report should have registries");
+const REGISTRY_PACKET_IDS: &[&str] = &[
+    "minecraft:worldgen/biome",
+    "minecraft:chat_type",
+    "minecraft:trim_pattern",
+    "minecraft:trim_material",
+    "minecraft:wolf_variant",
+    "minecraft:wolf_sound_variant",
+    "minecraft:pig_variant",
+    "minecraft:frog_variant",
+    "minecraft:cat_variant",
+    "minecraft:cow_variant",
+    "minecraft:chicken_variant",
+    "minecraft:painting_variant",
+    "minecraft:dimension_type",
+    "minecraft:damage_type",
+    "minecraft:banner_pattern",
+];
+
+pub fn write_registry_packets(out_dir: &Path, data_dir: &Path) -> PathBuf {
     let mut registry_packets = BTreeMap::new();
 
-    for (registry_id, registry) in registries {
-        if !has_synced_elements(registry) {
-            continue;
-        }
-
+    for registry_id in REGISTRY_PACKET_IDS {
         let registry_dir = data_dir.join(registry_id.replacen(':', "/", 1));
-        if !registry_dir.exists() {
-            continue;
-        }
+        assert!(
+            registry_dir.exists(),
+            "Generated registry data missing for {registry_id}"
+        );
 
         let entries = read_registry_entries(&registry_dir, &registry_dir);
         if !entries.is_empty() {
-            registry_packets.insert(registry_id.clone(), entries);
+            registry_packets.insert((*registry_id).to_string(), entries);
         }
     }
 
@@ -31,19 +41,6 @@ pub fn write_registry_packets(out_dir: &Path, reports_dir: &Path, data_dir: &Pat
         serde_json::to_string(&registry_packets).expect("Failed to serialize registry packets");
     fs::write(&path, content).expect("Failed to write registry packets");
     path
-}
-
-fn has_synced_elements(registry: &serde_json::Value) -> bool {
-    let elements = registry
-        .get("elements")
-        .and_then(serde_json::Value::as_bool)
-        .unwrap_or(false);
-    let stable = registry
-        .get("stable")
-        .and_then(serde_json::Value::as_bool)
-        .unwrap_or(false);
-
-    elements && !stable
 }
 
 fn read_registry_entries(dir: &Path, root: &Path) -> BTreeMap<String, serde_json::Value> {
