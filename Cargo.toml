@@ -15,17 +15,18 @@ members = [
     "src/adapters/anvil",
     "src/adapters/nbt",
     "src/app",
+    "src/assets",
     "src/base/general_purpose",
     "src/base/logging",
     "src/base/macros",
     "src/base/profiling",
     "src/base/threadpool",
+    "src/bin",
     "src/blocks",
-    "src/blocks/crates/property",
-    "src/blocks/crates/generated",
     "src/blocks/crates/build",
     "src/blocks/crates/data",
-    "src/bin",
+    "src/blocks/crates/generated",
+    "src/blocks/crates/property",
     "src/command-infra",
     "src/components",
     "src/core",
@@ -37,8 +38,8 @@ members = [
     "src/game_systems/src/background",
     "src/game_systems/src/interactions",
     "src/game_systems/src/mobs",
-    "src/game_systems/src/pathfinding",
     "src/game_systems/src/packets",
+    "src/game_systems/src/pathfinding",
     "src/game_systems/src/physics",
     "src/game_systems/src/player",
     "src/game_systems/src/world",
@@ -121,26 +122,39 @@ debug = true
 #=============== Dependencies ==============#
 [workspace.dependencies]
 # Workspace members
-temper-app = { path = "src/app" }
+interactions = { path = "src/game_systems/src/interactions" }
 temper-anvil = { path = "src/adapters/anvil" }
-temper-blocks = { path = "src/blocks" }
-temper-block-properties = { path = "src/blocks/crates/property" }
+temper-app = { path = "src/app" }
+temper-assets = { path = "src/assets" }
 temper-block-data = { path = "src/blocks/crates/data" }
-temper-config = { path = "src/config" }
-temper-core = { path = "src/core" }
-temper-default-commands = { path = "src/default_commands" }
-temper-general-purpose = { path = "src/base/general_purpose" }
-temper-logging = { path = "src/base/logging" }
-temper-macros = { path = "src/base/macros" }
-temper-nbt = { path = "src/adapters/nbt" }
-temper-net-runtime = { path = "src/net/runtime" }
-temper-performance = { path = "src/performance" }
+temper-block-properties = { path = "src/blocks/crates/property" }
+temper-blocks = { path = "src/blocks" }
 temper-codec = { path = "src/net/codec" }
 temper-command-infra = { path = "src/command-infra" }
-temper-protocol = { path = "src/net/protocol" }
+temper-components = { path = "src/components" }
+temper-config = { path = "src/config" }
+temper-core = { path = "src/core" }
+temper-dashboard = { path = "src/dashboard" }
+temper-data = { path = "src/data" }
+temper-default-commands = { path = "src/default_commands" }
 temper-encryption = { path = "src/net/encryption" }
+temper-entities = { path = "src/entities" }
+temper-game-systems = { path = "src/game_systems" }
+temper-general-purpose = { path = "src/base/general_purpose" }
+temper-inventories = { path = "src/inventories" }
+temper-logging = { path = "src/base/logging" }
+temper-macros = { path = "src/base/macros" }
+temper-messages = { path = "src/messages" }
+temper-nbt = { path = "src/adapters/nbt" }
+temper-net-runtime = { path = "src/net/runtime" }
+temper-particles = { path = "src/particles" }
+temper-performance = { path = "src/performance" }
+temper-permissions = { path = "src/permissions" }
+temper-physics = { path = "src/physics" }
 temper-profiling = { path = "src/base/profiling" }
+temper-protocol = { path = "src/net/protocol" }
 temper-registry = { path = "src/registry" }
+temper-resources = { path = "src/resources" }
 temper-scheduler = { path = "src/scheduler" }
 temper-state = { path = "src/state" }
 temper-storage = { path = "src/storage" }
@@ -148,20 +162,8 @@ temper-text = { path = "src/text" }
 temper-threadpool = { path = "src/base/threadpool" }
 temper-utils = { path = "src/utils" }
 temper-world = { path = "src/world" }
-temper-world-gen = { path = "src/world/gen" }
 temper-world-format = { path = "src/world/format" }
-temper-inventories = { path = "src/inventories" }
-temper-data = { path = "src/data" }
-temper-components = { path = "src/components" }
-temper-dashboard = { path = "src/dashboard" }
-temper-messages = { path = "src/messages" }
-temper-entities = { path = "src/entities" }
-temper-physics = { path = "src/physics" }
-temper-particles = { path = "src/particles" }
-temper-resources = { path = "src/resources" }
-temper-game-systems = { path = "src/game_systems" }
-interactions = { path = "src/game_systems/src/interactions" }
-temper-permissions = { path = "src/permissions" }
+temper-world-gen = { path = "src/world/gen" }
 
 # Asynchronous
 tokio = { version = "1.52.3", features = [
@@ -216,7 +218,7 @@ base64 = "0.22.1"
 
 bitcode = "0.6.9"
 bitcode_derive = "0.6.9"
-toml = "1.1.2+spec-1.1.0"
+toml = "1.1.2"
 craftflow-nbt = "2.1.0"
 figment = { version = "0.10.19", features = ["toml", "env"] }
 simd-json = "0.17.0"
@@ -231,7 +233,7 @@ dashmap = { version = "7.0.0-rc2", features = ["serde"] }
 uuid = { version = "1.23.4", features = ["v4", "v3", "serde"] }
 indexmap = { version = "2.14.0", features = ["serde"] }
 bimap = "0.6.3"
-arrayvec = "0.7.7"
+arrayvec = "0.7.8"
 fastcache = "0.1.7"
 
 # Macros
@@ -268,18 +270,20 @@ num_cpus = "1.17.0"
 typename = "0.1.2"
 bevy_ecs = { version = "0.19.0", features = ["multi_threaded", "trace", "debug"], default-features = false }
 bevy_math = { version = "0.19.0", features = ["serialize"] }
-rustc-hash = "2.1.2"
+rustc-hash = "2.1.3"
 once_cell = "1.21.4"
 mime_guess = "2.0.5"
+which = "8.0.4"
+semver = "1.0.28"
 
 ## TUI/CLI
 crossterm = "0.29.0"
 ratatui-core = "0.1.2"
 tui-input = "0.15.3"
 ratatui = "0.30.2"
-tui-logger = { version = "0.18.2", features = ["tracing-support", "crossterm"] }
+tui-logger = { version = "0.18.3", features = ["tracing-support", "crossterm"] }
 clap = { version = "4.6.1", features = ["derive", "env"] }
-indicatif = "0.18.4"
+indicatif = "0.18.6"
 colored = "3.1.1"
 unicode-width = "0.2.2"
 heck = "0.5.0"
@@ -293,8 +297,12 @@ include_dir = "0.7.4"
 # Benchmarking
 criterion = { version = "0.8.2", features = ["html_reports"] }
 
+
+# Build
 phf = { version = "0.14.0", features = ["macros"] }
 phf_codegen = { version = "0.14.0" }
+build-print = "1.0.1"
+workspace_root = "0.2.0"
 
 # Web server
 axum = { version = "0.8.9", features = ["tokio", "ws"] }
