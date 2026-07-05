@@ -11,8 +11,9 @@ build = "build/main.rs"
 which = { workspace = true }
 semver = { workspace = true }
 regex = { workspace = true }
-build-print = { workspace = true}
+build-print = { workspace = true }
 workspace_root = { workspace = true }
+reqwest = { workspace = true }
 
 [lints]
 workspace = true

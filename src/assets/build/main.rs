@@ -12,6 +12,17 @@ JDK you'll need to make sure it supports at least version 21, but higher is bett
 const RELEASE_FILE_REGEX: &str = r#"JAVA_VERSION="(\d+\.\d+?\.\d+?)?""#;
 
 fn main() {
+    println!("cargo:rerun-if-changed=./");
+    println!(
+        "cargo:rerun-if-changed={}",
+        workspace_root::get_workspace_root_directory()
+            .unwrap()
+            .join("assets")
+            .join("generated")
+            .as_os_str()
+            .to_str()
+            .unwrap()
+    );
     let java_path = match which::which("java") {
         Err(_) => {
             println!("cargo:error={}", NO_JAVA_MESSAGE);
@@ -19,23 +30,28 @@ fn main() {
         }
         Ok(path) => path,
     };
-    
+
     if let Some(is_higher) = check_version(java_path) {
         if !is_higher {
-            println!("cargo:error=Java version is lower than the minimum required version of {}. Please update your Java installation.", MIN_JAVA_VERSION);
+            println!(
+                "cargo:error=Java version is lower than the minimum required version of {}. Please update your Java installation.",
+                MIN_JAVA_VERSION
+            );
         }
     } else {
-        println!("cargo:warning=Could not determine Java version. Build will proceed, but if it fails you are on your own here");
+        println!(
+            "cargo:warning=Could not determine Java version. Build will proceed, but if it fails you are on your own here"
+        );
     }
-    
+
     downloading::generate();
 }
 
 fn check_version(path: PathBuf) -> Option<bool> {
-    // Using `java -version` sounds easier on paper, but the issue is the different outputs the 
-    // different JDKs have makes it way harder. The release file should have the same format across 
+    // Using `java -version` sounds easier on paper, but the issue is the different outputs the
+    // different JDKs have makes it way harder. The release file should have the same format across
     // all JDKs.
-    
+
     // If the path is a symlink, resolve it
     let followed_path = if path.is_symlink() {
         match path.read_link() {
@@ -100,7 +116,7 @@ fn check_version(path: PathBuf) -> Option<bool> {
             return None;
         }
     };
-    
+
     // Parse out the semver and see if it's equal or higher than the min we've set
     let release_semver = match Version::parse(&found) {
         Ok(v) => v,
@@ -112,9 +128,13 @@ fn check_version(path: PathBuf) -> Option<bool> {
             return None;
         }
     };
-    
-    build_print::info!("cargo:warning=Found java version {} at {:?}, minimum required is {}", release_semver, release_file, MIN_JAVA_VERSION);
-    
+
+    build_print::info!(
+        "cargo:warning=Found java version {} at {:?}, minimum required is {}",
+        release_semver,
+        release_file,
+        MIN_JAVA_VERSION
+    );
+
     Some(release_semver >= MIN_JAVA_VERSION)
-    
 }
