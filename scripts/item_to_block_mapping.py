@@ -3,34 +3,36 @@ import json
 from pathlib import Path
 
 REG_PATH = Path("../assets/data/registries.json")  # items with protocol_id
-BS_PATH = Path("../assets/data/blockstates.json")  # { "<block_id>": { "name": "...", "default": bool, ... } }
+BLOCKS_PATH = Path("../assets/generated/generated/reports/blocks.json")
 OUT_PATH = Path("../assets/data/item_to_block_mapping.json")  # { "<item_pid>": "<block_id>" }
 
 
 def main():
     root = json.loads(REG_PATH.read_text(encoding="utf-8"))
-    blockstates = json.loads(BS_PATH.read_text(encoding="utf-8"))
+    blocks = json.loads(BLOCKS_PATH.read_text(encoding="utf-8"))
 
     # Build name -> chosen block id
     # Rule: default:true wins and can't be overridden; otherwise use first seen.
     name_to_blockid = {}
-    first_seen = {}
 
-    for sid, data in blockstates.items():
+    for name, data in blocks.items():
         if not isinstance(data, dict):
             continue
-        name = data.get("name")
-        if not isinstance(name, str):
+        states = data.get("states")
+        if not isinstance(states, list):
             continue
-        sid = str(sid)
-        is_def = bool(data.get("default", False))
 
-        if name not in first_seen:
-            first_seen[name] = sid
-        if is_def:
-            name_to_blockid[name] = sid
-        elif name not in name_to_blockid:
-            name_to_blockid[name] = sid
+        for state in states:
+            if not isinstance(state, dict) or "id" not in state:
+                continue
+
+            sid = str(state["id"])
+            is_def = bool(state.get("default", False))
+
+            if is_def:
+                name_to_blockid[name] = sid
+            elif name not in name_to_blockid:
+                name_to_blockid[name] = sid
 
     # Build item_pid -> block_id via exact name match
     items = root.get("minecraft:item", {}).get("entries", {})

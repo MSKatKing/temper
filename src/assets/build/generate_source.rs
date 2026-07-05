@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -5,12 +6,60 @@ use std::path::{Path, PathBuf};
 pub fn generate_source(assets_path: PathBuf) {
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR missing"));
     let reports_dir = assets_path.join("generated").join("reports");
+    let blockstates_path = write_blockstates(&out_dir, &reports_dir);
 
-    let mut content = String::from("pub mod reports {\n");
+    let mut content = String::new();
+    content.push_str("pub const BLOCKSTATES: &str = include_str!(");
+    content.push_str(&format!("{:?}", blockstates_path.to_string_lossy()));
+    content.push_str(");\n\n");
+    content.push_str("pub mod reports {\n");
     write_dir(&mut content, &reports_dir, 1);
     content.push_str("}\n");
 
     fs::write(out_dir.join("generated.rs"), content).expect("Failed to write generated source");
+}
+
+fn write_blockstates(out_dir: &Path, reports_dir: &Path) -> PathBuf {
+    let blocks_path = reports_dir.join("blocks.json");
+    let blocks = fs::read_to_string(&blocks_path).expect("Failed to read generated blocks report");
+    let blocks: serde_json::Value =
+        serde_json::from_str(&blocks).expect("Failed to parse generated blocks report");
+    let blocks = blocks
+        .as_object()
+        .expect("Generated blocks report should be an object");
+
+    let mut blockstates = BTreeMap::new();
+
+    for (name, block) in blocks {
+        let states = block
+            .get("states")
+            .and_then(serde_json::Value::as_array)
+            .expect("Generated block should have states");
+
+        for state in states {
+            let id = state
+                .get("id")
+                .and_then(serde_json::Value::as_u64)
+                .expect("Generated block state should have an id");
+            let mut blockstate = serde_json::Map::new();
+
+            blockstate.insert("name".to_string(), serde_json::Value::String(name.clone()));
+
+            if let Some(properties) = state.get("properties") {
+                blockstate.insert("properties".to_string(), properties.clone());
+            } else {
+                blockstate.insert("default".to_string(), serde_json::Value::Bool(true));
+            }
+
+            blockstates.insert(id, serde_json::Value::Object(blockstate));
+        }
+    }
+
+    let blockstates_path = out_dir.join("blockstates.json");
+    let blockstates =
+        serde_json::to_string(&blockstates).expect("Failed to serialize generated blockstates");
+    fs::write(&blockstates_path, blockstates).expect("Failed to write generated blockstates");
+    blockstates_path
 }
 
 fn write_dir(content: &mut String, dir: &Path, depth: usize) {

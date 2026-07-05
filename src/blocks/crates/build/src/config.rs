@@ -17,7 +17,7 @@ pub struct BuildConfig {
 }
 
 pub const BUILD_CONFIG: &str = include_str!("../../../build_config.toml");
-pub const BLOCK_STATES: &str = include_str!("../../../../../assets/data/blockstates.json");
+pub const BLOCK_STATES: &str = temper_assets::generated::BLOCKSTATES;
 
 pub fn get_build_config() -> BuildConfig {
     toml::from_str(BUILD_CONFIG).unwrap()

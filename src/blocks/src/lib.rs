@@ -5,6 +5,7 @@ mod building;
 mod cake;
 mod candle_cake;
 mod decorative;
+mod dried_ghast;
 mod facing_block;
 mod fire;
 mod functional;

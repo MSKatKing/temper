@@ -25,6 +25,7 @@
 "face+facing+powered" = "ButtonBlock"
 "facing" = "FacingBlock"
 "facing+flower_amount" = "FlowerCoverBlock"
+"facing+hydration+waterlogged" = "DriedGhastBlock"
 "facing+half+hinge+open+powered" = "DoorBlock"
 "facing+half+open+powered+waterlogged" = "TrapdoorBlock"
 "facing+half+shape+waterlogged" = "StairsBlock"
