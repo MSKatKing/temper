@@ -15,7 +15,11 @@ pub fn generate() {
                 .arg("-jar")
                 .arg("server.jar")
                 .arg("--all")
-                .current_dir(workspace_root::get_workspace_root_directory().expect("Failed to get workspace root directory").join("assets/generated"))
+                .current_dir(
+                    workspace_root::get_workspace_root_directory()
+                        .expect("Failed to get workspace root directory")
+                        .join("assets/generated"),
+                )
                 .output()
                 .expect("Failed to execute java command");
             info!("Finished generating assets");
@@ -23,8 +27,6 @@ pub fn generate() {
     } else {
         println!("cargo:error=Setup failed");
     }
-    
-    
 }
 fn download_jar(path: PathBuf) {
     info!(
