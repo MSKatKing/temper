@@ -1,17 +1,21 @@
 use crate::generate_source::generate_source;
 use build_print::info;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const SERVER_JAR_URL: &str =
     "https://piston-data.mojang.com/v1/objects/6bce4ef400e4efaa63a13d5e6f6b500be969ef81/server.jar";
 
 pub fn generate() {
-    if let Ok((server_jar, assets_dir)) = setup() {
-        if !server_jar {
-            download_jar(assets_dir.join("server.jar"));
+    if let Ok((generated_assets, assets_dir)) = setup() {
+        if !generated_assets {
+            let server_jar_path = assets_dir.join("server.jar");
+            if !server_jar_path.exists() {
+                download_jar(server_jar_path);
+            }
+
             let java_path = which::which("java").expect("Failed to find java in PATH");
 
-            let _ = std::process::Command::new(java_path)
+            let output = std::process::Command::new(java_path)
                 .arg("-DbundlerMainClass=net.minecraft.data.Main")
                 .arg("-jar")
                 .arg("server.jar")
@@ -23,6 +27,16 @@ pub fn generate() {
                 )
                 .output()
                 .expect("Failed to execute java command");
+
+            if !output.status.success() {
+                panic!(
+                    "Failed to generate assets\nstatus: {}\nstdout:\n{}\nstderr:\n{}",
+                    output.status,
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+
             info!("Finished generating assets");
         }
         generate_source(assets_dir.clone());
@@ -61,26 +75,34 @@ fn setup() -> Result<(bool, PathBuf), ()> {
         .expect("Failed to canonicalize root directory");
     let generated_assets_dir = root.join("assets/generated");
     if !generated_assets_dir.exists() {
-        return if generated_assets_dir
+        if generated_assets_dir
             .parent()
             .expect("Failed to get parent directory")
             .exists()
         {
             std::fs::create_dir_all(&generated_assets_dir)
                 .expect("Failed to create generated assets directory");
-            Err(())
         } else {
             println!(
                 "cargo:error=Parent directory of generated assets does not exist, is {:?} the right directory for the project?",
                 root
             );
-            Err(())
-        };
+            return Err(());
+        }
     }
 
-    if generated_assets_dir.join("server.jar").exists() {
-        Ok((true, generated_assets_dir))
-    } else {
-        Ok((false, generated_assets_dir))
-    }
+    Ok((
+        generated_assets_exist(&generated_assets_dir),
+        generated_assets_dir,
+    ))
+}
+
+fn generated_assets_exist(generated_assets_dir: &Path) -> bool {
+    let generated_dir = generated_assets_dir.join("generated");
+    let reports_dir = generated_dir.join("reports");
+
+    reports_dir.join("blocks.json").exists()
+        && reports_dir.join("registries.json").exists()
+        && reports_dir.join("datapack.json").exists()
+        && generated_dir.join("data").exists()
 }
