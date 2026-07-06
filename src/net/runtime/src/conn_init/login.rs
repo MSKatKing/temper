@@ -15,6 +15,7 @@ use temper_protocol::incoming::packet_skeleton::PacketSkeleton;
 use temper_protocol::outgoing::login_success::{LoginSuccessPacket, LoginSuccessProperties};
 use temper_protocol::outgoing::registry_data::REGISTRY_PACKETS;
 use temper_protocol::outgoing::set_default_spawn_position::DEFAULT_SPAWN_POSITION;
+use temper_protocol::outgoing::update_tags::UPDATE_TAGS_PACKET;
 use temper_state::GlobalState;
 
 use temper_components::entity_identity::Identity;
@@ -324,6 +325,8 @@ async fn finish_configuration(
     for packet in &*REGISTRY_PACKETS {
         conn_write.send_packet_ref(packet)?;
     }
+
+    conn_write.send_packet_ref(&*UPDATE_TAGS_PACKET)?;
 
     // Send brand
     conn_write.send_packet(ClientBoundPluginMessagePacket::brand())?;
