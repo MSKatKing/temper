@@ -127,6 +127,7 @@ fn register_tick_systems(schedule: &mut Schedule) {
             physics::unground::handle,
             physics::gravity::handle,
             physics::drag::handle,
+            physics::friction::handle,
             physics::velocity::handle,
             physics::collisions::handle,
             physics::chunk_boundary::handle,
