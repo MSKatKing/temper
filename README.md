@@ -74,6 +74,11 @@ on our GitHub Actions.
 
 ### Compile from source
 
+##### What you'll need
+- The Rust compiler, plus it's build system Cargo
+- A Java 21 (or higher) JDK installed and available in your 
+  PATH so assets can be extracted from the vanilla server
+
 ##### Clone and build the project.
 
 ```bash

@@ -7,8 +7,8 @@ This is a quick tutorial on how to use this library to create and modify block b
 This is a brief overview of what this crate is actually doing. This is split up into 2 distinct pieces,
 the struct generator and the behavior implementation.
 
-The struct generator (the `temper-blocks-build` crate) is given the `build_config.toml` and `blockstates.json` files
-and generates structs based off of groups of blockstates. For each block in `blockstates.json`, it
+The struct generator (the `temper-blocks-build` crate) is given the `build_config.toml` file and generated blockstates data
+from `temper-assets`, then generates structs based off of groups of blockstates. For each generated blockstate, it
 figures out which properties that block has. It will then collect blocks that have those same properties
 and group them under the same struct. When it's saving the structs, it will look at the `build_config.toml`
 file and rename structs according to the names in that file. The `build_config.toml` also provides the struct
@@ -18,7 +18,7 @@ names of various block state properties. The list of block state properties Mine
 The next step is the block behavior implementations (this is the main crate). To add behavior to blocks, implement
 the `BlockBehavior` trait for that block struct. The trait has already been implemented for all block
 structs so far (to avoid unsafe features, such as `min_specialization`, it's not the most convenient, but it works).
-The build script for this crate uses the `blockstates.json` file to generate a list that maps protocol ids (index)
+The build script for this crate uses the generated blockstates data to generate a list that maps protocol ids (index)
 to block states (value). This list is then used to dispatch behavior functions based on the protocol id.
 
 This crate also implements a helper trait on `BlockStateId` that allows you to call block functions directly from it

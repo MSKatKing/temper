@@ -68,9 +68,8 @@ mod tests {
     #[test]
     #[ignore]
     fn generate_nbt() {
-        let json_file = include_bytes!("../../../../../assets/data/registry_packets.json");
         let val: IndexMap<String, IndexMap<String, Value>> =
-            serde_json::from_slice(json_file).unwrap();
+            serde_json::from_str(temper_assets::generated::REGISTRY_PACKETS).unwrap();
 
         for (key, value_set) in val {
             let mut packets = vec![];

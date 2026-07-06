@@ -35,12 +35,14 @@ temper-state = { workspace = true }
 indexmap = { workspace = true }
 serde_json = { workspace = true }
 craftflow-nbt = { workspace = true }
+temper-assets = { workspace = true }
 
 [build-dependencies]
 serde = { workspace = true }
 walkdir = { workspace = true }
 syn = { workspace = true }
 serde_json = { workspace = true }
+temper-assets = {workspace = true}
 
 [lints]
 workspace = true
