@@ -9,6 +9,8 @@ use std::path::PathBuf;
 
 const MIN_JAVA_VERSION: Version = Version::new(21, 0, 0);
 
+const SERVER_VERSION: &str = "1.21.8";
+
 const NO_JAVA_MESSAGE: &str = "No java install detected. If you have installed one, please add to your path. If you haven't,\
 the Adoptium JDK is recommended and you can get it here: https://adoptium.net/temurin/releases?version=25. If you go with another\
 JDK you'll need to make sure it supports at least version 21, but higher is better.";

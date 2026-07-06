@@ -10,8 +10,23 @@ pub fn generate() {
     if let Ok(assets_dir) = setup() {
         // Gotta use file locking cos nexttest running multiple builds at doesn't play nice
         let _lock = lock_generation(assets_dir.join(".generate.lock"));
+        
+        let version_changed = if assets_dir.join("version").exists()
+            && std::fs::read_to_string(assets_dir.join("version"))
+            .expect("Failed to read version file")
+            == crate::SERVER_VERSION
+        {
+            info!("Server version unchanged, skipping asset generation");
+            false
+        } else {
+            info!("Server version changed, regenerating assets");
+            std::fs::remove_dir_all(&assets_dir).expect("Failed to remove old generated assets");
+            std::fs::create_dir(&assets_dir).expect("Failed to create generated assets directory");
+            true
+        };
 
-        if !generated_assets_exist(&assets_dir) {
+        if !generated_assets_exist(&assets_dir) || version_changed {
+
             let server_jar_path = assets_dir.join("server.jar");
             if !server_jar_path.exists() {
                 download_jar(server_jar_path);
@@ -57,6 +72,11 @@ pub fn generate() {
             include_str!("notice.txt"),
         )
         .expect("Could not write notice file");
+        std::fs::write(
+            assets_dir.join("version"),
+            crate::SERVER_VERSION,
+        )
+        .expect("Could not write version file");
     } else {
         println!("cargo:error=Setup failed");
     }
