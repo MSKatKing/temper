@@ -26,3 +26,5 @@ pub use temper_block_data::*;
 
 pub const BLOCK_MAPPINGS: &[StateBehaviorTable] =
     include!(concat!(env!("OUT_DIR"), "/mappings.rs"));
+
+include!(concat!(env!("OUT_DIR"), "/default_block_states.rs"));
