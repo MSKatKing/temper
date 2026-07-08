@@ -59,11 +59,23 @@ pub struct RegistryEntry {
 
 #[cfg(test)]
 mod tests {
-    use crate::outgoing::registry_data::RegistryEntry;
+    use crate::outgoing::registry_data::{REGISTRY_PACKETS, RegistryEntry};
     use indexmap::IndexMap;
     use serde_json::Value;
     use std::io::Write;
     use temper_codec::net_types::prefixed_optional::PrefixedOptional;
+
+    #[test]
+    fn includes_tag_dependent_synced_registries() {
+        let registry_ids = REGISTRY_PACKETS
+            .iter()
+            .map(|packet| packet.registry_id.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(registry_ids.contains(&"minecraft:enchantment"));
+        assert!(registry_ids.contains(&"minecraft:instrument"));
+        assert!(registry_ids.contains(&"minecraft:dialog"));
+    }
 
     #[test]
     #[ignore]

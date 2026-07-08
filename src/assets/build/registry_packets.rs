@@ -18,6 +18,12 @@ const REGISTRY_PACKET_IDS: &[&str] = &[
     "minecraft:dimension_type",
     "minecraft:damage_type",
     "minecraft:banner_pattern",
+    "minecraft:enchantment",
+    "minecraft:jukebox_song",
+    "minecraft:instrument",
+    "minecraft:test_environment",
+    "minecraft:test_instance",
+    "minecraft:dialog",
 ];
 
 pub fn write_registry_packets(out_dir: &Path, data_dir: &Path) -> PathBuf {
