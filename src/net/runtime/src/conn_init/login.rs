@@ -218,6 +218,7 @@ async fn send_login_success(
                 })
                 .collect(),
         ),
+        session_id: 0,
     };
     conn_write.send_packet(login_success)?;
 

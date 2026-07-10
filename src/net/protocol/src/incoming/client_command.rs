@@ -1,4 +1,4 @@
-//! Client Command packet.
+//! Client CommanOpenMenud packet.
 //!
 //! Sent by the client to perform various actions:
 //! - Action 0: Request respawn after death
@@ -16,6 +16,8 @@ pub enum ClientCommandAction {
     PerformRespawn = 0,
     /// Request game statistics (not implemented)
     RequestStats = 1,
+    /// Request game rules when opening the menu (not implemented)
+    GameRules = 2,
 }
 
 /// Sent by the client to request respawn or stats.

@@ -10,6 +10,7 @@ use temper_protocol::outgoing::remove_entities::RemoveEntitiesPacket;
 use temper_protocol::outgoing::spawn_entity::SpawnEntityPacket;
 use temper_state::GlobalStateResource;
 use tracing::debug;
+use temper_components::player::velocity::Velocity;
 
 /// Protocol entity type ID for player entities in the current target version.
 const PLAYER_TYPE_ID: i32 = 149;
@@ -78,6 +79,7 @@ pub fn send_new_entities(
                     entity_type_id,
                     entity_pos,
                     rot,
+                    &Velocity::new(0.0, 0.0, 0.0)
                 );
                 conn.send_packet(packet)
                     .expect("Failed to send spawn entity packet");

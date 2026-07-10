@@ -1,10 +1,12 @@
 use crate::errors::NetError;
 use bevy_ecs::prelude::{Entity, Query};
 use temper_codec::net_types::angle::NetAngle;
+use temper_codec::net_types::lpvec3::Lpvec3;
 use temper_codec::net_types::var_int::VarInt;
 use temper_components::entity_identity::Identity;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
+use temper_components::player::velocity::Velocity;
 use temper_macros::{NetEncode, packet};
 
 #[derive(NetEncode)]
@@ -16,6 +18,7 @@ pub struct SpawnEntityPacket {
     x: f64,
     y: f64,
     z: f64,
+    velocity: Lpvec3,
     pitch: NetAngle,
     yaw: NetAngle,
     head_yaw: NetAngle,
@@ -36,6 +39,7 @@ impl SpawnEntityPacket {
         entity_type_id: i32,
         position: &Position,
         rotation: &Rotation,
+        velocity: &Velocity
     ) -> Self {
         let (x, y, z) = position.xyz();
         let (yaw, pitch) = rotation.yaw_pitch();
@@ -47,6 +51,7 @@ impl SpawnEntityPacket {
             x,
             y,
             z,
+            velocity: velocity.vec.as_dvec3().into(),
             pitch: NetAngle::from_degrees(f64::from(pitch)),
             yaw: NetAngle::from_degrees(f64::from(yaw)),
             head_yaw: NetAngle::from_degrees(f64::from(yaw)),
@@ -67,9 +72,9 @@ impl SpawnEntityPacket {
     pub fn entity(
         entity: Entity,
         entity_type_id: u16,
-        query: Query<(&Identity, &Position, &Rotation)>,
+        query: Query<(&Identity, &Position, &Rotation, &Velocity)>,
     ) -> Result<Self, NetError> {
-        let (identity, position, rotation) = query
+        let (identity, position, rotation, vel) = query
             .get(entity)
             .map_err(|e| NetError::ECSError(e.into()))?;
 
@@ -83,6 +88,7 @@ impl SpawnEntityPacket {
             x,
             y,
             z,
+            velocity: vel.vec.as_dvec3().into(),
             pitch: NetAngle::from_degrees(f64::from(pitch)),
             yaw: NetAngle::from_degrees(f64::from(yaw)),
             head_yaw: NetAngle::from_degrees(f64::from(yaw)),

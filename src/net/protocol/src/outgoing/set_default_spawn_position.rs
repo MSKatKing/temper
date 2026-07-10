@@ -6,8 +6,10 @@ use temper_macros::{NetEncode, packet};
 #[derive(NetEncode)]
 #[packet(packet_id = "set_default_spawn_position", state = "play")]
 pub struct SetDefaultSpawnPositionPacket {
+    pub dimension: String,
     pub spawn_position: NetworkPosition,
-    pub angle: f32,
+    pub yaw: f32,
+    pub pitch: f32
 }
 
 // Spawn in chunk (1, 1) at y=100 to ensure spawning above ground, since for some reason the terrain
@@ -31,8 +33,10 @@ impl Default for SetDefaultSpawnPositionPacket {
 impl SetDefaultSpawnPositionPacket {
     pub fn new() -> Self {
         Self {
+            dimension: "minecraft:overworld".to_string(),
             spawn_position: DEFAULT_SPAWN_POSITION.into(),
-            angle: DEFAULT_ANGLE,
+            yaw: 0.0,
+            pitch: 0.0,
         }
     }
 }

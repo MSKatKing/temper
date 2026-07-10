@@ -4,6 +4,7 @@ use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::update_time::UpdateTimePacket;
 use temper_resources::time::WorldTime;
 use tracing::warn;
+use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
 
 pub fn tick_daylight_cycle(
     mut world_time: ResMut<WorldTime>,
@@ -15,8 +16,7 @@ pub fn tick_daylight_cycle(
 
     let packet = UpdateTimePacket {
         world_age: 0,
-        time_of_day: world_time.current_time().into(),
-        time_of_day_increasing: true,
+        clocks: LengthPrefixedVec::default()
     };
 
     for (eid, writer) in players.iter() {
