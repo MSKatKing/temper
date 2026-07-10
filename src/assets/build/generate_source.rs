@@ -12,7 +12,7 @@ pub fn generate_source(assets_path: PathBuf) {
     let data_dir = assets_path.join("generated").join("data");
     let blockstates_path = write_blockstates(&out_dir, &reports_dir);
     let item_to_block_mapping_path = write_item_to_block_mapping(&out_dir, &reports_dir);
-    let registry_packets_path = write_registry_packets(&out_dir, &data_dir);
+    let registry_packets_path = write_registry_packets(&out_dir, &assets_path);
     let tag_packets_path = write_tag_packets(&out_dir, &assets_path, &data_dir);
 
     let mut content = String::new();

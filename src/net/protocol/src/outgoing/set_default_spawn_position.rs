@@ -9,7 +9,7 @@ pub struct SetDefaultSpawnPositionPacket {
     pub dimension: String,
     pub spawn_position: NetworkPosition,
     pub yaw: f32,
-    pub pitch: f32
+    pub pitch: f32,
 }
 
 // Spawn in chunk (1, 1) at y=100 to ensure spawning above ground, since for some reason the terrain

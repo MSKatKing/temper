@@ -1,10 +1,10 @@
 use bevy_ecs::prelude::{Commands, Entity, Query, ResMut};
+use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
 use temper_components::player::time::LastSentTimeUpdate;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::update_time::UpdateTimePacket;
 use temper_resources::time::WorldTime;
 use tracing::warn;
-use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
 
 pub fn tick_daylight_cycle(
     mut world_time: ResMut<WorldTime>,
@@ -16,7 +16,7 @@ pub fn tick_daylight_cycle(
 
     let packet = UpdateTimePacket {
         world_age: 0,
-        clocks: LengthPrefixedVec::default()
+        clocks: LengthPrefixedVec::default(),
     };
 
     for (eid, writer) in players.iter() {

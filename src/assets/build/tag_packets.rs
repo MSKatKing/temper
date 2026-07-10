@@ -1,4 +1,4 @@
-use crate::registry_packets::REGISTRY_PACKET_IDS;
+use crate::registry_packets::synced_registry_ids;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -25,11 +25,13 @@ pub fn write_tag_packets(out_dir: &Path, assets_dir: &Path, data_dir: &Path) -> 
 
     let report_registry_ids = read_report_registry_ids(assets_dir);
     let extracted_registry_ids = read_extracted_registry_ids(&extracted_dir);
+    let synced_registry_ids = synced_registry_ids(assets_dir);
     let tags = read_tags(
         assets_dir,
         data_dir,
         &report_registry_ids,
         &extracted_registry_ids,
+        &synced_registry_ids,
     );
 
     let mut tag_packets = TagPackets::new();
@@ -69,6 +71,7 @@ fn read_tags(
     data_dir: &Path,
     report_registry_ids: &BTreeMap<String, RegistryIds>,
     extracted_registry_ids: &BTreeMap<String, RegistryIds>,
+    synced_registry_ids: &BTreeSet<String>,
 ) -> RawTags {
     let generated_tags_dir = data_dir.join("minecraft").join("tags");
     if generated_tags_dir.exists() {
@@ -76,6 +79,7 @@ fn read_tags(
             &generated_tags_dir,
             report_registry_ids,
             extracted_registry_ids,
+            synced_registry_ids,
         );
     }
 
@@ -114,6 +118,7 @@ fn read_generated_tags(
     tags_dir: &Path,
     report_registry_ids: &BTreeMap<String, RegistryIds>,
     extracted_registry_ids: &BTreeMap<String, RegistryIds>,
+    synced_registry_ids: &BTreeSet<String>,
 ) -> RawTags {
     let mut tags = RawTags::new();
     read_generated_tags_dir(
@@ -122,6 +127,7 @@ fn read_generated_tags(
         tags_dir,
         report_registry_ids,
         extracted_registry_ids,
+        synced_registry_ids,
     );
     tags
 }
@@ -132,6 +138,7 @@ fn read_generated_tags_dir(
     root: &Path,
     report_registry_ids: &BTreeMap<String, RegistryIds>,
     extracted_registry_ids: &BTreeMap<String, RegistryIds>,
+    synced_registry_ids: &BTreeSet<String>,
 ) {
     let mut entries = fs::read_dir(dir)
         .expect("Failed to read generated tags directory")
@@ -149,6 +156,7 @@ fn read_generated_tags_dir(
                 root,
                 report_registry_ids,
                 extracted_registry_ids,
+                synced_registry_ids,
             );
             continue;
         }
@@ -165,9 +173,12 @@ fn read_generated_tags_dir(
             .components()
             .map(|component| component.as_os_str().to_string_lossy().to_string())
             .collect::<Vec<_>>();
-        let Some(registry_width) =
-            registry_width(report_registry_ids, extracted_registry_ids, &components)
-        else {
+        let Some(registry_width) = registry_width(
+            report_registry_ids,
+            extracted_registry_ids,
+            synced_registry_ids,
+            &components,
+        ) else {
             continue;
         };
 
@@ -182,13 +193,14 @@ fn read_generated_tags_dir(
 fn registry_width(
     report_registry_ids: &BTreeMap<String, RegistryIds>,
     extracted_registry_ids: &BTreeMap<String, RegistryIds>,
+    synced_registry_ids: &BTreeSet<String>,
     components: &[String],
 ) -> Option<usize> {
     (1..components.len()).rev().find(|width| {
         let registry_id = format!("minecraft:{}", components[..*width].join("/"));
         report_registry_ids.contains_key(&registry_id)
             || extracted_registry_ids.contains_key(&registry_id)
-            || REGISTRY_PACKET_IDS.contains(&registry_id.as_str())
+            || synced_registry_ids.contains(&registry_id)
     })
 }
 

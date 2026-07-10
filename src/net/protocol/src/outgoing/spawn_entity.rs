@@ -22,10 +22,7 @@ pub struct SpawnEntityPacket {
     pitch: NetAngle,
     yaw: NetAngle,
     head_yaw: NetAngle,
-    data: VarInt,
-    velocity_x: i16,
-    velocity_y: i16,
-    velocity_z: i16,
+    data: VarInt
 }
 
 impl SpawnEntityPacket {
@@ -39,7 +36,7 @@ impl SpawnEntityPacket {
         entity_type_id: i32,
         position: &Position,
         rotation: &Rotation,
-        velocity: &Velocity
+        velocity: &Velocity,
     ) -> Self {
         let (x, y, z) = position.xyz();
         let (yaw, pitch) = rotation.yaw_pitch();
@@ -56,9 +53,6 @@ impl SpawnEntityPacket {
             yaw: NetAngle::from_degrees(f64::from(yaw)),
             head_yaw: NetAngle::from_degrees(f64::from(yaw)),
             data: VarInt::new(0),
-            velocity_x: 0,
-            velocity_y: 0,
-            velocity_z: 0,
         }
     }
 
@@ -93,9 +87,6 @@ impl SpawnEntityPacket {
             yaw: NetAngle::from_degrees(f64::from(yaw)),
             head_yaw: NetAngle::from_degrees(f64::from(yaw)),
             data: VarInt::new(0),
-            velocity_x: 0,
-            velocity_y: 0,
-            velocity_z: 0,
         })
     }
 }

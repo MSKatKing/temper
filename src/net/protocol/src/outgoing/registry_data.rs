@@ -76,6 +76,17 @@ mod tests {
         assert!(registry_ids.contains(&"minecraft:instrument"));
         assert!(registry_ids.contains(&"minecraft:dialog"));
         assert!(registry_ids.contains(&"minecraft:timeline"));
+        assert!(registry_ids.contains(&"minecraft:world_clock"));
+        assert!(registry_ids.contains(&"minecraft:worldgen/biome"));
+
+        assert!(!registry_ids.contains(&"minecraft:trade_set"));
+        assert!(!registry_ids.contains(&"minecraft:villager_trade"));
+        assert!(!registry_ids.contains(&"minecraft:enchantment_provider"));
+        assert!(!registry_ids.contains(&"minecraft:trial_spawner"));
+        assert!(!registry_ids.contains(&"minecraft:worldgen/configured_feature"));
+        assert!(!registry_ids.contains(&"minecraft:worldgen/flat_level_generator_preset"));
+        assert!(!registry_ids.contains(&"minecraft:worldgen/structure"));
+        assert!(!registry_ids.contains(&"minecraft:worldgen/world_preset"));
     }
 
     #[test]

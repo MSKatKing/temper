@@ -181,6 +181,20 @@ impl BlockPalette {
             .sum()
     }
 
+    pub fn fluid_count(&self) -> u16 {
+        self.palette
+            .iter()
+            .flatten()
+            .map(|(state, count)| {
+                if *state.to_block_data().unwrap().name == "minecraft:water".to_string() {
+                    count.get()
+                } else {
+                    0
+                }
+            })
+            .sum()
+    }
+
     #[allow(dead_code)] // this will eventually be used for saving to the disk
     pub fn get_minimum_bit_width(&self) -> u8 {
         let len = self.palette.iter().flatten().count();

@@ -82,6 +82,10 @@ impl PalettedSection {
     pub fn block_count(&self) -> u16 {
         self.palette.block_count()
     }
+    
+    pub fn fluid_count(&self) -> u16 {
+        self.palette.fluid_count()
+    }
 
     fn resize(&mut self, new_bit_width: u8) {
         let mut new_buffer =

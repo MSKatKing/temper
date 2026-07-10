@@ -95,6 +95,20 @@ impl ChunkSectionType {
             Self::Direct(data) => data.block_count(),
         }
     }
+    
+    pub fn fluid_count(&self) -> u16 {
+        match self {
+            Self::Uniform(data) => {
+                if data.get_block().to_block_data().unwrap().name == "minecraft:water" {
+                    0
+                } else {
+                    4096
+                }
+            }
+            Self::Paletted(data) => data.fluid_count(),
+            Self::Direct(data) => data.fluid_count(),
+        }
+    }
 }
 
 #[derive(Clone, DeepSizeOf, Serialize, Deserialize, TypeHash)]
@@ -167,6 +181,11 @@ impl ChunkSection {
     #[inline]
     pub fn block_count(&self) -> u16 {
         self.inner.block_count()
+    }
+    
+    #[inline]
+    pub fn fluid_count(&self) -> u16 {
+        self.inner.fluid_count()
     }
 }
 

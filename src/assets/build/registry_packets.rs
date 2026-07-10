@@ -1,46 +1,13 @@
-use std::collections::BTreeMap;
+use serde_json::Value;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub(crate) const REGISTRY_PACKET_IDS: &[&str] = &[
-    "minecraft:worldgen/biome",
-    "minecraft:chat_type",
-    "minecraft:trim_pattern",
-    "minecraft:trim_material",
-    "minecraft:wolf_variant",
-    "minecraft:wolf_sound_variant",
-    "minecraft:pig_variant",
-    "minecraft:frog_variant",
-    "minecraft:cat_variant",
-    "minecraft:cow_variant",
-    "minecraft:chicken_variant",
-    "minecraft:painting_variant",
-    "minecraft:dimension_type",
-    "minecraft:damage_type",
-    "minecraft:banner_pattern",
-    "minecraft:enchantment",
-    "minecraft:jukebox_song",
-    "minecraft:instrument",
-    "minecraft:test_environment",
-    "minecraft:test_instance",
-    "minecraft:dialog",
-    "minecraft:timeline",
-];
-
-pub fn write_registry_packets(out_dir: &Path, data_dir: &Path) -> PathBuf {
+pub fn write_registry_packets(out_dir: &Path, assets_dir: &Path) -> PathBuf {
     let mut registry_packets = BTreeMap::new();
 
-    for registry_id in REGISTRY_PACKET_IDS {
-        let registry_dir = data_dir.join(registry_id.replacen(':', "/", 1));
-        assert!(
-            registry_dir.exists(),
-            "Generated registry data missing for {registry_id}"
-        );
-
-        let entries = read_registry_entries(&registry_dir, &registry_dir);
-        if !entries.is_empty() {
-            registry_packets.insert((*registry_id).to_string(), entries);
-        }
+    for (registry_id, entries) in read_synced_registries(assets_dir) {
+        registry_packets.insert(namespaced(&registry_id), entries);
     }
 
     let path = out_dir.join("registry_packets.json");
@@ -50,42 +17,51 @@ pub fn write_registry_packets(out_dir: &Path, data_dir: &Path) -> PathBuf {
     path
 }
 
-fn read_registry_entries(dir: &Path, root: &Path) -> BTreeMap<String, serde_json::Value> {
-    let mut entries = fs::read_dir(dir)
-        .expect("Failed to read registry directory")
-        .collect::<Result<Vec<_>, _>>()
-        .expect("Failed to read registry directory entry");
-
-    entries.sort_by_key(|entry| entry.path());
-
-    let mut registry_entries = BTreeMap::new();
-    for entry in entries {
-        let path = entry.path();
-        if path.is_dir() {
-            registry_entries.extend(read_registry_entries(&path, root));
-            continue;
-        }
-
-        if path.extension().and_then(|extension| extension.to_str()) != Some("json") {
-            continue;
-        }
-
-        let id = path
-            .strip_prefix(root)
-            .expect("Registry entry should be inside registry root")
-            .with_extension("")
-            .components()
-            .map(|component| component.as_os_str().to_string_lossy())
-            .collect::<Vec<_>>()
-            .join("/");
-
-        registry_entries.insert(id, read_json(&path));
-    }
-
-    registry_entries
+pub(crate) fn synced_registry_ids(assets_dir: &Path) -> BTreeSet<String> {
+    read_synced_registries(assets_dir)
+        .into_keys()
+        .map(|registry_id| namespaced(&registry_id))
+        .collect()
 }
 
-fn read_json(path: &Path) -> serde_json::Value {
-    let content = fs::read_to_string(path).expect("Failed to read generated registry data");
-    serde_json::from_str(&content).expect("Failed to parse generated registry data")
+fn read_synced_registries(assets_dir: &Path) -> BTreeMap<String, BTreeMap<String, Value>> {
+    let path = synced_registries_path(assets_dir);
+
+    println!("cargo:rerun-if-changed={}", path.display());
+
+    serde_json::from_str(&fs::read_to_string(&path).expect("Failed to read synced registries"))
+        .expect("Failed to parse synced registries")
+}
+
+fn synced_registries_path(assets_dir: &Path) -> PathBuf {
+    let assets_root = assets_dir
+        .parent()
+        .expect("Generated assets directory should have a parent");
+    let extracted_path = assets_root.join("extracted").join("synced_registries.json");
+    let new_extract_path = assets_root
+        .join("new-extract")
+        .join("synced_registries.json");
+
+    println!("cargo:rerun-if-changed={}", extracted_path.display());
+    println!("cargo:rerun-if-changed={}", new_extract_path.display());
+
+    if extracted_path.exists() {
+        extracted_path
+    } else if new_extract_path.exists() {
+        new_extract_path
+    } else {
+        panic!(
+            "Missing synced_registries.json at {} or {}",
+            extracted_path.display(),
+            new_extract_path.display()
+        );
+    }
+}
+
+fn namespaced(registry_id: &str) -> String {
+    if registry_id.contains(':') {
+        registry_id.to_string()
+    } else {
+        format!("minecraft:{registry_id}")
+    }
 }
