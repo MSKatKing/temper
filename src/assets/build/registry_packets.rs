@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const REGISTRY_PACKET_IDS: &[&str] = &[
+pub(crate) const REGISTRY_PACKET_IDS: &[&str] = &[
     "minecraft:worldgen/biome",
     "minecraft:chat_type",
     "minecraft:trim_pattern",
@@ -24,6 +24,7 @@ const REGISTRY_PACKET_IDS: &[&str] = &[
     "minecraft:test_environment",
     "minecraft:test_instance",
     "minecraft:dialog",
+    "minecraft:timeline",
 ];
 
 pub fn write_registry_packets(out_dir: &Path, data_dir: &Path) -> PathBuf {

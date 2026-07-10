@@ -75,6 +75,7 @@ mod tests {
         assert!(registry_ids.contains(&"minecraft:enchantment"));
         assert!(registry_ids.contains(&"minecraft:instrument"));
         assert!(registry_ids.contains(&"minecraft:dialog"));
+        assert!(registry_ids.contains(&"minecraft:timeline"));
     }
 
     #[test]
