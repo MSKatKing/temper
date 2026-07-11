@@ -42,8 +42,8 @@ pub enum ParticleType {
     Crit,
     DamageIndicator,
     DragonBreath {
-        power: f32
-    },  
+        power: f32,
+    },
     DrippingLava,
     FallingLava,
     LandingLava,
@@ -96,7 +96,7 @@ pub enum ParticleType {
     SoulFireFlame,
     Soul,
     Flash {
-        color: Color
+        color: Color,
     },
     HappyVillager,
     Composter,
@@ -196,7 +196,7 @@ pub enum ParticleType {
         blockstate: BlockStateId,
     },
     Firefly,
-    SulfurCubeGoo
+    SulfurCubeGoo,
 }
 
 /// Source type for the `vibration` particle.

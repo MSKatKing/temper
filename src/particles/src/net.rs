@@ -17,7 +17,14 @@ impl NetEncode for ParticleType {
                 writer.write_all(&water_blocks.to_le_bytes())?;
                 Ok(())
             }
-            GeyserBase { water_blocks, burst_impulse_base } | GeyserPoof { water_blocks, burst_impulse_base } => {
+            GeyserBase {
+                water_blocks,
+                burst_impulse_base,
+            }
+            | GeyserPoof {
+                water_blocks,
+                burst_impulse_base,
+            } => {
                 writer.write_all(&water_blocks.to_le_bytes())?;
                 writer.write_all(&burst_impulse_base.to_le_bytes())?;
                 Ok(())
@@ -33,7 +40,7 @@ impl NetEncode for ParticleType {
                 writer.write_all(&scale.to_le_bytes())?;
                 Ok(())
             }
-            Effect { color, power} | InstantEffect {color, power} => {
+            Effect { color, power } | InstantEffect { color, power } => {
                 color.to_i32().encode(writer, opts)?;
                 writer.write_all(&power.to_le_bytes())?;
                 Ok(())
@@ -44,7 +51,7 @@ impl NetEncode for ParticleType {
                 writer.write_all(&roll.to_le_bytes())?;
                 Ok(())
             }
-            Flash { color} => color.to_i32().encode(writer, opts),
+            Flash { color } => color.to_i32().encode(writer, opts),
             Item { item } => item.encode(writer, opts),
             Vibration { source, ticks } => {
                 source.encode(writer, opts)?;

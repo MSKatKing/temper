@@ -186,7 +186,7 @@ impl BlockPalette {
             .iter()
             .flatten()
             .map(|(state, count)| {
-                if *state.to_block_data().unwrap().name == "minecraft:water".to_string() {
+                if state.to_block_data().unwrap().name == "minecraft:water" {
                     count.get()
                 } else {
                     0

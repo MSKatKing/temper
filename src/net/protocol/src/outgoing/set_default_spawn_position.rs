@@ -22,8 +22,6 @@ pub const DEFAULT_SPAWN_POSITION: Position = Position {
     },
 };
 
-const DEFAULT_ANGLE: f32 = 0.0;
-
 impl Default for SetDefaultSpawnPositionPacket {
     fn default() -> Self {
         Self::new()
