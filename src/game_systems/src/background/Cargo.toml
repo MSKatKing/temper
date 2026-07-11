@@ -25,8 +25,9 @@ crossbeam-queue = { workspace = true }
 temper-world = { workspace = true }
 temper-nbt = { workspace = true }
 temper-permissions = { workspace = true }
-uuid = {workspace = true}
+uuid = { workspace = true }
 tokio = { workspace = true }
+temper-data = { workspace = true }
 
 [dev-dependencies]
 temper-encryption = { workspace = true }
