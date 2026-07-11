@@ -8,7 +8,7 @@ use temper_macros::Command;
 use temper_permissions::Access::Allow;
 use temper_permissions::Permissions;
 use temper_permissions::player::PlayerPermission;
-use temper_text::TextComponent;
+use temper_text::{Color, NamedColor, TextComponent, TextContent};
 
 #[derive(Debug, Command)]
 #[command(name = "op", permission = Permissions::Op)]
@@ -24,14 +24,35 @@ impl CommandHandler for OpCommand {
 
     fn handle(
         self,
-        _source: CommandSource,
+        source: CommandSource,
         params: &mut Self::SystemParam<'_, '_>,
     ) -> CommandResult {
         let (entities, permissions) = params;
 
         for entity in self.target.resolve(entities.iter()) {
             if let Ok(mut player_permission) = permissions.get_mut(entity) {
+                if player_permission.permissions.get(&Permissions::ALL) == Some(&Allow) {
+                    source.send_message(TextComponent {
+                        content: TextContent::Text {
+                            text: "Nothing changed. The player is already an operator".to_string(),
+                        },
+                        color: Some(Color::Named(NamedColor::Red)),
+                        ..Default::default()
+                    });
+                    continue;
+                }
+
                 player_permission.set_permission(Permissions::ALL, Allow);
+
+                let Ok(Some(player_name)) = entities.get(entity).map(|e| &e.1.name) else {
+                    return Err("player entity does not have a name".into());
+                };
+
+                source.send_message(TextComponent::from(format!(
+                    "Made {} a server operator",
+                    player_name
+                )));
+
                 mq::queue(
                     TextComponent::from("You have been opped".to_string()),
                     false,
