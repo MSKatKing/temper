@@ -22,7 +22,7 @@ pub struct SpawnEntityPacket {
     pitch: NetAngle,
     yaw: NetAngle,
     head_yaw: NetAngle,
-    data: VarInt
+    data: VarInt,
 }
 
 impl SpawnEntityPacket {

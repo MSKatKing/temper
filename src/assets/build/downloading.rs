@@ -1,6 +1,6 @@
 use crate::generate_source::generate_source;
 use build_print::info;
-use std::fs::File;
+use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 
 const SERVER_JAR_URL: &str =
@@ -66,16 +66,25 @@ pub fn generate() {
             info!("Finished generating assets");
         }
         generate_source(assets_dir.clone());
-        std::fs::write(
+        write_if_changed(
             assets_dir.join("DONT_USE_PLS_READ.txt"),
             include_str!("notice.txt"),
         )
         .expect("Could not write notice file");
-        std::fs::write(assets_dir.join("version"), crate::SERVER_VERSION)
+        write_if_changed(assets_dir.join("version"), crate::SERVER_VERSION)
             .expect("Could not write version file");
     } else {
         println!("cargo:error=Setup failed");
     }
+}
+
+fn write_if_changed(path: PathBuf, content: impl AsRef<[u8]>) -> std::io::Result<()> {
+    let content = content.as_ref();
+    if fs::read(&path).is_ok_and(|existing| existing == content) {
+        return Ok(());
+    }
+
+    fs::write(path, content)
 }
 
 fn lock_generation(path: PathBuf) -> File {

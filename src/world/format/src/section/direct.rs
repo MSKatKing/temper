@@ -43,9 +43,12 @@ impl DirectSection {
     pub fn block_count(&self) -> u16 {
         self.1
     }
-    
+
     pub fn fluid_count(&self) -> u16 {
-        self.0.iter().filter(|&&id| BlockStateId::new(id.into()).to_block_data().unwrap().name == "water").count() as u16
+        self.0
+            .iter()
+            .filter(|&&id| BlockStateId::new(id.into()).to_block_data().unwrap().name == "water")
+            .count() as u16
     }
 }
 

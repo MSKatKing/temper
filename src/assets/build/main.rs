@@ -18,12 +18,13 @@ JDK you'll need to make sure it supports at least version 21, but higher is bett
 const RELEASE_FILE_REGEX: &str = r#"JAVA_VERSION="(\d+\.\d+?\.\d+?)?""#;
 
 fn main() {
-    println!("cargo:rerun-if-changed=./");
+    println!("cargo:rerun-if-changed=build");
     println!(
         "cargo:rerun-if-changed={}",
         workspace_root::get_workspace_root_directory()
             .unwrap()
             .join("assets")
+            .join("generated")
             .join("generated")
             .as_os_str()
             .to_str()

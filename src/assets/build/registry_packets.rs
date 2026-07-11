@@ -38,9 +38,7 @@ fn synced_registries_path(assets_dir: &Path) -> PathBuf {
         .parent()
         .expect("Generated assets directory should have a parent");
     let extracted_path = assets_root.join("extracted").join("synced_registries.json");
-    let new_extract_path = assets_root
-        .join("new-extract")
-        .join("synced_registries.json");
+    let new_extract_path = assets_root.join("extracted").join("synced_registries.json");
 
     println!("cargo:rerun-if-changed={}", extracted_path.display());
     println!("cargo:rerun-if-changed={}", new_extract_path.display());

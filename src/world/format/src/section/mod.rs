@@ -95,7 +95,7 @@ impl ChunkSectionType {
             Self::Direct(data) => data.block_count(),
         }
     }
-    
+
     pub fn fluid_count(&self) -> u16 {
         match self {
             Self::Uniform(data) => {
@@ -182,7 +182,7 @@ impl ChunkSection {
     pub fn block_count(&self) -> u16 {
         self.inner.block_count()
     }
-    
+
     #[inline]
     pub fn fluid_count(&self) -> u16 {
         self.inner.fluid_count()

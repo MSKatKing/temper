@@ -82,7 +82,7 @@ impl PalettedSection {
     pub fn block_count(&self) -> u16 {
         self.palette.block_count()
     }
-    
+
     pub fn fluid_count(&self) -> u16 {
         self.palette.fluid_count()
     }
