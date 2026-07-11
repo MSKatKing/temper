@@ -1,3 +1,4 @@
+use crate::write_if_changed;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -29,7 +30,7 @@ pub fn write_item_to_block_mapping(out_dir: &Path, reports_dir: &Path) -> PathBu
     let path = out_dir.join("item_to_block_mapping.json");
     let content =
         serde_json::to_string(&item_to_block).expect("Failed to serialize item to block mapping");
-    fs::write(&path, content).expect("Failed to write item to block mapping");
+    write_if_changed(&path, content).expect("Failed to write item to block mapping");
     path
 }
 

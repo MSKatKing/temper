@@ -5,7 +5,8 @@ mod registry_packets;
 mod tag_packets;
 
 use semver::Version;
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 const MIN_JAVA_VERSION: Version = Version::new(21, 0, 0);
 
@@ -137,4 +138,18 @@ fn check_version(path: PathBuf) -> Option<bool> {
     };
 
     Some(release_semver >= MIN_JAVA_VERSION)
+}
+
+pub(crate) fn write_if_changed(
+    path: impl AsRef<Path>,
+    content: impl AsRef<[u8]>,
+) -> std::io::Result<()> {
+    let path = path.as_ref();
+    let content = content.as_ref();
+
+    if fs::read(path).is_ok_and(|existing| existing == content) {
+        return Ok(());
+    }
+
+    fs::write(path, content)
 }

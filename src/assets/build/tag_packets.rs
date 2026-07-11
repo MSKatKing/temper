@@ -1,4 +1,5 @@
 use crate::registry_packets::synced_registry_ids;
+use crate::write_if_changed;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -62,7 +63,7 @@ pub fn write_tag_packets(out_dir: &Path, assets_dir: &Path, data_dir: &Path) -> 
 
     let path = out_dir.join("tag_packets.json");
     let content = serde_json::to_string(&tag_packets).expect("Failed to serialize tag packets");
-    fs::write(&path, content).expect("Failed to write tag packets");
+    write_if_changed(&path, content).expect("Failed to write tag packets");
     path
 }
 

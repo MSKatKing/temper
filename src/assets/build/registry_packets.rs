@@ -1,3 +1,4 @@
+use crate::write_if_changed;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -13,7 +14,7 @@ pub fn write_registry_packets(out_dir: &Path, assets_dir: &Path) -> PathBuf {
     let path = out_dir.join("registry_packets.json");
     let content =
         serde_json::to_string(&registry_packets).expect("Failed to serialize registry packets");
-    fs::write(&path, content).expect("Failed to write registry packets");
+    write_if_changed(&path, content).expect("Failed to write registry packets");
     path
 }
 
@@ -38,10 +39,9 @@ fn synced_registries_path(assets_dir: &Path) -> PathBuf {
         .parent()
         .expect("Generated assets directory should have a parent");
     let extracted_path = assets_root.join("extracted").join("synced_registries.json");
-    let new_extract_path = assets_root.join("extracted").join("synced_registries.json");
-
-    println!("cargo:rerun-if-changed={}", extracted_path.display());
-    println!("cargo:rerun-if-changed={}", new_extract_path.display());
+    let new_extract_path = assets_root
+        .join("new-extract")
+        .join("synced_registries.json");
 
     if extracted_path.exists() {
         extracted_path

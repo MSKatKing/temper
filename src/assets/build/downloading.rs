@@ -1,6 +1,6 @@
-use crate::generate_source::generate_source;
+use crate::{generate_source::generate_source, write_if_changed};
 use build_print::info;
-use std::fs::{self, File};
+use std::fs::File;
 use std::path::{Path, PathBuf};
 
 const SERVER_JAR_URL: &str =
@@ -16,7 +16,6 @@ pub fn generate() {
                 .expect("Failed to read version file")
                 == crate::SERVER_VERSION
         {
-            info!("Server version unchanged, skipping asset generation");
             false
         } else {
             info!("Server version changed, regenerating assets");
@@ -76,15 +75,6 @@ pub fn generate() {
     } else {
         println!("cargo:error=Setup failed");
     }
-}
-
-fn write_if_changed(path: PathBuf, content: impl AsRef<[u8]>) -> std::io::Result<()> {
-    let content = content.as_ref();
-    if fs::read(&path).is_ok_and(|existing| existing == content) {
-        return Ok(());
-    }
-
-    fs::write(path, content)
 }
 
 fn lock_generation(path: PathBuf) -> File {
