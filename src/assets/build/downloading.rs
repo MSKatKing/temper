@@ -1,22 +1,25 @@
-use crate::generate_source::generate_source;
+use crate::{generate_source::generate_source, write_if_changed};
 use build_print::info;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
 const SERVER_JAR_URL: &str =
-    "https://piston-data.mojang.com/v1/objects/6bce4ef400e4efaa63a13d5e6f6b500be969ef81/server.jar";
+    "https://piston-data.mojang.com/v1/objects/823e2250d24b3ddac457a60c92a6a941943fcd6a/server.jar";
 
 pub fn generate() {
     if let Ok(assets_dir) = setup() {
         // Gotta use file locking cos nexttest running multiple builds at doesn't play nice
-        let _lock = lock_generation(assets_dir.join(".generate.lock"));
+        let lock_path = assets_dir
+            .parent()
+            .expect("Generated assets directory should have a parent")
+            .join(".generate.lock");
+        let _lock = lock_generation(lock_path);
 
         let version_changed = if assets_dir.join("version").exists()
             && std::fs::read_to_string(assets_dir.join("version"))
                 .expect("Failed to read version file")
                 == crate::SERVER_VERSION
         {
-            info!("Server version unchanged, skipping asset generation");
             false
         } else {
             info!("Server version changed, regenerating assets");
@@ -66,12 +69,12 @@ pub fn generate() {
             info!("Finished generating assets");
         }
         generate_source(assets_dir.clone());
-        std::fs::write(
+        write_if_changed(
             assets_dir.join("DONT_USE_PLS_READ.txt"),
             include_str!("notice.txt"),
         )
         .expect("Could not write notice file");
-        std::fs::write(assets_dir.join("version"), crate::SERVER_VERSION)
+        write_if_changed(assets_dir.join("version"), crate::SERVER_VERSION)
             .expect("Could not write version file");
     } else {
         println!("cargo:error=Setup failed");

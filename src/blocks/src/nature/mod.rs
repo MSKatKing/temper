@@ -20,6 +20,7 @@ mod mangrove_propagule;
 mod pale_hanging_moss;
 mod pale_moss_carpet;
 mod pitcher_crop;
+mod potent_sulfur;
 mod sapling_block;
 mod sea_pickle;
 mod small_dripleaf;

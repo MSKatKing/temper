@@ -107,7 +107,14 @@ mod tests {
             .find(|tag| tag.name == "minecraft:tradeable")
             .expect("minecraft:tradeable enchantment tag should be present");
 
-        assert!(!tradeable.entries.data.is_empty());
-        assert_eq!(tradeable.entries.data[0].0, 27);
+        let entries = tradeable
+            .entries
+            .data
+            .iter()
+            .map(|entry| entry.0)
+            .collect::<Vec<_>>();
+
+        assert_eq!(entries[0], 28);
+        assert!(entries.contains(&21));
     }
 }

@@ -5,6 +5,7 @@ use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
+use temper_components::player::velocity::Velocity;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::remove_entities::RemoveEntitiesPacket;
 use temper_protocol::outgoing::spawn_entity::SpawnEntityPacket;
@@ -12,7 +13,7 @@ use temper_state::GlobalStateResource;
 use tracing::debug;
 
 /// Protocol entity type ID for player entities in the current target version.
-const PLAYER_TYPE_ID: i32 = 149;
+const PLAYER_TYPE_ID: u16 = temper_data::generated::entities::EntityType::PLAYER.id;
 
 pub fn send_untracked_entities(
     mut player_query: Query<(&StreamWriter, &mut EntityTracker)>,
@@ -69,15 +70,16 @@ pub fn send_new_entities(
                 let entity_type_id = if is_player {
                     PLAYER_TYPE_ID
                 } else {
-                    i32::from(entity_type_id)
+                    entity_type_id
                 };
 
                 let packet = SpawnEntityPacket::new(
                     identity.entity_id,
                     identity.uuid.as_u128(),
-                    entity_type_id,
+                    i32::from(entity_type_id),
                     entity_pos,
                     rot,
+                    &Velocity::new(0.0, 0.0, 0.0),
                 );
                 conn.send_packet(packet)
                     .expect("Failed to send spawn entity packet");

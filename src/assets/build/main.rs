@@ -5,11 +5,12 @@ mod registry_packets;
 mod tag_packets;
 
 use semver::Version;
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 const MIN_JAVA_VERSION: Version = Version::new(21, 0, 0);
 
-const SERVER_VERSION: &str = "1.21.8";
+const SERVER_VERSION: &str = "26.2";
 
 const NO_JAVA_MESSAGE: &str = "No java install detected. If you have installed one, please add to your path. If you haven't,\
 the Adoptium JDK is recommended and you can get it here: https://adoptium.net/temurin/releases?version=25. If you go with another\
@@ -18,12 +19,13 @@ JDK you'll need to make sure it supports at least version 21, but higher is bett
 const RELEASE_FILE_REGEX: &str = r#"JAVA_VERSION="(\d+\.\d+?\.\d+?)?""#;
 
 fn main() {
-    println!("cargo:rerun-if-changed=./");
+    println!("cargo:rerun-if-changed=build");
     println!(
         "cargo:rerun-if-changed={}",
         workspace_root::get_workspace_root_directory()
             .unwrap()
             .join("assets")
+            .join("generated")
             .join("generated")
             .as_os_str()
             .to_str()
@@ -136,4 +138,18 @@ fn check_version(path: PathBuf) -> Option<bool> {
     };
 
     Some(release_semver >= MIN_JAVA_VERSION)
+}
+
+pub(crate) fn write_if_changed(
+    path: impl AsRef<Path>,
+    content: impl AsRef<[u8]>,
+) -> std::io::Result<()> {
+    let path = path.as_ref();
+    let content = content.as_ref();
+
+    if fs::read(path).is_ok_and(|existing| existing == content) {
+        return Ok(());
+    }
+
+    fs::write(path, content)
 }

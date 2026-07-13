@@ -1,6 +1,7 @@
 use crate::item_to_block_mapping::write_item_to_block_mapping;
 use crate::registry_packets::write_registry_packets;
 use crate::tag_packets::write_tag_packets;
+use crate::write_if_changed;
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
@@ -12,7 +13,7 @@ pub fn generate_source(assets_path: PathBuf) {
     let data_dir = assets_path.join("generated").join("data");
     let blockstates_path = write_blockstates(&out_dir, &reports_dir);
     let item_to_block_mapping_path = write_item_to_block_mapping(&out_dir, &reports_dir);
-    let registry_packets_path = write_registry_packets(&out_dir, &data_dir);
+    let registry_packets_path = write_registry_packets(&out_dir, &assets_path);
     let tag_packets_path = write_tag_packets(&out_dir, &assets_path, &data_dir);
 
     let mut content = String::new();
@@ -35,7 +36,8 @@ pub fn generate_source(assets_path: PathBuf) {
     write_dir(&mut content, &reports_dir, 1);
     content.push_str("}\n");
 
-    fs::write(out_dir.join("generated.rs"), content).expect("Failed to write generated source");
+    write_if_changed(out_dir.join("generated.rs"), content)
+        .expect("Failed to write generated source");
 }
 
 fn write_blockstates(out_dir: &Path, reports_dir: &Path) -> PathBuf {
@@ -77,7 +79,8 @@ fn write_blockstates(out_dir: &Path, reports_dir: &Path) -> PathBuf {
     let blockstates_path = out_dir.join("blockstates.json");
     let blockstates =
         serde_json::to_string(&blockstates).expect("Failed to serialize generated blockstates");
-    fs::write(&blockstates_path, blockstates).expect("Failed to write generated blockstates");
+    write_if_changed(&blockstates_path, blockstates)
+        .expect("Failed to write generated blockstates");
     blockstates_path
 }
 

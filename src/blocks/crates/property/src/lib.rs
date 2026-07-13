@@ -31,6 +31,7 @@ lazy_static::lazy_static! {
         map.insert("Half", Half::DESCRIPTOR);
         map.insert("NoteBlockInstrument", NoteBlockInstrument::DESCRIPTOR);
         map.insert("PistonType", PistonType::DESCRIPTOR);
+        map.insert("PotentSulfurState", PotentSulfurState::DESCRIPTOR);
         map.insert("CopperGolemPose", CopperGolemPose::DESCRIPTOR);
         map.insert("RailShape", RailShape::DESCRIPTOR);
         map.insert("RedstoneSide", RedstoneSide::DESCRIPTOR);

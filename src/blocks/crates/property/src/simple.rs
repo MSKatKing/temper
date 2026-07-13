@@ -57,6 +57,15 @@ enum_property!(
 );
 
 enum_property!(
+    PotentSulfurState,
+    Dry => "dry",
+    Wet => "wet",
+    Dormant => "dormant",
+    Continuous => "continuous",
+    Erupting => "erupting",
+);
+
+enum_property!(
     Direction,
     Down => "down",
     Up => "up",

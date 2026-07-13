@@ -3,6 +3,7 @@ use deepsize::DeepSizeOf;
 use serde_derive::{Deserialize, Serialize};
 use std::num::NonZeroU16;
 use temper_core::block_state_id::BlockStateId;
+use temper_macros::match_block;
 use type_hash::TypeHash;
 
 pub type PaletteIndex = u16;
@@ -178,6 +179,20 @@ impl BlockPalette {
             .iter()
             .flatten()
             .map(|(state, count)| if *state != AIR { count.get() } else { 0 })
+            .sum()
+    }
+
+    pub fn fluid_count(&self) -> u16 {
+        self.palette
+            .iter()
+            .flatten()
+            .map(|(state, count)| {
+                if match_block!("water", *state) || match_block!("lava", *state) {
+                    count.get()
+                } else {
+                    0
+                }
+            })
             .sum()
     }
 

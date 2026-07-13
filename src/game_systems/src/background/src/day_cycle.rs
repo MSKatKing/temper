@@ -1,4 +1,5 @@
 use bevy_ecs::prelude::{Commands, Entity, Query, ResMut};
+use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
 use temper_components::player::time::LastSentTimeUpdate;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::update_time::UpdateTimePacket;
@@ -15,8 +16,7 @@ pub fn tick_daylight_cycle(
 
     let packet = UpdateTimePacket {
         world_age: 0,
-        time_of_day: world_time.current_time().into(),
-        time_of_day_increasing: true,
+        clocks: LengthPrefixedVec::default(),
     };
 
     for (eid, writer) in players.iter() {
