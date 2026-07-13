@@ -12,7 +12,7 @@ pub struct UpdateTimePacket {
 #[derive(NetEncode)]
 pub struct Clock {
     pub clock_id: VarInt,
-    pub time: i64,
+    pub time: VarInt,
     pub fractional_time: f32,
     pub rate: f32,
 }
