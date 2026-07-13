@@ -9,7 +9,11 @@ const SERVER_JAR_URL: &str =
 pub fn generate() {
     if let Ok(assets_dir) = setup() {
         // Gotta use file locking cos nexttest running multiple builds at doesn't play nice
-        let _lock = lock_generation(assets_dir.join(".generate.lock"));
+        let lock_path = assets_dir
+            .parent()
+            .expect("Generated assets directory should have a parent")
+            .join(".generate.lock");
+        let _lock = lock_generation(lock_path);
 
         let version_changed = if assets_dir.join("version").exists()
             && std::fs::read_to_string(assets_dir.join("version"))

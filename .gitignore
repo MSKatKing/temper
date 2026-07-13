@@ -8,6 +8,7 @@ config.toml
 .temp
 
 assets/generated/*
+assets/.generate.lock
 
 .etc/blocks.json
 
