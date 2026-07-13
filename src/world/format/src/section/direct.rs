@@ -5,6 +5,7 @@ use deepsize::DeepSizeOf;
 use serde_derive::{Deserialize, Serialize};
 use temper_core::block_state_id::BlockStateId;
 use type_hash::TypeHash;
+use temper_macros::match_block;
 
 // Currently there are less block state ids than u16::MAX, so we can store ids as u16s to cut down on memory usage
 type CompactBlockStateId = u16;
@@ -47,7 +48,10 @@ impl DirectSection {
     pub fn fluid_count(&self) -> u16 {
         self.0
             .iter()
-            .filter(|&&id| BlockStateId::new(id.into()).to_block_data().unwrap().name == "water")
+            .filter(|&&id| {
+                let block_id = BlockStateId::new(id.into());
+                match_block!("water", block_id) || match_block!("lava", block_id)
+            })
             .count() as u16
     }
 }

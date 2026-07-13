@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::SectionBlockPos;
-use temper_macros::block;
+use temper_macros::{block, match_block};
 use type_hash::TypeHash;
 
 mod biome;
@@ -99,7 +99,8 @@ impl ChunkSectionType {
     pub fn fluid_count(&self) -> u16 {
         match self {
             Self::Uniform(data) => {
-                if data.get_block().to_block_data().unwrap().name == "minecraft:water" {
+                let state = data.get_block();
+                if match_block!("water", state) || match_block!("lava", state) {
                     0
                 } else {
                     4096

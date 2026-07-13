@@ -1,8 +1,3 @@
-//! Client CommanOpenMenud packet.
-//!
-//! Sent by the client to perform various actions:
-//! - Action 0: Request respawn after death
-
 #[allow(unused_imports)]
 use temper_codec::net_types::var_int::VarInt;
 use temper_macros::{NetDecode, packet};
