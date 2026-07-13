@@ -4,8 +4,8 @@ use crate::section::{AIR, CHUNK_SECTION_LENGTH};
 use deepsize::DeepSizeOf;
 use serde_derive::{Deserialize, Serialize};
 use temper_core::block_state_id::BlockStateId;
-use type_hash::TypeHash;
 use temper_macros::match_block;
+use type_hash::TypeHash;
 
 // Currently there are less block state ids than u16::MAX, so we can store ids as u16s to cut down on memory usage
 type CompactBlockStateId = u16;

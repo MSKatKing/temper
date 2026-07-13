@@ -3,8 +3,8 @@ use deepsize::DeepSizeOf;
 use serde_derive::{Deserialize, Serialize};
 use std::num::NonZeroU16;
 use temper_core::block_state_id::BlockStateId;
-use type_hash::TypeHash;
 use temper_macros::match_block;
+use type_hash::TypeHash;
 
 pub type PaletteIndex = u16;
 

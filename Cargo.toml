@@ -188,9 +188,9 @@ tracy-client = "0.18.4"
 # Concurrency/Parallelism
 parking_lot = "0.12.5"
 rayon = "1.12.0"
-crossbeam-channel = "0.5.15"
+crossbeam-channel = "0.5.16"
 rusty_pool = "0.7.0"
-crossbeam-queue = "0.3.12"
+crossbeam-queue = "0.3.13"
 
 # Network
 reqwest = { version = "0.13.4", features = ["json", "native-tls", "blocking", "http2"], default-features = false }
@@ -200,7 +200,7 @@ thiserror = "2.0.18"
 anyhow = "1.0.103"
 
 # Cryptography
-rand = "0.10.1"
+rand = "0.10.2"
 fnv = "1.0.7"
 wyhash = "0.6.0"
 ahash = "0.8.12"
@@ -221,8 +221,8 @@ bitcode_derive = "0.6.9"
 toml = "1.1.2"
 craftflow-nbt = "2.1.0"
 figment = { version = "0.10.19", features = ["toml", "env"] }
-simd-json = "0.17.0"
-bytemuck = { version = "1.25.0", features = ["extern_crate_alloc", "derive"] }
+simd-json = "0.17.3"
+bytemuck = { version = "1.25.1", features = ["extern_crate_alloc", "derive"] }
 serde_yaml_ng = "0.10.0"
 
 # Bit manipulation
@@ -230,7 +230,7 @@ byteorder = "1.5.0"
 
 # Data types
 dashmap = { version = "7.0.0-rc2", features = ["serde"] }
-uuid = { version = "1.23.4", features = ["v4", "v3", "serde"] }
+uuid = { version = "1.23.5", features = ["v4", "v3", "serde"] }
 indexmap = { version = "2.14.0", features = ["serde"] }
 bimap = "0.6.3"
 arrayvec = "0.7.8"
@@ -248,7 +248,7 @@ type_hash = "0.3.0"
 
 # Magic
 dhat = "0.3.3"
-ctor = "1.0.7"
+ctor = "1.0.8"
 
 # Compression/Decompression
 yazi = "0.2.1"
@@ -263,7 +263,7 @@ heed = "0.22.1"
 deepsize = "0.2.0"
 page_size = "0.6.0"
 enum-ordinalize = "4.4.1"
-regex = "1.12.4"
+regex = "1.13.0"
 noise = "0.9.0"
 ctrlc = "3.5.2"
 num_cpus = "1.17.0"
@@ -308,7 +308,7 @@ workspace_root = "0.2.0"
 axum = { version = "0.8.9", features = ["tokio", "ws"] }
 
 # Stats
-sysinfo = { version = "0.39.5", default-features = false, features = ["system"] }
+sysinfo = { version = "0.39.6", default-features = false, features = ["system"] }
 dir-size = "0.1.1"
 
 # Compression is a real bottleneck that we can do little about, so compiling it with optimizations is needed in dev mode.
