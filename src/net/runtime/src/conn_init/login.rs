@@ -505,10 +505,15 @@ pub(super) async fn login(
     let client_info = receive_client_information(conn_read, compressed, state.clone()).await?;
     exchange_known_packs(conn_read, conn_write, compressed, state.clone()).await?;
     finish_configuration(conn_read, conn_write, compressed, state.clone()).await?;
-    
+
     let spawn_pos = {
-        while state.spawn_positions.is_empty() { tokio::time::sleep(std::time::Duration::from_millis(100)).await; }
-        state.spawn_positions.pop().expect("Spawn position should be available after waiting")
+        while state.spawn_positions.is_empty() {
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+        state
+            .spawn_positions
+            .pop()
+            .expect("Spawn position should be available after waiting")
     };
 
     let offline_data = state
@@ -558,18 +563,21 @@ pub(super) async fn login(
     .await?;
     send_player_info(conn_write, &player_identity, &player_properties)?;
     send_inventory_contents(conn_write, &offline_data)?;
-    
-    state.world.save_player_data(player_identity.uuid, &offline_data).map_err(|err| {
-        error!(
-            "Error saving player data for {}: {:?}",
-            player_identity
-                .name
-                .clone()
-                .unwrap_or("UnknownPlayerName".to_string()),
-            err
-        );
-        NetError::World(err)
-    })?;
+
+    state
+        .world
+        .save_player_data(player_identity.uuid, &offline_data)
+        .map_err(|err| {
+            error!(
+                "Error saving player data for {}: {:?}",
+                player_identity
+                    .name
+                    .clone()
+                    .unwrap_or("UnknownPlayerName".to_string()),
+                err
+            );
+            NetError::World(err)
+        })?;
 
     // Login complete
     Ok((

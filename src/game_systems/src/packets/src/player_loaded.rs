@@ -29,6 +29,5 @@ pub fn handle(
             player_pos.y,
             player_pos.z
         );
-        
     }
 }

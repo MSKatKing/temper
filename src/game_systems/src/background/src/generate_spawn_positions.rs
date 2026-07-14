@@ -1,12 +1,12 @@
-use std::time::Duration;
 use bevy_ecs::prelude::Res;
 use bevy_math::DVec3;
+use std::time::Duration;
 use temper_components::player::position::Position;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::dimension::Dimension::Overworld;
 use temper_macros::match_block;
 use temper_state::GlobalStateResource;
-use tracing::{debug, info};
+use tracing::{info, trace};
 
 // Basically the easiest way to have available spawn positions is to just
 // generate a bunch and chuck them in a queue that can be pulled from
@@ -33,7 +33,7 @@ pub fn generate_spawn_positions(state: Res<GlobalStateResource>) {
         let mut radius = MIN_RADIUS;
 
         let mut found: Option<Position> = None;
-        
+
         if start.elapsed() > Duration::from_millis(30) {
             info!("Generating spawn positions is taking longer than expected.");
             return;
@@ -81,7 +81,7 @@ pub fn generate_spawn_positions(state: Res<GlobalStateResource>) {
             .push(found.expect("No coords found").xyz())
             .expect("Cannot push to queue");
     }
-    debug!(
+    trace!(
         "Finished generating {} spawn positions in {:.2} ms",
         found_coords,
         start.elapsed().as_secs_f32() * 1000.0
