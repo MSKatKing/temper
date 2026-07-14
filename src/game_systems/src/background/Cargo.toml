@@ -28,6 +28,7 @@ temper-permissions = { workspace = true }
 uuid = { workspace = true }
 tokio = { workspace = true }
 temper-data = { workspace = true }
+temper-macros = { workspace = true }
 
 [dev-dependencies]
 temper-encryption = { workspace = true }

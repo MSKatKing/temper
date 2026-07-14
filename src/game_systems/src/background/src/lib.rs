@@ -8,6 +8,7 @@ pub mod destroy_entity;
 pub mod entity_sending;
 pub mod entity_tracking;
 pub mod entity_unloader;
+pub mod generate_spawn_positions;
 pub mod keep_alive_system;
 pub mod lan_pinger;
 pub mod mq;
