@@ -360,7 +360,7 @@ impl TryFrom<&VanillaChunk> for Chunk {
             sections.push(ChunkSection::try_from(section)?);
         }
 
-        sections.sort_by(|a, b| a.y.cmp(&b.y));
+        sections.sort_by_key(|a| a.y);
 
         Ok(Chunk {
             sections: sections.into_boxed_slice(),
