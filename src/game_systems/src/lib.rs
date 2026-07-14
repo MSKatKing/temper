@@ -121,6 +121,7 @@ fn register_tick_systems(schedule: &mut Schedule) {
         )
             .chain(),
     );
+    schedule.add_systems(background::generate_spawn_positions::generate_spawn_positions);
 
     schedule.add_systems(
         (
