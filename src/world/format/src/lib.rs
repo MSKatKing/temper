@@ -237,7 +237,7 @@ impl Chunk {
         let mut motion_blocking_set = [false; COLUMN_COUNT];
         let mut remaining_world_surface = COLUMN_COUNT;
         let mut remaining_motion_blocking = COLUMN_COUNT;
-        
+
         self.mark_dirty();
 
         for z in 0..16 {
@@ -318,7 +318,6 @@ impl Chunk {
             .motion_blocking
             .set_height(x, z, self.height.min_y - 1);
         self.mark_dirty();
-        
     }
 }
 
@@ -425,6 +424,42 @@ mod tests {
     }
 
     #[test]
+    fn fluids_do_not_replace_higher_world_surface() {
+        let mut chunk = Chunk::new_empty();
+
+        chunk.set_block(ChunkBlockPos::new(0, 80, 0), block!("stone"));
+        chunk.set_block(ChunkBlockPos::new(0, 96, 0), block!("lava", {level: 0}));
+
+        assert_eq!(chunk.heightmaps.world_surface.get_height(0, 0), 80);
+        assert_eq!(chunk.heightmaps.motion_blocking.get_height(0, 0), 96);
+    }
+
+    #[test]
+    fn removing_top_fluid_falls_back_to_solid_block() {
+        let mut chunk = Chunk::new_empty();
+
+        chunk.set_block(ChunkBlockPos::new(0, 10, 0), block!("stone"));
+        chunk.set_block(ChunkBlockPos::new(0, 63, 0), block!("water", {level: 0}));
+        chunk.set_block(ChunkBlockPos::new(0, 63, 0), block!("air"));
+
+        assert_eq!(chunk.heightmaps.world_surface.get_height(0, 0), 10);
+        assert_eq!(chunk.heightmaps.motion_blocking.get_height(0, 0), 10);
+    }
+
+    #[test]
+    fn removing_top_surface_falls_back_to_fluid_for_motion_blocking() {
+        let mut chunk = Chunk::new_empty();
+
+        chunk.set_block(ChunkBlockPos::new(0, 10, 0), block!("stone"));
+        chunk.set_block(ChunkBlockPos::new(0, 63, 0), block!("water", {level: 0}));
+        chunk.set_block(ChunkBlockPos::new(0, 80, 0), block!("stone"));
+        chunk.set_block(ChunkBlockPos::new(0, 80, 0), block!("air"));
+
+        assert_eq!(chunk.heightmaps.world_surface.get_height(0, 0), 10);
+        assert_eq!(chunk.heightmaps.motion_blocking.get_height(0, 0), 63);
+    }
+
+    #[test]
     fn full_recalculation_updates_every_column() {
         let mut chunk = Chunk::new_empty();
 
@@ -442,6 +477,38 @@ mod tests {
         assert_eq!(chunk.heightmaps.motion_blocking.get_height(15, 15), 80);
         assert_eq!(chunk.heightmaps.world_surface.get_height(1, 1), -65);
         assert_eq!(chunk.heightmaps.motion_blocking.get_height(1, 1), -65);
+    }
+
+    #[test]
+    fn full_recalculation_matches_column_recalculation() {
+        let mut full_chunk = Chunk::new_empty();
+        let mut column_chunk = Chunk::new_empty();
+        let placements = [
+            (0, 10, 0, block!("stone")),
+            (0, 63, 0, block!("water", {level: 0})),
+            (3, 42, 7, block!("stone")),
+            (3, 75, 7, block!("lava", {level: 0})),
+            (15, -20, 15, block!("stone")),
+        ];
+
+        for (x, y, z, block) in placements {
+            full_chunk.set_block(ChunkBlockPos::new(x, y, z), block);
+            column_chunk.set_block(ChunkBlockPos::new(x, y, z), block);
+        }
+
+        full_chunk.recalculate_heightmap();
+        for (x, z) in [(0, 0), (3, 7), (15, 15), (8, 8)] {
+            column_chunk.recalculate_heightmap_column(x, z);
+
+            assert_eq!(
+                full_chunk.heightmaps.world_surface.get_height(x, z),
+                column_chunk.heightmaps.world_surface.get_height(x, z)
+            );
+            assert_eq!(
+                full_chunk.heightmaps.motion_blocking.get_height(x, z),
+                column_chunk.heightmaps.motion_blocking.get_height(x, z)
+            );
+        }
     }
 
     #[test]
