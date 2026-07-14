@@ -137,6 +137,8 @@ impl BiomeGenerator for PlainsBiome {
             }
         }
 
+        chunk.recalculate_heightmap();
+
         Ok(chunk)
     }
 }
@@ -154,6 +156,21 @@ mod test {
                 .generate_chunk(ChunkPos::new(0, 0), &noise)
                 .is_ok()
         );
+    }
+
+    #[test]
+    fn generated_chunks_count_water_for_motion_blocking() {
+        let generator = PlainsBiome {};
+        let noise = NoiseGenerator::new(0);
+        let chunk = generator
+            .generate_chunk(ChunkPos::new(0, 0), &noise)
+            .expect("chunk should generate");
+
+        for x in 0..16 {
+            for z in 0..16 {
+                assert!(chunk.heightmaps.motion_blocking.get_height(x, z) >= 63);
+            }
+        }
     }
 
     #[test]

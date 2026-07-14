@@ -74,7 +74,7 @@ impl ChunkSectionType {
         }
     }
 
-    #[inline]
+    #[expect(unused)]
     pub fn fill(&mut self, id: BlockStateId) {
         match self {
             Self::Uniform(data) => data.fill(id),
@@ -114,6 +114,7 @@ impl ChunkSectionType {
 
 #[derive(Clone, DeepSizeOf, Serialize, Deserialize, TypeHash)]
 pub struct ChunkSection {
+    pub(crate) y: i8,
     pub(crate) inner: ChunkSectionType,
     pub(crate) light: SectionLightData,
     pub(crate) biome: BiomeData,
@@ -121,8 +122,9 @@ pub struct ChunkSection {
 }
 
 impl ChunkSection {
-    pub fn new_uniform(id: BlockStateId) -> Self {
+    pub fn new_uniform(id: BlockStateId, y: i8) -> Self {
         Self {
+            y,
             inner: ChunkSectionType::Uniform(UniformSection::new_with(id)),
             light: SectionLightData::default(),
             biome: BiomeData::Uniform(BiomeType(5)),
@@ -130,9 +132,11 @@ impl ChunkSection {
         }
     }
 
-    pub fn with_space_for(unique_blocks: u16) -> Self {
+    #[expect(unused)]
+    pub(crate) fn with_space_for(unique_blocks: u16, y: i8) -> Self {
         if unique_blocks <= 1 {
             Self {
+                y,
                 inner: ChunkSectionType::Uniform(UniformSection::air()),
                 light: SectionLightData::default(),
                 biome: BiomeData::Uniform(BiomeType(5)),
@@ -140,6 +144,7 @@ impl ChunkSection {
             }
         } else if unique_blocks < 256 {
             Self {
+                y,
                 inner: ChunkSectionType::Paletted(PalettedSection::new_with_block_count(
                     unique_blocks as _,
                 )),
@@ -149,6 +154,7 @@ impl ChunkSection {
             }
         } else {
             Self {
+                y,
                 inner: ChunkSectionType::Direct(DirectSection::default()),
                 light: SectionLightData::default(),
                 biome: BiomeData::Uniform(BiomeType(5)),
@@ -158,34 +164,34 @@ impl ChunkSection {
     }
 
     #[inline]
-    pub fn get_block(&self, pos: SectionBlockPos) -> BlockStateId {
+    pub(crate) fn get_block(&self, pos: SectionBlockPos) -> BlockStateId {
         self.inner.get_block(pos)
     }
 
     #[inline]
-    pub fn set_block(&mut self, pos: SectionBlockPos, id: BlockStateId) {
+    pub(crate) fn set_block(&mut self, pos: SectionBlockPos, id: BlockStateId) {
         self.dirty.store(true, std::sync::atomic::Ordering::Relaxed);
         self.inner.set_block(pos, id);
     }
 
-    #[inline]
-    pub fn fill(&mut self, id: BlockStateId) {
+    #[expect(unused)]
+    pub(crate) fn fill(&mut self, id: BlockStateId) {
         self.dirty.store(true, std::sync::atomic::Ordering::Relaxed);
         self.inner.fill(id);
     }
 
-    #[inline]
-    pub fn clear(&mut self) {
+    #[expect(unused)]
+    pub(crate) fn clear(&mut self) {
         self.fill(block!("air"))
     }
 
     #[inline]
-    pub fn block_count(&self) -> u16 {
+    pub(crate) fn block_count(&self) -> u16 {
         self.inner.block_count()
     }
 
     #[inline]
-    pub fn fluid_count(&self) -> u16 {
+    pub(crate) fn fluid_count(&self) -> u16 {
         self.inner.fluid_count()
     }
 }
@@ -247,6 +253,7 @@ impl TryFrom<&Section> for ChunkSection {
                 }
             } else {
                 return Ok(Self {
+                    y: value.y,
                     light: light_data,
                     biome: BiomeData::Uniform(BiomeType(5)),
                     dirty: Arc::new(AtomicBool::new(false)),
@@ -269,6 +276,7 @@ impl TryFrom<&Section> for ChunkSection {
             }
 
             Ok(Self {
+                y: value.y,
                 light: light_data,
                 biome: BiomeData::Uniform(BiomeType(5)),
                 dirty: Arc::new(AtomicBool::new(false)),
@@ -276,6 +284,7 @@ impl TryFrom<&Section> for ChunkSection {
             })
         } else {
             Ok(Self {
+                y: value.y,
                 light: light_data,
                 biome: BiomeData::Uniform(BiomeType(5)),
                 dirty: Arc::new(AtomicBool::new(false)),

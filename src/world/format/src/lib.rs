@@ -10,13 +10,14 @@ use crate::errors::WorldError;
 use crate::heightmap::Heightmaps;
 use crate::section::{AIR, ChunkSection};
 use dashmap::DashMap;
+use itertools::Itertools;
 use serde_derive::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::{ChunkBlockPos, ChunkHeight};
 use temper_entities::entity_types::EntityTypeEnum;
-use temper_macros::block;
+use temper_macros::{block, match_block};
 use type_hash::TypeHash;
 use uuid::Uuid;
 use vanilla_chunk_format::VanillaChunk;
@@ -28,7 +29,7 @@ pub struct Chunk {
     #[type_hash(foreign_type)]
     pub entities: DashMap<Uuid, (EntityTypeEnum, Vec<u8>)>,
 
-    heightmaps: Option<Heightmaps>,
+    pub heightmaps: Heightmaps,
     dirty: Arc<AtomicBool>,
 }
 
@@ -54,12 +55,15 @@ impl Chunk {
     ///
     /// * An empty chunk filled with air using the given [`ChunkHeight`].
     pub fn new_empty_with_height(height: ChunkHeight) -> Chunk {
+        let sections = (-4..20)
+            .map(|y| ChunkSection::new_uniform(AIR, y))
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
         Self {
-            sections: vec![ChunkSection::new_uniform(AIR); (height.height / 16) as usize]
-                .into_boxed_slice(),
+            sections,
             height,
             entities: DashMap::new(),
-            heightmaps: None,
+            heightmaps: Heightmaps::default(),
             dirty: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -84,7 +88,7 @@ impl Chunk {
         Self {
             sections: sections.to_vec().into_boxed_slice(),
             height,
-            heightmaps: None,
+            heightmaps: Heightmaps::default(),
             entities: DashMap::new(),
             dirty: Arc::new(AtomicBool::new(false)),
         }
@@ -104,9 +108,13 @@ impl Chunk {
         assert!(i16::from(y) >= self.height.min_y / 16);
         assert!(i16::from(y) < (self.height.min_y + self.height.height as i16) / 16);
 
-        let section = i16::from(y) + -self.height.min_y / 16;
+        let section = self
+            .sections
+            .iter_mut()
+            .find(|s| s.y == y)
+            .expect("Section not found");
 
-        self.sections[section as usize] = ChunkSection::new_uniform(state)
+        *section = ChunkSection::new_uniform(state, y);
     }
 
     /// Fills the entire chunk with the given block.
@@ -116,7 +124,7 @@ impl Chunk {
     /// * `state` - The [`BlockStateId`] of the block to fill the chunk with.
     pub fn fill(&mut self, state: BlockStateId) {
         for section in &mut self.sections {
-            *section = ChunkSection::new_uniform(state);
+            *section = ChunkSection::new_uniform(state, section.y);
         }
     }
 
@@ -156,9 +164,38 @@ impl Chunk {
     pub fn set_block(&mut self, pos: ChunkBlockPos, id: BlockStateId) {
         let section = (pos.y() + -self.height.min_y) / 16;
         assert!(section >= 0);
-        assert!(section as usize <= self.sections.len());
+        assert!((section as usize) < self.sections.len());
 
         self.sections[section as usize].set_block(pos.section_block_pos(), id);
+
+        let motion_block_for_xz = self.heightmaps.motion_blocking.get_height(pos.x(), pos.z());
+        let world_surface_for_xz = self.heightmaps.world_surface.get_height(pos.x(), pos.z());
+
+        if pos.y() > motion_block_for_xz
+            && !(match_block!("air", id) || match_block!("void_air", id))
+        {
+            self.heightmaps
+                .motion_blocking
+                .set_height(pos.x(), pos.z(), pos.y());
+        } else if pos.y() == motion_block_for_xz
+            && !(!(match_block!("air", id) || match_block!("void_air", id)))
+        {
+            self.recalculate_heightmap_column(pos.x(), pos.z());
+        }
+
+        if pos.y() > world_surface_for_xz
+            && (!(match_block!("air", id) || match_block!("void_air", id))
+                && !(match_block!("water", id) || match_block!("lava", id)))
+        {
+            self.heightmaps
+                .world_surface
+                .set_height(pos.x(), pos.z(), pos.y());
+        } else if pos.y() == world_surface_for_xz
+            && !(!(match_block!("air", id) || match_block!("void_air", id))
+                && !(match_block!("water", id) || match_block!("lava", id)))
+        {
+            self.recalculate_heightmap_column(pos.x(), pos.z());
+        }
     }
 
     /// Marks the chunk as dirty.
@@ -192,13 +229,61 @@ impl Chunk {
                 .store(false, std::sync::atomic::Ordering::Relaxed);
         }
     }
+
+    pub fn recalculate_heightmap(&mut self) {
+        for x in 0..16 {
+            for z in 0..16 {
+                self.recalculate_heightmap_column(x, z);
+            }
+        }
+    }
+
+    pub fn recalculate_heightmap_column(&mut self, x: u8, z: u8) {
+        let mut world_surface_set = false;
+        let mut motion_blocking_set = false;
+
+        for section in self.sections.iter().sorted_by(|a, b| b.y.cmp(&a.y)) {
+            for y in (0..16).rev() {
+                let block = section.get_block(ChunkBlockPos::new(x, y, z).section_block_pos());
+                let height = y + i16::from(section.y) * 16;
+
+                if !world_surface_set
+                    && (!(match_block!("air", block) || match_block!("void_air", block))
+                        && !(match_block!("water", block) || match_block!("lava", block)))
+                {
+                    world_surface_set = true;
+                    self.heightmaps.world_surface.set_height(x, z, height);
+                }
+
+                if !motion_blocking_set
+                    && !(match_block!("air", block) || match_block!("void_air", block))
+                {
+                    motion_blocking_set = true;
+                    self.heightmaps.motion_blocking.set_height(x, z, height);
+                }
+
+                if motion_blocking_set && world_surface_set {
+                    return;
+                }
+            }
+        }
+
+        // No blocks in this column
+        self.heightmaps
+            .world_surface
+            .set_height(x, z, self.height.min_y - 1);
+        self.heightmaps
+            .motion_blocking
+            .set_height(x, z, self.height.min_y - 1);
+    }
 }
 
 impl TryFrom<&VanillaChunk> for Chunk {
     type Error = WorldError;
 
     fn try_from(value: &VanillaChunk) -> Result<Self, Self::Error> {
-        let mut sections = vec![ChunkSection::new_uniform(AIR); 24];
+        let mut sections =
+            Vec::with_capacity(value.sections.as_ref().map(|s| s.len()).unwrap_or(0));
 
         if value.status != "minecraft:full" {
             return Err(WorldError::CorruptedChunkData(0, 0));
@@ -213,8 +298,10 @@ impl TryFrom<&VanillaChunk> for Chunk {
             ))?
             .iter()
         {
-            sections[(section.y + 4).clamp(0, 23) as usize] = ChunkSection::try_from(section)?;
+            sections.push(ChunkSection::try_from(section)?);
         }
+
+        sections.sort_by(|a, b| a.y.cmp(&b.y));
 
         Ok(Chunk {
             sections: sections.into_boxed_slice(),
@@ -222,7 +309,8 @@ impl TryFrom<&VanillaChunk> for Chunk {
             heightmaps: value
                 .heightmaps
                 .as_ref()
-                .and_then(|v| Heightmaps::try_from(v).ok()),
+                .and_then(|h| Heightmaps::try_from(h).ok())
+                .unwrap_or_default(),
             entities: DashMap::new(),
             dirty: Arc::new(AtomicBool::new(false)),
         })
@@ -251,5 +339,39 @@ mod tests {
             chunk.get_block(ChunkBlockPos::new(0, 16, 1)),
             block!("dirt")
         );
+    }
+
+    #[test]
+    fn motion_blocking_counts_water() {
+        let mut chunk = Chunk::new_empty();
+
+        chunk.set_block(ChunkBlockPos::new(0, 10, 0), block!("stone"));
+        chunk.set_block(ChunkBlockPos::new(0, 63, 0), block!("water", {level: 0}));
+
+        assert_eq!(chunk.heightmaps.world_surface.get_height(0, 0), 10);
+        assert_eq!(chunk.heightmaps.motion_blocking.get_height(0, 0), 63);
+    }
+
+    #[test]
+    fn recalculated_motion_blocking_counts_water() {
+        let mut chunk = Chunk::new_empty();
+
+        chunk.set_block(ChunkBlockPos::new(0, 10, 0), block!("stone"));
+        chunk.set_block(ChunkBlockPos::new(0, 63, 0), block!("water", {level: 0}));
+        chunk.recalculate_heightmap_column(0, 0);
+
+        assert_eq!(chunk.heightmaps.world_surface.get_height(0, 0), 10);
+        assert_eq!(chunk.heightmaps.motion_blocking.get_height(0, 0), 63);
+    }
+
+    #[test]
+    fn recalculated_height_uses_absolute_y() {
+        let mut chunk = Chunk::new_empty();
+
+        chunk.set_block(ChunkBlockPos::new(0, 80, 0), block!("stone"));
+        chunk.recalculate_heightmap_column(0, 0);
+
+        assert_eq!(chunk.heightmaps.world_surface.get_height(0, 0), 80);
+        assert_eq!(chunk.heightmaps.motion_blocking.get_height(0, 0), 80);
     }
 }

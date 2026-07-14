@@ -5,6 +5,7 @@ pub mod gamemode;
 mod kill;
 mod motion;
 pub mod op;
+mod show_heightmap;
 mod stop;
 mod summon;
 mod time;
