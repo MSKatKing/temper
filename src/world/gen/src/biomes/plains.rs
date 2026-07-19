@@ -2,7 +2,7 @@ use crate::errors::WorldGenError;
 use crate::interp::{bilerp, dither_field, smoothstep};
 use crate::{BiomeGenerator, NoiseGenerator};
 use temper_core::block_state_id::BlockStateId;
-use temper_core::pos::{BlockPos, ChunkHeight, ChunkPos};
+use temper_core::pos::{ChunkBlockPos, ChunkHeight, ChunkPos};
 use temper_macros::block;
 use temper_world_format::Chunk;
 
@@ -118,18 +118,23 @@ impl BiomeGenerator for PlainsBiome {
                         let dithered_y = y + wobble.round() as i32;
                         if dithered_y <= 64 {
                             chunk.set_block_without_heightmap(
-                                BlockPos::of(global_x, y, global_z).chunk_block_pos(),
+                                ChunkBlockPos::new(chunk_x as u8, y as i16, chunk_z as u8),
                                 block!("sand"),
                             );
                         } else if dithered_y >= 80 {
                             chunk.set_block_without_heightmap(
-                                BlockPos::of(global_x, y, global_z).chunk_block_pos(),
+                                ChunkBlockPos::new(chunk_x as u8, y as i16, chunk_z as u8),
                                 stone,
+                            );
+                        } else if dy == fill - 1 {
+                            chunk.set_block_without_heightmap(
+                                ChunkBlockPos::new(chunk_x as u8, y as i16, chunk_z as u8),
+                                block!("grass_block", {snowy: false}),
                             );
                         } else {
                             chunk.set_block_without_heightmap(
-                                BlockPos::of(global_x, y, global_z).chunk_block_pos(),
-                                block!("grass_block", {snowy: false}),
+                                ChunkBlockPos::new(chunk_x as u8, y as i16, chunk_z as u8),
+                                block!("dirt"),
                             );
                         }
                     }
