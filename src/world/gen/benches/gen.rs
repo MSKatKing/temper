@@ -4,21 +4,29 @@ use std::hint::black_box;
 use temper_core::pos::ChunkPos;
 
 fn gen_benches(c: &mut criterion::Criterion) {
-    bench_gun(c);
+    bench_gen(c);
 }
 criterion_group!(world_bench, gen_benches);
 criterion_main!(world_bench);
 
-fn bench_gun(c: &mut criterion::Criterion) {
-    let generator = world_gen::WorldGenerator::new(random());
+fn bench_gen(c: &mut criterion::Criterion) {
+    let mut group = c.benchmark_group("world_gen");
 
-    c.bench_function("generate chunk", |b| {
-        b.iter(|| {
-            let pos = ChunkPos::new(
-                rand::random_range(i32::from(i16::MIN)..i32::from(i16::MAX)),
-                rand::random_range(i32::from(i16::MIN)..i32::from(i16::MAX)),
-            );
-            black_box(generator.generate_chunk(pos)).unwrap();
+    
+    for size in [1, 8, 16] {
+        group.throughput(criterion::Throughput::Elements((size * size) as u64));
+        group.bench_function(format!("generate to {}, {}", size, size), |b| {
+            b.iter(|| {
+                let generator = world_gen::WorldGenerator::new(random());
+                for x in 0..size {
+                    for z in 0..size {
+                        let pos = black_box(ChunkPos::new(x, z));
+                        black_box(generator.generate_chunk(pos)).unwrap();
+                    }
+                }
+            });
         });
-    });
+    }
+
+    group.finish();
 }
