@@ -9,9 +9,9 @@ noise = { workspace = true }
 temper-core = { workspace = true }
 temper-macros = { workspace = true }
 thiserror = { workspace = true }
+rand = { workspace = true }
 
 [dev-dependencies]
-rand = { workspace = true }
 criterion = { workspace = true }
 
 [lints]

@@ -1,3 +1,5 @@
+use rand::RngExt;
+use rand::seq::{IndexedRandom, SliceRandom};
 use crate::errors::WorldGenError;
 use crate::interp::{bilerp, dither_field, smoothstep};
 use crate::{BiomeGenerator, NoiseGenerator};
@@ -5,6 +7,23 @@ use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::{ChunkBlockPos, ChunkHeight, ChunkPos};
 use temper_macros::block;
 use temper_world_format::Chunk;
+
+const FLOWER_CHANCE: f64 = 0.03;
+
+const FLOWERS: [BlockStateId; 12] = [
+    block!("allium"),
+    block!("azure_bluet"),
+    block!("blue_orchid"),
+    block!("cornflower"),
+    block!("dandelion"),
+    block!("lily_of_the_valley"),
+    block!("oxeye_daisy"),
+    block!("poppy"),
+    block!("orange_tulip"),
+    block!("pink_tulip"),
+    block!("red_tulip"),
+    block!("white_tulip"),
+];
 
 fn build_heightmap_interpolated(pos: ChunkPos, noise: &NoiseGenerator) -> [i32; 16 * 16] {
     const STEP_XZ: i32 = 4;
@@ -76,6 +95,7 @@ impl BiomeGenerator for PlainsBiome {
         pos: ChunkPos,
         noise: &NoiseGenerator,
     ) -> Result<Chunk, WorldGenError> {
+
         let mut chunk = Chunk::new_empty_with_height(ChunkHeight::new(-64, 384));
         let stone = block!("stone");
 
@@ -131,6 +151,13 @@ impl BiomeGenerator for PlainsBiome {
                                 ChunkBlockPos::new(chunk_x as u8, y as i16, chunk_z as u8),
                                 block!("grass_block", {snowy: false}),
                             );
+                            if rand::random_bool(FLOWER_CHANCE) {
+                                let flower = FLOWERS.choose(&mut rand::rng()).unwrap();
+                                chunk.set_block_without_heightmap(
+                                    ChunkBlockPos::new(chunk_x as u8, (y + 1) as i16, chunk_z as u8),
+                                    *flower,
+                                );
+                            }
                         } else {
                             chunk.set_block_without_heightmap(
                                 ChunkBlockPos::new(chunk_x as u8, y as i16, chunk_z as u8),
