@@ -197,6 +197,16 @@ impl Chunk {
         }
     }
 
+    /// Does what it says on the tin, sets blocks without updating the heightmaps. Remember to
+    /// recalculate the heightmaps at the end.
+    pub fn set_block_without_heightmap(&mut self, pos: ChunkBlockPos, id: BlockStateId) {
+        let section = (pos.y() + -self.height.min_y) / 16;
+        assert!(section >= 0);
+        assert!((section as usize) < self.sections.len());
+
+        self.sections[section as usize].set_block(pos.section_block_pos(), id);
+    }
+
     /// Marks the chunk as dirty.
     ///
     /// This indicates that the chunk has been modified and may need to be saved or updated.
@@ -250,19 +260,20 @@ impl Chunk {
         }
 
         for section in self.sections.iter().rev() {
-            for y in (0..16).rev() {
-                let height = y + i16::from(section.y) * 16;
+            for y in (0u8..16).rev() {
+                let height = i16::from(y) + i16::from(section.y) * 16;
 
-                for z in 0..16 {
-                    for x in 0..16 {
-                        let idx = ((z << 4) | x) as usize;
+                for z in 0u8..16 {
+                    for x in 0u8..16 {
+                        let idx = (usize::from(z) << 4) | usize::from(x);
 
                         if world_surface_set[idx] && motion_blocking_set[idx] {
                             continue;
                         }
 
-                        let block =
-                            section.get_block(ChunkBlockPos::new(x, y, z).section_block_pos());
+                        let block_idx =
+                            (usize::from(y) << 8) | (usize::from(z) << 4) | usize::from(x);
+                        let block = section.get_block_index(block_idx);
 
                         if !world_surface_set[idx] && is_world_surface_block(block) {
                             world_surface_set[idx] = true;
@@ -290,9 +301,10 @@ impl Chunk {
         let mut motion_blocking_set = false;
 
         for section in self.sections.iter().rev() {
-            for y in (0..16).rev() {
-                let block = section.get_block(ChunkBlockPos::new(x, y, z).section_block_pos());
-                let height = y + i16::from(section.y) * 16;
+            for y in (0u8..16).rev() {
+                let block_idx = (usize::from(y) << 8) | (usize::from(z) << 4) | usize::from(x);
+                let block = section.get_block_index(block_idx);
+                let height = i16::from(y) + i16::from(section.y) * 16;
 
                 if !world_surface_set && is_world_surface_block(block) {
                     world_surface_set = true;

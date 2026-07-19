@@ -117,17 +117,17 @@ impl BiomeGenerator for PlainsBiome {
                         let y = above_filled_sections + dy;
                         let dithered_y = y + wobble.round() as i32;
                         if dithered_y <= 64 {
-                            chunk.set_block(
+                            chunk.set_block_without_heightmap(
                                 BlockPos::of(global_x, y, global_z).chunk_block_pos(),
                                 block!("sand"),
                             );
                         } else if dithered_y >= 80 {
-                            chunk.set_block(
+                            chunk.set_block_without_heightmap(
                                 BlockPos::of(global_x, y, global_z).chunk_block_pos(),
                                 stone,
                             );
                         } else {
-                            chunk.set_block(
+                            chunk.set_block_without_heightmap(
                                 BlockPos::of(global_x, y, global_z).chunk_block_pos(),
                                 block!("grass_block", {snowy: false}),
                             );

@@ -9,8 +9,8 @@ pub(crate) fn generate_caves(
     chunk_pos: ChunkPos,
     generator: &super::NoiseGenerator,
 ) {
-    const STEP_XZ: i32 = 2;
-    const STEP_Y: i32 = 6;
+    const STEP_XZ: i32 = 4;
+    const STEP_Y: i32 = 8;
     const Y_MIN: i32 = -60;
     const Y_MAX: i32 = 100;
     let y_len = Y_MAX - Y_MIN;

@@ -36,6 +36,11 @@ impl ChunkSectionType {
     pub fn get_block(&self, pos: SectionBlockPos) -> BlockStateId {
         let pos = pos.pack() as usize;
 
+        self.get_block_index(pos)
+    }
+
+    #[inline]
+    pub(crate) fn get_block_index(&self, pos: usize) -> BlockStateId {
         match self {
             Self::Uniform(data) => data.get_block(),
             Self::Paletted(data) => data.get_block(pos),
@@ -166,6 +171,12 @@ impl ChunkSection {
     #[inline]
     pub(crate) fn get_block(&self, pos: SectionBlockPos) -> BlockStateId {
         self.inner.get_block(pos)
+    }
+
+    #[inline]
+    pub(crate) fn get_block_index(&self, pos: usize) -> BlockStateId {
+        debug_assert!(pos < CHUNK_SECTION_LENGTH);
+        self.inner.get_block_index(pos)
     }
 
     #[inline]
