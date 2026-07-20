@@ -12,7 +12,6 @@ criterion_main!(world_bench);
 fn bench_gen(c: &mut criterion::Criterion) {
     let mut group = c.benchmark_group("world_gen");
 
-    
     for size in [1, 8, 16] {
         group.throughput(criterion::Throughput::Elements((size * size) as u64));
         group.bench_function(format!("generate to {}, {}", size, size), |b| {

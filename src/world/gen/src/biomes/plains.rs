@@ -1,8 +1,7 @@
-use rand::RngExt;
-use rand::seq::{IndexedRandom, SliceRandom};
 use crate::errors::WorldGenError;
 use crate::interp::{bilerp, dither_field, smoothstep};
 use crate::{BiomeGenerator, NoiseGenerator};
+use rand::seq::IndexedRandom;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::{ChunkBlockPos, ChunkHeight, ChunkPos};
 use temper_macros::block;
@@ -95,7 +94,6 @@ impl BiomeGenerator for PlainsBiome {
         pos: ChunkPos,
         noise: &NoiseGenerator,
     ) -> Result<Chunk, WorldGenError> {
-
         let mut chunk = Chunk::new_empty_with_height(ChunkHeight::new(-64, 384));
         let stone = block!("stone");
 
@@ -154,7 +152,11 @@ impl BiomeGenerator for PlainsBiome {
                             if rand::random_bool(FLOWER_CHANCE) {
                                 let flower = FLOWERS.choose(&mut rand::rng()).unwrap();
                                 chunk.set_block_without_heightmap(
-                                    ChunkBlockPos::new(chunk_x as u8, (y + 1) as i16, chunk_z as u8),
+                                    ChunkBlockPos::new(
+                                        chunk_x as u8,
+                                        (y + 1) as i16,
+                                        chunk_z as u8,
+                                    ),
                                     *flower,
                                 );
                             }
