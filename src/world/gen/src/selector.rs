@@ -2,12 +2,10 @@ use std::sync::Arc;
 
 use gen_core::ChunkGenerator;
 
-use crate::UnconfiguredChunkGenerator;
-
 pub fn generator_from_name(name: &str, seed: u64) -> Option<Arc<dyn ChunkGenerator>> {
     match name.trim().to_ascii_lowercase().as_str() {
         "superflat" => Some(Arc::new(superflat::SuperflatGenerator::new(seed))),
-        _ => None
+        _ => None,
     }
 }
 
