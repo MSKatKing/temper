@@ -17,14 +17,13 @@ use temper_world_format::Chunk;
 use tracing::{error, warn};
 pub use world_db::*;
 pub use world_gen;
-use world_gen::WorldGenerator;
 use wyhash::WyHasherBuilder;
 
 #[derive(Clone)]
 pub struct World {
     pub storage_backend: StorageBackend,
     cache: ChunkCache,
-    pub world_generator: WorldGenerator,
+    // pub world_generator: WorldGenerator,
     verify: bool,
 }
 
@@ -51,12 +50,12 @@ impl World {
         let rand_seed = rand::random();
 
         let cache = ChunkCache::with_hasher(WyHasherBuilder::new(rand_seed));
-        let world_generator = WorldGenerator::new(seed);
+        // let world_generator = WorldGenerator::new(seed);
 
         World {
             storage_backend,
             cache,
-            world_generator,
+            // world_generator,
             verify: config.database.verify_chunk_data,
         }
     }
@@ -74,17 +73,18 @@ impl World {
         if self.chunk_exists(chunk_pos, dimension)? {
             self.get_chunk(chunk_pos, dimension)
         } else {
-            let chunk = self
-                .world_generator
-                .generate_chunk(chunk_pos)
-                .map_err(|err| {
-                    WorldError::WorldGenerationError(format!(
-                        "Failed to generate chunk at {:?}: {}",
-                        chunk_pos, err
-                    ))
-                })?;
-            self.insert_chunk(chunk_pos, dimension, chunk)?;
-            self.get_chunk(chunk_pos, dimension)
+            unimplemented!();
+            // let chunk = self
+            //     .world_generator
+            //     .generate_chunk(chunk_pos)
+            //     .map_err(|err| {
+            //         WorldError::WorldGenerationError(format!(
+            //             "Failed to generate chunk at {:?}: {}",
+            //             chunk_pos, err
+            //         ))
+            //     })?;
+            // self.insert_chunk(chunk_pos, dimension, chunk)?;
+            // self.get_chunk(chunk_pos, dimension)
         }
     }
 
@@ -97,17 +97,18 @@ impl World {
         if self.chunk_exists(chunk_pos, dimension)? {
             self.get_chunk_mut(chunk_pos, dimension)
         } else {
-            let chunk = self
-                .world_generator
-                .generate_chunk(chunk_pos)
-                .map_err(|err| {
-                    WorldError::WorldGenerationError(format!(
-                        "Failed to generate chunk at {:?}: {}",
-                        chunk_pos, err
-                    ))
-                })?;
-            self.insert_chunk(chunk_pos, dimension, chunk)?;
-            self.get_chunk_mut(chunk_pos, dimension)
+            unimplemented!();
+            // let chunk = self
+            //     .world_generator
+            //     .generate_chunk(chunk_pos)
+            //     .map_err(|err| {
+            //         WorldError::WorldGenerationError(format!(
+            //             "Failed to generate chunk at {:?}: {}",
+            //             chunk_pos, err
+            //         ))
+            //     })?;
+            // self.insert_chunk(chunk_pos, dimension, chunk)?;
+            // self.get_chunk_mut(chunk_pos, dimension)
         }
     }
 }

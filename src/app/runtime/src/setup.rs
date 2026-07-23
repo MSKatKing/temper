@@ -16,41 +16,41 @@ use type_hash::TypeHash;
 
 /// Generates spawn chunks around the origin if they don't exist.
 pub fn generate_spawn_chunks(state: GlobalState) -> Result<(), BinaryError> {
-    info!("No overworld spawn chunk found, generating spawn chunks...");
-
-    let start = Instant::now();
-    let radius = state.config.chunk_render_distance as i32;
-
-    // Collect all chunk coordinates to generate
-    let chunks: Vec<(i32, i32)> = (-radius..=radius)
-        .flat_map(|x| (-radius..=radius).map(move |z| (x, z)))
-        .collect();
-
-    let mut batch = state.thread_pool.batch();
-    for (x, z) in chunks {
-        let state_clone = state.clone();
-        batch.execute(move || {
-            let pos = ChunkPos::new(x, z);
-            let chunk = state_clone.world.world_generator.generate_chunk(pos);
-
-            match chunk {
-                Ok(chunk) => {
-                    if let Err(e) = state_clone
-                        .world
-                        .insert_chunk(pos, Dimension::Overworld, chunk)
-                    {
-                        error!("Error saving chunk ({}, {}): {:?}", x, z, e);
-                    }
-                }
-                Err(e) => {
-                    error!("Error generating chunk ({}, {}): {:?}", x, z, e);
-                }
-            }
-        });
-    }
-    batch.wait();
-
-    info!("Finished generating spawn chunks in {:?}", start.elapsed());
+    // info!("No overworld spawn chunk found, generating spawn chunks...");
+    // 
+    // let start = Instant::now();
+    // let radius = state.config.chunk_render_distance as i32;
+    // 
+    // // Collect all chunk coordinates to generate
+    // let chunks: Vec<(i32, i32)> = (-radius..=radius)
+    //     .flat_map(|x| (-radius..=radius).map(move |z| (x, z)))
+    //     .collect();
+    // 
+    // let mut batch = state.thread_pool.batch();
+    // for (x, z) in chunks {
+    //     let state_clone = state.clone();
+    //     batch.execute(move || {
+    //         let pos = ChunkPos::new(x, z);
+    //         let chunk = state_clone.world.world_generator.generate_chunk(pos);
+    // 
+    //         match chunk {
+    //             Ok(chunk) => {
+    //                 if let Err(e) = state_clone
+    //                     .world
+    //                     .insert_chunk(pos, Dimension::Overworld, chunk)
+    //                 {
+    //                     error!("Error saving chunk ({}, {}): {:?}", x, z, e);
+    //                 }
+    //             }
+    //             Err(e) => {
+    //                 error!("Error generating chunk ({}, {}): {:?}", x, z, e);
+    //             }
+    //         }
+    //     });
+    // }
+    // batch.wait();
+    // 
+    // info!("Finished generating spawn chunks in {:?}", start.elapsed());
     Ok(())
 }
 
