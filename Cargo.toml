@@ -68,6 +68,7 @@ members = [
     "src/world/gen/scheduler",
     "src/world/gen/generators/normal",
     "src/world/gen/generators/superflat",
+    "src/world/gen/structures",
     "tests",
 ]
 

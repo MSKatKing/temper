@@ -1,11 +1,9 @@
-mod tree_gen;
-
-use crate::tree_gen::generate_tree;
 use bevy_math::IVec3;
 use gen_core::{
     ChunkGenerator, GenStage, GenerationError, GeneratorId, StageDependencies, StageInput,
     StageSpec,
 };
+use gen_structures::tree::generate_tree;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::{BlockPos, ChunkBlockPos, ChunkPos};
 use temper_macros::block;
@@ -89,10 +87,10 @@ impl ChunkGenerator for SuperflatGenerator {
                 Ok(())
             }
             GenStage::FEATURES => {
-                let blocks = generate_tree();
-
                 for origin_chunk in nearby_chunks(input.pos, TREE_NEIGHBOR_RADIUS) {
                     for origin in tree_origins_for_chunk(self.seed, origin_chunk) {
+                        let blocks = generate_tree(origin, self.seed);
+
                         for (offset, block) in &blocks {
                             let block_pos = origin
                                 + IVec3::new(

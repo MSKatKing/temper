@@ -73,34 +73,26 @@ impl World {
         self.chunks.get_cache()
     }
 
-    /// Loads a chunk from the database or cache, or generates it if it doesn't exist.
+    /// Loads a chunk from the database or cache, generating or advancing it first if needed.
     pub fn get_or_generate_chunk(
         &'_ self,
         chunk_pos: ChunkPos,
         dimension: Dimension,
     ) -> Result<RefChunk<'_>, WorldError> {
-        if self.chunks.storage_backend.table_exists("chunks".to_string())? && self.chunk_exists(chunk_pos, dimension)? {
-            self.get_chunk(chunk_pos, dimension)
-        } else {
-            self.chunk_generator
-                .generate(&self.chunks, dimension, chunk_pos)?;
-            self.get_chunk(chunk_pos, dimension)
-        }
+        self.chunk_generator
+            .generate(&self.chunks, dimension, chunk_pos)?;
+        self.get_chunk(chunk_pos, dimension)
     }
 
-    /// Loads a chunk from the database or cache, or generates it if it doesn't exist. Returns a mutable reference.
+    /// Loads a chunk from the database or cache, generating or advancing it first if needed. Returns a mutable reference.
     pub fn get_or_generate_mut(
         &self,
         chunk_pos: ChunkPos,
         dimension: Dimension,
     ) -> Result<MutChunk<'_>, WorldError> {
-        if self.chunks.storage_backend.table_exists("chunks".to_string())? && self.chunk_exists(chunk_pos, dimension)? {
-            self.get_chunk_mut(chunk_pos, dimension)
-        } else {
-            self.chunk_generator
-                .generate(&self.chunks, dimension, chunk_pos)?;
-            self.get_chunk_mut(chunk_pos, dimension)
-        }
+        self.chunk_generator
+            .generate(&self.chunks, dimension, chunk_pos)?;
+        self.get_chunk_mut(chunk_pos, dimension)
     }
 }
 
