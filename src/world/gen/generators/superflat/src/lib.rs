@@ -1,16 +1,13 @@
-use bevy_math::IVec3;
+mod features;
+
+use crate::features::generate_features;
 use gen_core::{
     ChunkGenerator, GenStage, GenerationError, GeneratorId, StageDependencies, StageInput,
     StageSpec,
 };
-use gen_structures::tree::generate_tree;
 use temper_core::block_state_id::BlockStateId;
-use temper_core::pos::{BlockPos, ChunkBlockPos, ChunkPos};
+use temper_core::pos::ChunkBlockPos;
 use temper_macros::block;
-
-const TREE_ORIGIN_ATTEMPTS: i32 = 4;
-const TREE_NEIGHBOR_RADIUS: i32 = 1;
-const TREE_CHANCE: u64 = 3;
 
 pub struct SuperflatGenerator {
     seed: u64,
@@ -87,48 +84,11 @@ impl ChunkGenerator for SuperflatGenerator {
                 Ok(())
             }
             GenStage::FEATURES => {
-                for origin_chunk in nearby_chunks(input.pos, TREE_NEIGHBOR_RADIUS) {
-                    for origin in tree_origins_for_chunk(self.seed, origin_chunk) {
-                        let blocks = generate_tree(origin, self.seed);
-
-                        for (offset, block) in &blocks {
-                            let block_pos = origin
-                                + IVec3::new(
-                                    i32::from(offset.x),
-                                    i32::from(offset.y),
-                                    i32::from(offset.z),
-                                );
-
-                            if block_pos.chunk() == input.pos {
-                                input.target.set_block(block_pos.chunk_block_pos(), *block);
-                            }
-                        }
-                    }
-                }
-
+                let mut input = input;
+                generate_features(&mut input, self.seed);
                 Ok(())
             }
             _ => Ok(()),
         }
     }
-}
-
-fn nearby_chunks(pos: ChunkPos, radius: i32) -> impl Iterator<Item = ChunkPos> {
-    (-radius..=radius).flat_map(move |x| (-radius..=radius).map(move |z| pos + (x, z)))
-}
-
-fn tree_origins_for_chunk(seed: u64, chunk: ChunkPos) -> impl Iterator<Item = BlockPos> {
-    (0..TREE_ORIGIN_ATTEMPTS).filter_map(move |attempt| {
-        let attempt_pos = chunk.block_offset(attempt, 65, attempt);
-        let rand = attempt_pos.deterministic_rand(seed);
-
-        if !rand.is_multiple_of(TREE_CHANCE) {
-            return None;
-        }
-
-        let x = ((rand >> 8) & 0xf) as i32;
-        let z = ((rand >> 12) & 0xf) as i32;
-
-        Some(chunk.block_offset(x, 65, z))
-    })
 }
