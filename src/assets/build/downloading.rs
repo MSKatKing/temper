@@ -77,7 +77,7 @@ pub fn generate() {
         write_if_changed(assets_dir.join("version"), crate::SERVER_VERSION)
             .expect("Could not write version file");
     } else {
-        println!("cargo:error=Setup failed");
+        println!("cargo::error=Setup failed");
     }
 }
 
@@ -133,7 +133,7 @@ fn setup() -> Result<PathBuf, ()> {
                 .expect("Failed to create generated assets directory");
         } else {
             println!(
-                "cargo:error=Parent directory of generated assets does not exist, is {:?} the right directory for the project?",
+                "cargo::error=Parent directory of generated assets does not exist, is {:?} the right directory for the project?",
                 root
             );
             return Err(());
