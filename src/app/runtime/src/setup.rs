@@ -17,28 +17,33 @@ use type_hash::TypeHash;
 /// Generates spawn chunks around the origin if they don't exist.
 pub fn generate_spawn_chunks(state: GlobalState) -> Result<(), BinaryError> {
     info!("No overworld spawn chunk found, generating spawn chunks...");
-    
+
     let start = Instant::now();
     let radius = state.config.chunk_render_distance as i32;
-    
+
     // Collect all chunk coordinates to generate
     let chunks: Vec<(i32, i32)> = (-radius..=radius)
         .flat_map(|x| (-radius..=radius).map(move |z| (x, z)))
         .collect();
-    
+
     let mut batch = state.thread_pool.batch();
     for (x, z) in chunks {
         let state_clone = state.clone();
         batch.execute(move || {
             let pos = ChunkPos::new(x, z);
-            let chunk_store =  &state_clone.world.chunks;
-            if let Err(e) = state_clone.world.chunk_generator.generate(chunk_store, Dimension::Overworld, pos) {
+            let chunk_store = &state_clone.world.chunks;
+            if let Err(e) =
+                state_clone
+                    .world
+                    .chunk_generator
+                    .generate(chunk_store, Dimension::Overworld, pos)
+            {
                 error!("Failed to generate chunk at ({}, {}): {:?}", x, z, e);
             }
         });
     }
     batch.wait();
-    
+
     info!("Finished generating spawn chunks in {:?}", start.elapsed());
     Ok(())
 }

@@ -67,6 +67,7 @@ members = [
     "src/world/gen/core",
     "src/world/gen/scheduler",
     "src/world/gen/generators/normal",
+    "src/world/gen/generators/skyblock",
     "src/world/gen/generators/superflat",
     "src/world/gen/structures",
     "tests",

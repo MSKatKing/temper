@@ -46,7 +46,7 @@ pub struct ServerConfig {
     pub block_scanner_ips: bool,
     pub dashboard: DashboardConfig,
     pub performance: PerformanceConfig,
-    pub world_gen: WorldGenConfig
+    pub world_gen: WorldGenConfig,
 }
 
 /// The database configuration section from [ServerConfig].
@@ -85,16 +85,15 @@ pub struct PerformanceConfig {
 }
 
 /// World generation config
-/// 
+///
 /// Fields:
 /// - `seed`: The seed to use
 /// - `generator`: The generator to use
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct WorldGenConfig {
     pub seed: String,
-    pub generator: String
+    pub generator: String,
 }
-
 
 pub fn create_config() -> ServerConfig {
     let config_location = get_root_path().join("configs");
@@ -150,6 +149,6 @@ pub fn create_dummy_config() -> ServerConfig {
         world_gen: WorldGenConfig {
             seed: "dummy".to_string(),
             generator: "superflat".to_string(),
-        }
+        },
     }
 }

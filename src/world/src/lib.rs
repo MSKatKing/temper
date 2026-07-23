@@ -190,7 +190,8 @@ mod tests {
         let world = World::new(
             std::env::current_dir().unwrap().join("../../../world"),
             &create_dummy_config(),
-        ).unwrap();
+        )
+        .unwrap();
         let chunk = world
             .get_chunk(ChunkPos::new(1, 1), Dimension::Overworld)
             .expect(
