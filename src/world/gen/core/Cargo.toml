@@ -1,0 +1,12 @@
+[package]
+name = "gen-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+temper-core = { workspace = true }
+temper-world-format = { workspace = true }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

@@ -64,6 +64,10 @@ members = [
     "src/world/db",
     "src/world/format",
     "src/world/gen",
+    "src/world/gen/core",
+    "src/world/gen/scheduler",
+    "src/world/gen/generators/normal",
+    "src/world/gen/generators/superflat",
     "tests",
 ]
 
@@ -239,7 +243,7 @@ fastcache = "0.1.7"
 # Macros
 lazy_static = "1.5.0"
 quote = "1.0.46"
-syn = { version = "2.0.118", features = ["extra-traits", "full"] }
+syn = { version = "3.0.3", features = ["extra-traits", "full"] }
 proc-macro2 = "1.0.106"
 paste = "1.0.15"
 maplit = "1.0.2"
