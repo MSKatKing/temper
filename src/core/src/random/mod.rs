@@ -1,15 +1,19 @@
 mod xoroshiro;
 
+use crate::pos::BlockPos;
 use std::borrow::Borrow;
 use std::range::RangeInclusive;
-use crate::pos::BlockPos;
 
-pub use xoroshiro::{XoroshiroRandomSource, XoroshiroPositionalRandom};
+pub use xoroshiro::{XoroshiroPositionalRandom, XoroshiroRandomSource};
 
 /// Supplies various random functions for structs. Based on `net.minecraft.util.RandomSource`.
 pub trait RandomSource {
-    fn fork(&mut self) -> Self where Self: Sized;
-    fn fork_positional(&mut self) -> impl PositionalRandom<Self> where Self: Sized;
+    fn fork(&mut self) -> Self
+    where
+        Self: Sized;
+    fn fork_positional(&mut self) -> impl PositionalRandom<Self>
+    where
+        Self: Sized;
 
     fn next_u32(&mut self) -> u32;
     fn next_u32_bounded(&mut self, limit: u32) -> u32;
@@ -40,7 +44,7 @@ pub trait PositionalRandom<R: RandomSource> {
 /// Converts the low and high bits (u64s) to a single u128
 #[inline]
 fn u64_to_u128(low: u64, high: u64) -> u128 {
-    (high as u128) << 64 | low as u128
+    u128::from(high) << 64 | u128::from(low)
 }
 
 /// Returns the lowest 64 bits of a u128
@@ -58,7 +62,7 @@ fn u128_high(seed: u128) -> u64 {
 fn mix_stafford13(val: u64) -> u64 {
     let val = (val ^ val >> 30).wrapping_mul(0xbf58476d1ce4e5b9);
     let val = (val ^ val >> 27).wrapping_mul(0x94d049bb133111eb);
-    val * val >> 31
+    val ^ val >> 31
 }
 
 #[inline]
@@ -86,6 +90,9 @@ fn seed_from_hash(hash: &str) -> u128 {
 #[inline]
 fn seed_from_pos(x: i32, y: i32, z: i32) -> u64 {
     let seed = x.wrapping_mul(3129871) as u64 ^ z.wrapping_mul(116129781) as u64 ^ y as u64;
-    let seed = seed.wrapping_mul(seed).wrapping_mul(42317861).wrapping_add(seed.wrapping_mul(11));
+    let seed = seed
+        .wrapping_mul(seed)
+        .wrapping_mul(42317861)
+        .wrapping_add(seed.wrapping_mul(11));
     seed >> 16
 }
