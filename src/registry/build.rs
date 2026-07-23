@@ -48,19 +48,18 @@ struct ItemRegistry {
 // --- 2. The Main Build Function ---
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=../../assets/data/registries.json");
-    println!("cargo:rerun-if-changed=../../assets/data/blockstates.json");
-    println!("cargo:rerun-if-changed=../../assets/data/item_to_block_mapping.json");
+    println!("cargo:rerun-if-changed=../../assets/generated/generated/reports/blocks.json");
+    println!("cargo:rerun-if-changed=../../assets/generated/generated/reports/registries.json");
 
     // --- 3. Load and parse all files ---
-    let registry_str = fs::read_to_string("../../assets/data/registries.json").unwrap();
-    let registry: RegistryRoot = serde_json::from_str(&registry_str).unwrap();
+    let registry_str = temper_assets::generated::reports::REGISTRIES;
+    let registry: RegistryRoot = serde_json::from_str(registry_str).unwrap();
 
-    let bs_str = fs::read_to_string("../../assets/data/blockstates.json").unwrap();
-    let blockstates: HashMap<String, BlockStateEntry> = serde_json::from_str(&bs_str).unwrap();
+    let blockstates: HashMap<String, BlockStateEntry> =
+        serde_json::from_str(temper_assets::generated::BLOCKSTATES).unwrap();
 
-    let i2b_str = fs::read_to_string("../../assets/data/item_to_block_mapping.json").unwrap();
-    let item_to_block: HashMap<String, String> = serde_json::from_str(&i2b_str).unwrap();
+    let item_to_block: HashMap<String, String> =
+        serde_json::from_str(temper_assets::generated::ITEM_TO_BLOCK_MAPPING).unwrap();
 
     // --- 4. Get the output path ---
     let out_dir = env::var_os("OUT_DIR").unwrap();

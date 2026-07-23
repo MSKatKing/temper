@@ -51,16 +51,18 @@ impl NoiseGenerator {
             .set_octaves(2)
             .set_frequency(0.0006); // very broad regions
 
+        let caves_layer = RidgedMulti::new((seed + 100) as u32)
+            .set_frequency(0.01)
+            .set_lacunarity(2.5)
+            .set_octaves(5)
+            .set_persistence(0.8)
+            .set_attenuation(0.3);
+
         Self {
             base,
             peaks,
             mountain_mask,
-            caves_layer: RidgedMulti::new((seed + 100) as u32)
-                .set_frequency(0.01)
-                .set_lacunarity(2.5)
-                .set_octaves(5)
-                .set_persistence(0.8)
-                .set_attenuation(0.3),
+            caves_layer,
             seed,
         }
     }

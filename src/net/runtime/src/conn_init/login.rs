@@ -14,7 +14,7 @@ use temper_protocol::ConnState::*;
 use temper_protocol::incoming::packet_skeleton::PacketSkeleton;
 use temper_protocol::outgoing::login_success::{LoginSuccessPacket, LoginSuccessProperties};
 use temper_protocol::outgoing::registry_data::REGISTRY_PACKETS;
-use temper_protocol::outgoing::set_default_spawn_position::DEFAULT_SPAWN_POSITION;
+use temper_protocol::outgoing::update_tags::UPDATE_TAGS_PACKET;
 use temper_state::GlobalState;
 
 use temper_components::entity_identity::Identity;
@@ -217,6 +217,7 @@ async fn send_login_success(
                 })
                 .collect(),
         ),
+        session_id: 0,
     };
     conn_write.send_packet(login_success)?;
 
@@ -324,6 +325,8 @@ async fn finish_configuration(
     for packet in &*REGISTRY_PACKETS {
         conn_write.send_packet_ref(packet)?;
     }
+
+    conn_write.send_packet_ref(&*UPDATE_TAGS_PACKET)?;
 
     // Send brand
     conn_write.send_packet(ClientBoundPluginMessagePacket::brand())?;
@@ -503,6 +506,16 @@ pub(super) async fn login(
     exchange_known_packs(conn_read, conn_write, compressed, state.clone()).await?;
     finish_configuration(conn_read, conn_write, compressed, state.clone()).await?;
 
+    let spawn_pos = {
+        while state.spawn_positions.is_empty() {
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+        state
+            .spawn_positions
+            .pop()
+            .expect("Spawn position should be available after waiting")
+    };
+
     let offline_data = state
         .world
         .load_player_data::<OfflinePlayerData>(player_identity.uuid)
@@ -518,7 +531,7 @@ pub(super) async fn login(
             None
         })
         .unwrap_or(OfflinePlayerData {
-            position: DEFAULT_SPAWN_POSITION.into(),
+            position: spawn_pos,
             gamemode: GameMode::from_string(&state.config.default_gamemode).unwrap_or_default(),
             abilities: temper_components::player::abilities::PlayerAbilities::for_game_mode(
                 GameMode::from_string(&state.config.default_gamemode).unwrap_or_default(),
@@ -550,6 +563,21 @@ pub(super) async fn login(
     .await?;
     send_player_info(conn_write, &player_identity, &player_properties)?;
     send_inventory_contents(conn_write, &offline_data)?;
+
+    state
+        .world
+        .save_player_data(player_identity.uuid, &offline_data)
+        .map_err(|err| {
+            error!(
+                "Error saving player data for {}: {:?}",
+                player_identity
+                    .name
+                    .clone()
+                    .unwrap_or("UnknownPlayerName".to_string()),
+                err
+            );
+            NetError::World(err)
+        })?;
 
     // Login complete
     Ok((

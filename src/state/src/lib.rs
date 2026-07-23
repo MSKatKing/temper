@@ -2,6 +2,7 @@ pub mod player_list;
 
 use crate::player_list::PlayerList;
 use bevy_ecs::prelude::Resource;
+use crossbeam_queue::ArrayQueue;
 use dashmap::DashSet;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
@@ -22,6 +23,7 @@ pub struct ServerState {
     pub performance: Mutex<ServerPerformance>,
     pub blocked_ips: DashSet<String>,
     pub config: ServerConfig,
+    pub spawn_positions: ArrayQueue<(f64, f64, f64)>,
 }
 
 pub type GlobalState = Arc<ServerState>;
@@ -45,6 +47,7 @@ pub fn create_test_state() -> (GlobalStateResource, TempDir) {
         performance: ServerPerformance::new(20).into(),
         blocked_ips: DashSet::new(),
         config,
+        spawn_positions: ArrayQueue::new(500),
     };
 
     let global_state = Arc::new(server_state);
@@ -66,5 +69,6 @@ pub fn create_state(start_time: Instant) -> ServerState {
         // This is later filled by the blocklist function at src/app/runtime/src/blocklist.rs
         blocked_ips: DashSet::new(),
         config,
+        spawn_positions: ArrayQueue::new(20),
     }
 }

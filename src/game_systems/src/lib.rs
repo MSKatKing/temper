@@ -121,12 +121,14 @@ fn register_tick_systems(schedule: &mut Schedule) {
         )
             .chain(),
     );
+    schedule.add_systems(background::generate_spawn_positions::generate_spawn_positions);
 
     schedule.add_systems(
         (
             physics::unground::handle,
             physics::gravity::handle,
             physics::drag::handle,
+            physics::friction::handle,
             physics::velocity::handle,
             physics::collisions::handle,
             physics::chunk_boundary::handle,

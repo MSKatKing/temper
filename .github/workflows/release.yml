@@ -78,6 +78,12 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Install JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
       - uses: Swatinem/rust-cache@v2
 
       - name: Build

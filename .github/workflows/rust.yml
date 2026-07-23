@@ -32,6 +32,12 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Install JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
       - uses: Swatinem/rust-cache@v2
 
       - name: Run cargo fmt
@@ -71,6 +77,12 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Install JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - uses: Swatinem/rust-cache@v2
 
       - name: Build
@@ -104,6 +116,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
+      - name: Install JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
 
       - uses: Swatinem/rust-cache@v2
 
