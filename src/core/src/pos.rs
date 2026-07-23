@@ -72,6 +72,17 @@ impl BlockPos {
             pos: IVec3::new(self.pos.x, self.pos.y - 1, self.pos.z),
         }
     }
+
+    pub fn deterministic_rand(&self, seed: u64) -> u64 {
+        wyhash::wyhash(
+            self.pos
+                .to_array()
+                .map(|b| b.to_be_bytes())
+                .concat()
+                .as_slice(),
+            seed,
+        )
+    }
 }
 
 impl From<NetworkPosition> for BlockPos {

@@ -33,6 +33,10 @@ pub fn load_chunk_internal(
     dimension: Dimension,
     verify: bool,
 ) -> Result<Chunk, WorldError> {
+    if !storage.table_exists("chunks".to_string())? {
+        return Err(WorldError::ChunkNotFound);
+    }
+
     let digest = create_key(dimension, pos);
     match storage.get("chunks".to_string(), digest)? {
         Some(compressed) => {
@@ -87,4 +91,35 @@ fn create_key(dimension: Dimension, pos: ChunkPos) -> u128 {
     dimension.hash(&mut hasher);
     let dim_hash = hasher.finish();
     u128::from(dim_hash) << 96 | u128::from(pos.pack())
+}
+
+#[cfg(test)]
+mod tests {
+    use temper_core::dimension::Dimension;
+    use tempfile::tempdir;
+
+    use super::*;
+
+    fn test_storage() -> StorageBackend {
+        StorageBackend::initialize(Some(tempdir().unwrap().keep()), 1024 * 1024 * 1024).unwrap()
+    }
+
+    #[test]
+    fn missing_chunks_table_loads_as_missing_chunk() {
+        let storage = test_storage();
+
+        assert!(matches!(
+            load_chunk_internal(&storage, ChunkPos::new(0, 0), Dimension::Overworld, false),
+            Err(WorldError::ChunkNotFound)
+        ));
+    }
+
+    #[test]
+    fn missing_chunks_table_reports_chunk_does_not_exist() {
+        let storage = test_storage();
+
+        assert!(
+            !chunk_exists_internal(&storage, ChunkPos::new(0, 0), Dimension::Overworld).unwrap()
+        );
+    }
 }

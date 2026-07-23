@@ -54,14 +54,14 @@ impl World {
         let storage_backend = StorageBackend::initialize(Some(backend_path), map_size)
             .expect("Failed to initialize database");
 
-        let rand_seed = rand::random();
+        let seed = 300;
 
         let chunks = ChunkStore::new(
             storage_backend,
             config.database.verify_chunk_data,
-            WyHasherBuilder::new(rand_seed),
+            WyHasherBuilder::new(seed),
         );
-        let chunk_generator = WorldChunkGenerator::unconfigured(seed);
+        let chunk_generator = WorldChunkGenerator::from_name("superflat", seed);
 
         World {
             chunks,
@@ -79,7 +79,7 @@ impl World {
         chunk_pos: ChunkPos,
         dimension: Dimension,
     ) -> Result<RefChunk<'_>, WorldError> {
-        if self.chunk_exists(chunk_pos, dimension)? {
+        if self.chunks.storage_backend.table_exists("chunks".to_string())? && self.chunk_exists(chunk_pos, dimension)? {
             self.get_chunk(chunk_pos, dimension)
         } else {
             self.chunk_generator
@@ -94,7 +94,7 @@ impl World {
         chunk_pos: ChunkPos,
         dimension: Dimension,
     ) -> Result<MutChunk<'_>, WorldError> {
-        if self.chunk_exists(chunk_pos, dimension)? {
+        if self.chunks.storage_backend.table_exists("chunks".to_string())? && self.chunk_exists(chunk_pos, dimension)? {
             self.get_chunk_mut(chunk_pos, dimension)
         } else {
             self.chunk_generator

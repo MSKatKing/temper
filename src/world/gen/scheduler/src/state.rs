@@ -65,6 +65,10 @@ impl SchedulerState {
     }
 
     pub fn mark_complete(&self, key: JobKey) -> Result<(), SchedulerError> {
+        let _registration_lock = self
+            .registration_lock
+            .lock()
+            .expect("registration lock poisoned");
         let job = self.jobs.get(&key).ok_or(SchedulerError::UnknownJob(key))?;
 
         if !job.state.mark_complete_once() {

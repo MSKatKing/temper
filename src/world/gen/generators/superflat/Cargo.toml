@@ -4,4 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-gen-core = { path = "../../core"}
+gen-core = { path = "../../core" }
+
+temper-macros = { workspace = true }
+temper-core = { workspace = true }
+bevy_math = { workspace = true }
+rand = { workspace = true }
