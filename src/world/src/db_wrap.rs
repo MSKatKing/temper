@@ -1,4 +1,4 @@
-use crate::{MutChunk, RefChunk, World};
+use crate::{ChunkStore, MutChunk, RefChunk, World};
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
 use temper_world_format::errors::WorldError;
@@ -9,7 +9,31 @@ use world_db::chunks::{
     sync_internal,
 };
 
-impl World {
+impl ChunkStore {
+    pub fn generation_stage(
+        &self,
+        pos: ChunkPos,
+        dimension: Dimension,
+    ) -> Result<Option<u8>, WorldError> {
+        match self.get_chunk(pos, dimension) {
+            Ok(chunk) => Ok(Some(chunk.stage)),
+            Err(WorldError::ChunkNotFound) => Ok(None),
+            Err(err) => Err(err),
+        }
+    }
+
+    pub fn ensure_chunk(&self, pos: ChunkPos, dimension: Dimension) -> Result<(), WorldError> {
+        if self.chunk_exists(pos, dimension)? {
+            return Ok(());
+        }
+
+        let chunk = Chunk::new_empty();
+        chunk.mark_dirty();
+        self.cache.insert((pos, dimension), chunk);
+
+        Ok(())
+    }
+
     /// Save a chunk to the storage backend
     ///
     /// This function will save a chunk to the storage backend and update the cache with the new
@@ -123,5 +147,44 @@ impl World {
         }
 
         sync_internal(&self.storage_backend)
+    }
+}
+
+impl World {
+    pub fn insert_chunk(
+        &self,
+        pos: ChunkPos,
+        dimension: Dimension,
+        chunk: Chunk,
+    ) -> Result<(), WorldError> {
+        self.chunks.insert_chunk(pos, dimension, chunk)
+    }
+
+    pub fn get_chunk(
+        &'_ self,
+        pos: ChunkPos,
+        dimension: Dimension,
+    ) -> Result<RefChunk<'_>, WorldError> {
+        self.chunks.get_chunk(pos, dimension)
+    }
+
+    pub fn get_chunk_mut(
+        &'_ self,
+        pos: ChunkPos,
+        dimension: Dimension,
+    ) -> Result<MutChunk<'_>, WorldError> {
+        self.chunks.get_chunk_mut(pos, dimension)
+    }
+
+    pub fn chunk_exists(&self, pos: ChunkPos, dimension: Dimension) -> Result<bool, WorldError> {
+        self.chunks.chunk_exists(pos, dimension)
+    }
+
+    pub fn delete_chunk(&self, pos: ChunkPos, dimension: Dimension) -> Result<(), WorldError> {
+        self.chunks.delete_chunk(pos, dimension)
+    }
+
+    pub fn sync(&self) -> Result<(), WorldError> {
+        self.chunks.sync()
     }
 }

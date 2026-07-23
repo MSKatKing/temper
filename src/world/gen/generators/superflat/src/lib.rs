@@ -1,14 +1,21 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+use gen_core::{ChunkGenerator, GenStage, GenerationError, GeneratorId, StageInput, StageSpec};
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub struct SuperflatGenerator;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+impl ChunkGenerator for SuperflatGenerator {
+    fn id(&self) -> GeneratorId {
+        GeneratorId::new("superflat")
+    }
+
+    fn final_stage(&self) -> GenStage {
+        GenStage::FULL
+    }
+
+    fn stage_spec(&self, stage: GenStage) -> Option<StageSpec> {
+        todo!()
+    }
+
+    fn advance_stage(&self, input: StageInput<'_>) -> Result<(), GenerationError> {
+        todo!()
     }
 }

@@ -1,9 +1,11 @@
 mod db_wrap;
+mod generation;
 mod helpers;
 mod importing;
 pub mod player;
 
 use dashmap::DashMap;
+pub use generation::WorldChunkGenerator;
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 use std::process::exit;
@@ -21,9 +23,14 @@ use wyhash::WyHasherBuilder;
 
 #[derive(Clone)]
 pub struct World {
+    pub chunks: ChunkStore,
+    pub chunk_generator: WorldChunkGenerator,
+}
+
+#[derive(Clone)]
+pub struct ChunkStore {
     pub storage_backend: StorageBackend,
     cache: ChunkCache,
-    // pub world_generator: WorldGenerator,
     verify: bool,
 }
 
@@ -49,19 +56,21 @@ impl World {
 
         let rand_seed = rand::random();
 
-        let cache = ChunkCache::with_hasher(WyHasherBuilder::new(rand_seed));
-        // let world_generator = WorldGenerator::new(seed);
+        let chunks = ChunkStore::new(
+            storage_backend,
+            config.database.verify_chunk_data,
+            WyHasherBuilder::new(rand_seed),
+        );
+        let chunk_generator = WorldChunkGenerator::unconfigured(seed);
 
         World {
-            storage_backend,
-            cache,
-            // world_generator,
-            verify: config.database.verify_chunk_data,
+            chunks,
+            chunk_generator,
         }
     }
 
     pub fn get_cache(&self) -> &ChunkCache {
-        &self.cache
+        self.chunks.get_cache()
     }
 
     /// Loads a chunk from the database or cache, or generates it if it doesn't exist.
@@ -73,18 +82,9 @@ impl World {
         if self.chunk_exists(chunk_pos, dimension)? {
             self.get_chunk(chunk_pos, dimension)
         } else {
-            unimplemented!();
-            // let chunk = self
-            //     .world_generator
-            //     .generate_chunk(chunk_pos)
-            //     .map_err(|err| {
-            //         WorldError::WorldGenerationError(format!(
-            //             "Failed to generate chunk at {:?}: {}",
-            //             chunk_pos, err
-            //         ))
-            //     })?;
-            // self.insert_chunk(chunk_pos, dimension, chunk)?;
-            // self.get_chunk(chunk_pos, dimension)
+            self.chunk_generator
+                .generate(&self.chunks, dimension, chunk_pos)?;
+            self.get_chunk(chunk_pos, dimension)
         }
     }
 
@@ -97,23 +97,28 @@ impl World {
         if self.chunk_exists(chunk_pos, dimension)? {
             self.get_chunk_mut(chunk_pos, dimension)
         } else {
-            unimplemented!();
-            // let chunk = self
-            //     .world_generator
-            //     .generate_chunk(chunk_pos)
-            //     .map_err(|err| {
-            //         WorldError::WorldGenerationError(format!(
-            //             "Failed to generate chunk at {:?}: {}",
-            //             chunk_pos, err
-            //         ))
-            //     })?;
-            // self.insert_chunk(chunk_pos, dimension, chunk)?;
-            // self.get_chunk_mut(chunk_pos, dimension)
+            self.chunk_generator
+                .generate(&self.chunks, dimension, chunk_pos)?;
+            self.get_chunk_mut(chunk_pos, dimension)
         }
     }
 }
 
-type ChunkCache = DashMap<(ChunkPos, Dimension), Chunk, WyHasherBuilder>;
+impl ChunkStore {
+    pub fn new(storage_backend: StorageBackend, verify: bool, hasher: WyHasherBuilder) -> Self {
+        Self {
+            storage_backend,
+            cache: ChunkCache::with_hasher(hasher),
+            verify,
+        }
+    }
+
+    pub fn get_cache(&self) -> &ChunkCache {
+        &self.cache
+    }
+}
+
+pub type ChunkCache = DashMap<(ChunkPos, Dimension), Chunk, WyHasherBuilder>;
 pub type MutChunk<'a> = dashmap::mapref::one::RefMut<'a, (ChunkPos, Dimension), Chunk>;
 pub type RefChunk<'a> = dashmap::mapref::one::Ref<'a, (ChunkPos, Dimension), Chunk>;
 

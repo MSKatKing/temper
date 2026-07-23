@@ -30,6 +30,7 @@ pub struct Chunk {
 
     pub heightmaps: Heightmaps,
     dirty: Arc<AtomicBool>,
+    pub stage: u8,
 }
 
 impl Chunk {
@@ -64,6 +65,7 @@ impl Chunk {
             entities: DashMap::new(),
             heightmaps: Heightmaps::default(),
             dirty: Arc::new(AtomicBool::new(false)),
+            stage: 0,
         }
     }
 
@@ -90,6 +92,7 @@ impl Chunk {
             heightmaps: Heightmaps::default(),
             entities: DashMap::new(),
             dirty: Arc::new(AtomicBool::new(false)),
+            stage: 0,
         }
     }
 
@@ -384,6 +387,7 @@ impl TryFrom<&VanillaChunk> for Chunk {
                 .unwrap_or_default(),
             entities: DashMap::new(),
             dirty: Arc::new(AtomicBool::new(false)),
+            stage: 6,
         })
     }
 }

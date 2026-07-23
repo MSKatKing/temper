@@ -58,6 +58,10 @@ impl RequestEntry {
     pub fn wake_receiver(&self) -> Receiver<()> {
         self.wake_receiver.clone()
     }
+
+    pub fn wake(&self) {
+        let _ = self.wake_sender.send(());
+    }
 }
 
 #[cfg(test)]

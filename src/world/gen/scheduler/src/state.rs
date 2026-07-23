@@ -71,6 +71,13 @@ impl SchedulerState {
             return Ok(());
         }
 
+        for request_id in job.interested_requests() {
+            let Some(request) = self.requests.get(&request_id) else {
+                continue;
+            };
+            request.wake();
+        }
+
         for dependent_key in job.dependents() {
             let Some(dependent) = self.jobs.get(&dependent_key) else {
                 continue;
