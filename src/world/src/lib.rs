@@ -7,6 +7,7 @@ pub mod player;
 use dashmap::DashMap;
 pub use generation::WorldChunkGenerator;
 use std::fs::create_dir_all;
+use std::hash::{BuildHasher, Hasher};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use temper_config::ServerConfig;
@@ -15,6 +16,7 @@ use temper_core::pos::ChunkPos;
 use temper_general_purpose::paths::get_root_path;
 use temper_storage::lmdb::StorageBackend;
 pub use temper_world_format::errors::WorldError;
+use temper_world_format::errors::WorldError::InvalidWorldGenerator;
 use temper_world_format::Chunk;
 use tracing::{error, warn};
 pub use world_db::*;
@@ -39,7 +41,10 @@ impl World {
     ///
     /// You'd probably want to call this at the start of your program. And then use the returned
     /// in a state struct or something.
-    pub fn new(backend_path: impl Into<PathBuf>, seed: u64, config: &ServerConfig) -> Self {
+    pub fn new(
+        backend_path: impl Into<PathBuf>,
+        config: &ServerConfig,
+    ) -> Result<Self, WorldError> {
         if let Err(e) = check_config_validity(config) {
             error!("Fatal error in database config: {}", e);
             exit(1);
@@ -54,18 +59,31 @@ impl World {
         let storage_backend = StorageBackend::initialize(Some(backend_path), map_size)
             .expect("Failed to initialize database");
 
-        let seed = 300;
+        let seed = {
+            let mut hasher = wyhash::WyHasherBuilder::default().build_hasher();
+            hasher.write(&config.world_gen.seed.clone().into_bytes());
+            hasher.finish()
+        };
 
         let chunks = ChunkStore::new(
             storage_backend,
             config.database.verify_chunk_data,
             WyHasherBuilder::new(seed),
         );
-        let chunk_generator = WorldChunkGenerator::from_name("superflat", seed);
+        let chunk_generator = WorldChunkGenerator::from_name(&config.world_gen.generator, seed);
 
-        World {
-            chunks,
-            chunk_generator,
+        if let Some(chunk_generator) = chunk_generator {
+            Ok(World {
+                chunks,
+                chunk_generator,
+            })
+        } else {
+            Err(InvalidWorldGenerator(
+                match config.world_gen.generator.as_str() {
+                    "" => "<empty string>".to_string(),
+                    other => other.to_string(),
+                },
+            ))
         }
     }
 
@@ -171,9 +189,8 @@ mod tests {
     fn dump_chunk() {
         let world = World::new(
             std::env::current_dir().unwrap().join("../../../world"),
-            0,
             &create_dummy_config(),
-        );
+        ).unwrap();
         let chunk = world
             .get_chunk(ChunkPos::new(1, 1), Dimension::Overworld)
             .expect(

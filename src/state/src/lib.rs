@@ -39,7 +39,7 @@ pub fn create_test_state() -> (GlobalStateResource, TempDir) {
     let config = create_dummy_config();
 
     let server_state = ServerState {
-        world: World::new(&db_path, 0, &config),
+        world: World::new(&db_path, &config).unwrap(),
         shut_down: false.into(),
         players: PlayerList::default(),
         thread_pool: ThreadPool::new(),
@@ -57,10 +57,9 @@ pub fn create_test_state() -> (GlobalStateResource, TempDir) {
 /// Creates the initial server state with all required components.
 pub fn create_state(start_time: Instant) -> ServerState {
     // Fixed seed for world generation. This seed ensures you spawn above land at the default spawn point.
-    const SEED: u64 = 380;
     let config = create_config();
     ServerState {
-        world: World::new(&config.database.db_path, SEED, &config),
+        world: World::new(&config.database.db_path, &config).expect("Failed to create world"),
         shut_down: false.into(),
         players: PlayerList::default(),
         thread_pool: ThreadPool::new(),

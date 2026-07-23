@@ -26,12 +26,8 @@ impl WorldChunkGenerator {
         }
     }
 
-    pub fn unconfigured(seed: u64) -> Self {
-        Self::from_name("unconfigured", seed)
-    }
-
-    pub fn from_name(name: &str, seed: u64) -> Self {
-        Self::new(world_gen::generator_from_name(name, seed))
+    pub fn from_name(name: &str, seed: u64) -> Option<Self> {
+        Some(Self::new(world_gen::generator_from_name(name, seed)?))
     }
 
     pub fn generate(
