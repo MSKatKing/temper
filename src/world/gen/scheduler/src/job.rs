@@ -90,6 +90,10 @@ impl AtomicJobState {
         self.state.store(JobState::Complete as u8, Release);
     }
 
+    pub fn mark_complete_once(&self) -> bool {
+        self.state.swap(JobState::Complete as u8, AcqRel) != JobState::Complete as u8
+    }
+
     pub fn mark_failed(&self) {
         self.state.store(JobState::Failed as u8, Release);
     }
@@ -135,13 +139,16 @@ impl JobEntry {
             .clone()
     }
 
-    pub fn add_interested_request(&self, request: RequestId) {
+    pub fn add_interested_request(&self, request: RequestId) -> bool {
         let mut interested_requests = self
             .interested_requests
             .lock()
             .expect("interested request list poisoned");
         if !interested_requests.contains(&request) {
             interested_requests.push(request);
+            true
+        } else {
+            false
         }
     }
 

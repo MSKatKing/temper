@@ -5,6 +5,24 @@ use temper_core::dimension::Dimension;
 use crate::JobKey;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReadySource {
+    Local,
+    Global,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ClaimedJob {
+    pub key: JobKey,
+    pub source: ReadySource,
+}
+
+impl ClaimedJob {
+    pub const fn new(key: JobKey, source: ReadySource) -> Self {
+        Self { key, source }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct JobPriority {
     pub dependency_depth: u32,
     pub distance_to_target: u32,
