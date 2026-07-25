@@ -591,7 +591,7 @@ mod tests {
         test: &XoroshiroTest<T>,
         supplier: fn(&mut XoroshiroRandomSource) -> T,
     ) {
-        for (seed_num, (seed, values)) in test.into_iter().enumerate() {
+        for (seed_num, (seed, values)) in test.iter().enumerate() {
             let mut random = XoroshiroRandomSource::new(*seed);
 
             for (i, value) in values.iter().enumerate() {
