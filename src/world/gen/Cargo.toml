@@ -16,14 +16,5 @@ temper-macros = { workspace = true }
 thiserror = { workspace = true }
 rand = { workspace = true }
 
-[dev-dependencies]
-criterion = { workspace = true }
-
 [lints]
 workspace = true
-
-
-[[bench]]
-name = "gen_benches"
-harness = false
-path = "benches/gen.rs"

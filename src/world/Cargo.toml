@@ -31,6 +31,7 @@ temper-core = { workspace = true }
 [dev-dependencies]
 criterion = { workspace = true }
 rand = { workspace = true }
+tempfile = { workspace = true }
 
 [[bench]]
 name = "world_bench"

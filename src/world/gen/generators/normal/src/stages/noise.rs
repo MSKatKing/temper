@@ -113,7 +113,7 @@ impl NormalGenerator {
             input.target.noise.jaggedness[idx] = chunk.try_into().expect("Chunk length mismatch");
         });
 
-        let grid_3d = quick_noise::Grid::<3>::new(16, 384, 16)
+        let grid_3d = quick_noise::Grid::<3, A>::new(16, 384, 16)
             .sample_position(input.pos.pos.x, MIN_Y, input.pos.pos.y)
             .seed(self.seed as i64);
 
