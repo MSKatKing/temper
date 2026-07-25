@@ -1,4 +1,5 @@
 pub mod stages;
+pub mod splines;
 
 use gen_core::{
     ChunkGenerator, GenStage, GenerationError, GeneratorId, StageDependencies, StageInput,
