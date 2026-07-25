@@ -31,11 +31,7 @@ pub struct TerrainPoint {
 }
 
 impl TerrainPoint {
-    pub fn new(
-        continentalness: f32,
-        erosion: f32,
-        weirdness: f32,
-    ) -> Self {
+    pub fn new(continentalness: f32, erosion: f32, weirdness: f32) -> Self {
         Self {
             continentalness,
             erosion,
@@ -103,11 +99,7 @@ pub struct SplineKnot {
 }
 
 impl SplineKnot {
-    pub fn constant(
-        location: f32,
-        value: f32,
-        derivative: f32,
-    ) -> Self {
+    pub fn constant(location: f32, value: f32, derivative: f32) -> Self {
         Self {
             location,
             value: SplineValue::Constant(value),
@@ -115,11 +107,7 @@ impl SplineKnot {
         }
     }
 
-    pub fn nested(
-        location: f32,
-        spline: SplineRef,
-        derivative: f32,
-    ) -> Self {
+    pub fn nested(location: f32, spline: SplineRef, derivative: f32) -> Self {
         Self {
             location,
             value: SplineValue::Spline(spline),
@@ -217,21 +205,17 @@ impl NestedSpline {
         if input <= first.location {
             let endpoint_value = first.value.sample(point);
 
-            return endpoint_value
-                + first.derivative * (input - first.location);
+            return endpoint_value + first.derivative * (input - first.location);
         }
 
         if input >= last.location {
             let endpoint_value = last.value.sample(point);
 
-            return endpoint_value
-                + last.derivative * (input - last.location);
+            return endpoint_value + last.derivative * (input - last.location);
         }
 
         // Find the first knot whose location is greater than `input`.
-        let right_index = self
-            .knots
-            .partition_point(|knot| knot.location <= input);
+        let right_index = self.knots.partition_point(|knot| knot.location <= input);
 
         let left = &self.knots[right_index - 1];
         let right = &self.knots[right_index];
@@ -307,7 +291,9 @@ pub enum SplineError {
         value: f32,
     },
 
-    #[error("{coordinate:?} spline knot locations are not strictly increasing at index {left_index}: {left} >= {right}")]
+    #[error(
+        "{coordinate:?} spline knot locations are not strictly increasing at index {left_index}: {left} >= {right}"
+    )]
     LocationsNotIncreasing {
         coordinate: SplineCoordinate,
         left_index: usize,
@@ -315,7 +301,6 @@ pub enum SplineError {
         right: f32,
     },
 }
-
 
 #[inline]
 pub fn spline(
@@ -382,7 +367,7 @@ mod tests {
                 SplineKnot::constant(1.0, 20.0, 0.0),
             ],
         )
-            .unwrap();
+        .unwrap();
 
         assert_eq!(spline.sample(point(-1.0)), 10.0);
         assert_eq!(spline.sample(point(1.0)), 20.0);
@@ -397,7 +382,7 @@ mod tests {
                 SplineKnot::constant(1.0, 10.0, 0.0),
             ],
         )
-            .unwrap();
+        .unwrap();
 
         let value = spline.sample(point(0.5));
 
@@ -413,17 +398,11 @@ mod tests {
                 SplineKnot::constant(1.0, 20.0, 3.0),
             ],
         )
-            .unwrap();
+        .unwrap();
 
-        assert!(
-            (spline.sample(point(-1.0)) - 8.0).abs()
-                < 0.0001
-        );
+        assert!((spline.sample(point(-1.0)) - 8.0).abs() < 0.0001);
 
-        assert!(
-            (spline.sample(point(2.0)) - 23.0).abs()
-                < 0.0001
-        );
+        assert!((spline.sample(point(2.0)) - 23.0).abs() < 0.0001);
     }
 
     #[test]
@@ -435,24 +414,16 @@ mod tests {
                 SplineKnot::constant(1.0, 100.0, 0.0),
             ],
         )
-            .unwrap();
+        .unwrap();
 
         let root = NestedSpline::new(
             SplineCoordinate::Continentalness,
             vec![
-                SplineKnot::nested(
-                    -1.0,
-                    Arc::clone(&erosion_child),
-                    0.0,
-                ),
-                SplineKnot::nested(
-                    1.0,
-                    erosion_child,
-                    0.0,
-                ),
+                SplineKnot::nested(-1.0, Arc::clone(&erosion_child), 0.0),
+                SplineKnot::nested(1.0, erosion_child, 0.0),
             ],
         )
-            .unwrap();
+        .unwrap();
 
         let sample = TerrainPoint {
             continentalness: 0.0,

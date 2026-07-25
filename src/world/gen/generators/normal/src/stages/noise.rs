@@ -2,6 +2,8 @@ use crate::NormalGenerator;
 use gen_core::{GenerationError, StageInput};
 use quick_noise::{Fbm, Perlin};
 
+const MIN_Y: i32 = -64;
+
 impl NormalGenerator {
     pub(crate) fn generate_noises(&self, input: StageInput<'_>) -> Result<(), GenerationError> {
         let grid_2d = quick_noise::Grid::<2>::new(16, 16)
@@ -109,7 +111,9 @@ impl NormalGenerator {
             input.target.noise.jaggedness[idx] = chunk.try_into().expect("Chunk length mismatch");
         });
 
-        let grid_3d = quick_noise::Grid::<3>::new(16, 384, 16);
+        let grid_3d = quick_noise::Grid::<3>::new(16, 384, 16)
+            .sample_position(input.pos.pos.x, MIN_Y, input.pos.pos.y)
+            .seed(self.seed as i64);
 
         grid_3d
             .builder::<Fbm, Perlin>()
@@ -140,7 +144,7 @@ impl NormalGenerator {
             .lacunarity(2.0)
             .persistence(0.45)
             .fill(input.target.noise.spaghetti_caves.as_mut_slice());
-        
+
         grid_3d
             .builder::<Fbm, Perlin>()
             .seed(7)
@@ -152,5 +156,41 @@ impl NormalGenerator {
             .fill(input.target.noise.spaghetti_caves.as_mut_slice());
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gen_core::{GenStage, StageInput, StageNeighborhood};
+    use temper_core::pos::ChunkPos;
+    use temper_world_format::Chunk;
+
+    use super::*;
+
+    fn generate_noise(seed: u64, pos: ChunkPos) -> Chunk {
+        let generator = NormalGenerator::new(seed);
+        let mut chunk = Chunk::new_empty();
+
+        generator
+            .generate_noises(StageInput::new(
+                pos,
+                GenStage::NOISE,
+                &mut chunk,
+                StageNeighborhood::empty(),
+            ))
+            .expect("normal noise generation should succeed");
+
+        chunk
+    }
+
+    #[test]
+    fn base_3d_noise_uses_chunk_world_position() {
+        let origin = generate_noise(10, ChunkPos::new(0, 0));
+        let east = generate_noise(10, ChunkPos::new(1, 0));
+
+        assert_ne!(
+            origin.noise.base3d, east.noise.base3d,
+            "3D terrain noise must not repeat the same volume in every chunk",
+        );
     }
 }

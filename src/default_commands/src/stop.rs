@@ -20,12 +20,12 @@ impl CommandHandler for StopCommand {
         }
 
         info!("Shutting down server...");
+        state.0.shut_down.store(true, Relaxed);
         state
             .0
             .world
             .sync()
             .map_err(|error| format!("Failed to sync world before shutdown: {error}"))?;
-        state.0.shut_down.store(true, Relaxed);
 
         Ok(())
     }

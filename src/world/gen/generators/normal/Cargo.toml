@@ -10,6 +10,7 @@ temper-core = { workspace = true }
 temper-world-format = { workspace = true }
 bevy_math = { workspace = true }
 thiserror = { workspace = true }
+temper-macros = { workspace = true }
 
 [lints]
 workspace = true
