@@ -1,12 +1,14 @@
 use crate::NormalGenerator;
 use gen_core::{GenerationError, StageInput};
 use quick_noise::{Fbm, Perlin};
+use quick_noise::simd::dispatch_simd;
 
 const MIN_Y: i32 = -64;
 
 impl NormalGenerator {
+    #[dispatch_simd(A)]
     pub(crate) fn generate_noises(&self, input: StageInput<'_>) -> Result<(), GenerationError> {
-        let grid_2d = quick_noise::Grid::<2>::new(16, 16)
+        let grid_2d = quick_noise::Grid::<2, A>::new(16, 16)
             .grid_position(input.pos.x(), input.pos.z())
             .seed(self.seed as i64);
 

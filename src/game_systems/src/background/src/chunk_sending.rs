@@ -19,10 +19,7 @@ use temper_protocol::outgoing::chunk_batch_finish::ChunkBatchFinish;
 use temper_protocol::outgoing::chunk_batch_start::ChunkBatchStart;
 use temper_protocol::outgoing::set_center_chunk::SetCenterChunk;
 use temper_state::GlobalStateResource;
-use temper_world::{WorldError, world_gen::GenStage};
 use tracing::error;
-
-const MAX_GENERATED_CHUNKS_PER_TICK: usize = 1;
 
 // Just take the needed chunks from the ChunkReceiver and send them
 // calculating which chunks are required is figured out elsewhere
@@ -38,15 +35,7 @@ pub fn handle(
     state: Res<GlobalStateResource>,
     mut mob_load_writer: MessageWriter<temper_messages::load_chunk_entities::LoadChunkEntities>,
 ) {
-    if state.0.shut_down.load(Ordering::Relaxed) {
-        return;
-    }
-
     for (eid, conn, mut chunk_receiver, pos, client_info, entity_tracker) in query.iter_mut() {
-        if state.0.shut_down.load(Ordering::Relaxed) {
-            return;
-        }
-
         if !state.0.players.is_connected(eid) {
             continue; // Skip if the player is not connected
         }
@@ -79,40 +68,10 @@ pub fn handle(
         }
 
         let mut needed_chunks: Vec<(i32, i32)> = Vec::new();
-        let mut generated_chunks = 0;
 
         if sent_chunks < chunk_receiver.chunks_per_tick as usize {
             // Then handle loading chunks
             while let Some(coords) = chunk_receiver.loading.pop_front() {
-                if state.0.shut_down.load(Ordering::Relaxed) {
-                    chunk_receiver.loading.push_front(coords);
-                    break;
-                }
-
-                let chunk_pos = IVec2::new(coords.0, coords.1);
-                let player_chunk_pos = IVec2::new(
-                    pos.coords.x.floor() as i32 >> 4,
-                    pos.coords.z.floor() as i32 >> 4,
-                );
-                let distance = chunk_pos.distance_squared(player_chunk_pos);
-                let view_distance = max(
-                    u32::from(client_info.view_distance),
-                    state.0.config.chunk_render_distance,
-                );
-
-                if distance > (view_distance * view_distance) as i32 {
-                    continue;
-                }
-
-                if needs_generation(&state, ChunkPos::new(coords.0, coords.1)) {
-                    if generated_chunks >= MAX_GENERATED_CHUNKS_PER_TICK {
-                        chunk_receiver.loading.push_front(coords);
-                        break;
-                    }
-
-                    generated_chunks += 1;
-                }
-
                 needed_chunks.push(coords);
                 sent_chunks += 1;
                 if sent_chunks >= chunk_per_tick {
@@ -173,10 +132,6 @@ pub fn handle(
             batch.execute({
                 let entity_queue = entity_queue.clone();
                 move || {
-                    if state.0.shut_down.load(Ordering::Relaxed) {
-                        return Vec::new();
-                    }
-
                     let chunk = state
                         .0
                         .world
@@ -198,16 +153,8 @@ pub fn handle(
             });
         }
         let packets = batch.wait();
-        let packets_len = packets.iter().filter(|packet| !packet.is_empty()).count();
-        if state.0.shut_down.load(Ordering::Relaxed) {
-            return;
-        }
-
+        let packets_len = packets.len();
         for packet in packets {
-            if packet.is_empty() {
-                continue;
-            }
-
             if let Err(err) = conn.send_raw_packet(packet) {
                 error!("Failed to send chunk packet: {:?}", err);
             }
@@ -234,17 +181,6 @@ pub fn handle(
         // God, I hope the compiler can optimize this shit out
         while let Some(entity_id) = entity_queue.pop() {
             entity_tracker.to_track.push(entity_id);
-        }
-    }
-}
-
-fn needs_generation(state: &GlobalStateResource, coordinates: ChunkPos) -> bool {
-    match state.0.world.get_chunk(coordinates, Dimension::Overworld) {
-        Ok(chunk) => chunk.stage < GenStage::FULL.raw(),
-        Err(WorldError::ChunkNotFound) => true,
-        Err(err) => {
-            error!("Failed to check chunk generation stage: {err:?}");
-            true
         }
     }
 }
