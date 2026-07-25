@@ -1,4 +1,5 @@
 mod improved;
+mod perlin;
 
 use bevy_math::DVec3;
 pub use improved::ImprovedNoise;
@@ -27,16 +28,16 @@ mod tests {
     use bevy_math::DVec3;
     use temper_core::random::XoroshiroRandomSource;
 
-    pub type NoiseMapTest = &'static [(u64, &'static [([f64; 3], f64)])];
+    pub type NoiseMapTest<T> = &'static [((u64, T), &'static [([f64; 3], f64)])];
 
-    pub fn run_test<T, FN, FG>(data: &NoiseMapTest, new_func: FN, get_func: FG)
+    pub fn run_test<T, D, FN, FG>(data: &NoiseMapTest<D>, new_func: FN, get_func: FG)
     where
-        FN: Fn(&mut XoroshiroRandomSource) -> T,
+        FN: Fn(&mut XoroshiroRandomSource, &D) -> T,
         FG: Fn(&T, DVec3) -> f64,
     {
-        for (i, (seed, data)) in data.iter().enumerate() {
+        for (i, ((seed, custom_data), data)) in data.iter().enumerate() {
             let mut random = XoroshiroRandomSource::new(*seed);
-            let map = new_func(&mut random);
+            let map = new_func(&mut random, custom_data);
 
             for (pos, data) in data.iter() {
                 let pos = DVec3::from_array(*pos);
