@@ -6,7 +6,7 @@ use temper_core::block_state_id::BlockStateId;
 use temper_core::dimension::Dimension::Overworld;
 use temper_macros::match_block;
 use temper_state::GlobalStateResource;
-use tracing::{info, trace};
+use tracing::{error, info, trace};
 
 const SPAWN_CENTER: (i32, i32) = (8, 8);
 const MIN_RADIUS: u32 = 8;
@@ -19,6 +19,8 @@ pub fn generate_spawn_positions(state: Res<GlobalStateResource>) {
     if state.0.spawn_positions.is_full() {
         return;
     }
+
+    let mut attempts = 0u64;
 
     let mut found_coords = 0;
 
@@ -72,6 +74,14 @@ pub fn generate_spawn_positions(state: Res<GlobalStateResource>) {
                     expand_cooldown -= 1;
                 } else {
                     radius += 10;
+                }
+                attempts += 1;
+
+                if attempts > 1_000_000 {
+                    error!(
+                        "Failed to find a spawn position after 1,000,000 attempts. This is likely a bug in the world generation."
+                    );
+                    found = Some(Position::new(0.0, 100.0, 0.0));
                 }
             }
         }

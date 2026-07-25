@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 gen-core = { path = "./core" }
 gen-scheduler = { path = "./scheduler" }
+normal = { path = "./generators/normal" }
 skyblock = { path = "./generators/skyblock" }
 superflat = { path = "./generators/superflat" }
 temper-world-format = { workspace = true }

@@ -31,7 +31,36 @@ pub struct Chunk {
     pub heightmaps: Heightmaps,
     dirty: Arc<AtomicBool>,
     pub stage: u8,
+    pub noise: ChunkNoises
 }
+
+#[derive(Clone, Serialize, Deserialize, TypeHash, Default)]
+pub struct ChunkNoises {
+    /// Continentalness noise. Indexed as noise[z][x] from 0,0 to 15,15
+    pub continentalness: [[f32; 16]; 16],
+    /// Erosion noise. Indexed as noise[z][x] from 0,0 to 15,15
+    pub erosion: [[f32; 16]; 16],
+    /// Weirdness noise. Indexed as noise[z][x] from 0,0 to 15,15
+    pub weirdness: [[f32; 16]; 16],
+    /// Jagged noise. Indexed as noise[z][x] from 0,0 to 15,15
+    pub jaggedness: [[f32; 16]; 16],
+    /// Temperature noise. Indexed as noise[z][x] from 0,0 to 15,15
+    pub temperature: [[f32; 16]; 16],
+    /// Humidity noise. Indexed as noise[z][x] from 0,0 to 15,15
+    pub humidity: [[f32; 16]; 16],
+    
+    // Stored as vecs to avoid putting 16*16*384 f32s on the stack. Which is nearly 400kb each.
+    
+    /// Base 3d noise. Indexed as noise[z][y][x] from 0,-64,0 to 15,383,15
+    pub base3d: Vec<f32>,
+    /// Cheese cave noise. Indexed as noise[z][y][x] from 0,-64,0 to 15,383,15
+    pub cheese_caves: Vec<f32>,
+    /// Spaghetti cave noise. Indexed as noise[z][y][x] from 0,-64,0 to 15,383,15
+    pub spaghetti_caves: Vec<f32>,    
+    /// Noodle cave noise. Indexed as noise[z][y][x] from 0,-64,0 to 15,383,15
+    pub noddle_caves: Vec<f32>,
+}
+
 
 impl Chunk {
     /// Returns a chunk that is completely filled with air.
@@ -66,6 +95,7 @@ impl Chunk {
             heightmaps: Heightmaps::default(),
             dirty: Arc::new(AtomicBool::new(false)),
             stage: 0,
+            noise: ChunkNoises::default()
         }
     }
 
@@ -93,6 +123,7 @@ impl Chunk {
             entities: DashMap::new(),
             dirty: Arc::new(AtomicBool::new(false)),
             stage: 0,
+            noise: ChunkNoises::default()
         }
     }
 
@@ -388,6 +419,7 @@ impl TryFrom<&VanillaChunk> for Chunk {
             entities: DashMap::new(),
             dirty: Arc::new(AtomicBool::new(false)),
             stage: 6,
+            noise: ChunkNoises::default()
         })
     }
 }
