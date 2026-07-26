@@ -155,6 +155,7 @@ temper-macros = { path = "src/base/macros" }
 temper-messages = { path = "src/messages" }
 temper-nbt = { path = "src/adapters/nbt" }
 temper-net-runtime = { path = "src/net/runtime" }
+temper-noise = { path = "src/world/noise" }
 temper-particles = { path = "src/particles" }
 temper-performance = { path = "src/performance" }
 temper-permissions = { path = "src/permissions" }
