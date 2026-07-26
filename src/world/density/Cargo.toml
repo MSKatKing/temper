@@ -4,3 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+temper-core = { workspace = true }
+temper-noise = { workspace = true }
+bevy_math = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "density"
+harness = false
