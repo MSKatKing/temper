@@ -26,30 +26,42 @@ impl BufferType {
             BufferType::Out | BufferType::Full => 16 * 16 * 320,
             BufferType::Flat => 16 * 16,
             BufferType::FlatCell => 4 * 4,
-            BufferType::Interpolated => 8 * (4 * 4 * (320 / 4))
+            BufferType::Interpolated => 8 * (4 * 4 * (320 / 4)),
         }
     }
 }
 
 impl BufferId {
-    pub const OUT: BufferId = BufferId { ty: BufferType::Out, id: 0 };
+    pub const OUT: BufferId = BufferId {
+        ty: BufferType::Out,
+        id: 0,
+    };
 
     pub fn flat(id: u8) -> BufferId {
-        BufferId { ty: BufferType::Flat, id }
+        BufferId {
+            ty: BufferType::Flat,
+            id,
+        }
     }
 
     pub fn flat_cell(id: u8) -> BufferId {
-        BufferId { ty: BufferType::FlatCell, id }
+        BufferId {
+            ty: BufferType::FlatCell,
+            id,
+        }
     }
 
     pub fn interpolated(id: u8) -> BufferId {
-        BufferId { ty: BufferType::Interpolated, id }
+        BufferId {
+            ty: BufferType::Interpolated,
+            id,
+        }
     }
 }
 
 impl Deref for Buffer {
     type Target = [f32];
-    
+
     fn deref(&self) -> &Self::Target {
         &self.data
     }

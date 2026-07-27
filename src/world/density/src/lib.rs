@@ -1,16 +1,9 @@
 pub mod cpu;
+mod ir;
 
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+pub use ir::*;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+#[inline]
+pub fn deserialize_density_function(json: &str) -> serde_json::Result<DensityFunction> {
+    serde_json::from_str(json)
 }
