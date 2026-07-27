@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq)]
 pub enum BufferType {
     Out,
@@ -42,5 +44,19 @@ impl BufferId {
 
     pub fn interpolated(id: u8) -> BufferId {
         BufferId { ty: BufferType::Interpolated, id }
+    }
+}
+
+impl Deref for Buffer {
+    type Target = [f32];
+    
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+impl DerefMut for Buffer {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
     }
 }
