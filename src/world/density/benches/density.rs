@@ -1,15 +1,16 @@
 use std::hint::black_box;
-use criterion::{criterion_group, Criterion, criterion_main};
+use criterion::{criterion_group, Criterion, criterion_main, Throughput};
 use temper_core::random::XoroshiroRandomSource;
 use temper_density::cpu::buffer::{Buffer, BufferId, BufferType};
 use temper_density::cpu::operation::{Operation, ValueSource};
-use temper_density::cpu::{run, Workspace, OUT_BUFFER_LEN};
+use temper_density::cpu::OUT_BUFFER_LEN;
+use temper_density::cpu::workspace::Workspace;
 use temper_noise::NormalNoise;
 
 fn bench_density(c: &mut Criterion) {
     let mut rand = XoroshiroRandomSource::new(10);
 
-    let ops = [
+    let operations = [
         Operation::ClearBuffer { destination: BufferId::OUT, value: 5.0 },
         // Operation::AddBuffer { destination: BufferId::OUT, source: ValueSource::Noise(NormalNoise::new(&mut rand, 1, &[3.0, 2.0, 1.0])) },
         Operation::MulBuffer { destination: BufferId::OUT, source: ValueSource::Constant(5.0) },
@@ -24,13 +25,15 @@ fn bench_density(c: &mut Criterion) {
         flat: vec![Buffer { ty: BufferType::Flat, data: vec![0.0; BufferType::Flat.size()].into_boxed_slice() }],
         flat_cell: Vec::new(),
         interpolated: Vec::new(),
+        operations: &operations,
     };
 
-    c.bench_function("density execution", |b| {
-        b.iter(|| {
-            black_box(run(black_box(&ops), black_box(&mut workspace)));
-        });
+    let mut group = c.benchmark_group("density execution");
+    group.throughput(Throughput::Bytes(OUT_BUFFER_LEN as u64));
+    group.bench_function("density execution", |b| {
+        b.iter(|| black_box(workspace.execute()))
     });
+    group.finish();
 }
 
 criterion_group!(benches, bench_density);
