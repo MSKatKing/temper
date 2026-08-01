@@ -7,6 +7,9 @@ use temper_core::pos::{ChunkBlockPos, ChunkPos};
 use temper_macros::block;
 
 const FLOWER_CHANCE: f64 = 0.03;
+const HEIGHTMAP_STEP_XZ: i32 = 4;
+const HEIGHT_SCALE: f64 = 64.0;
+const HEIGHT_OFFSET: i32 = 68;
 
 const FLOWERS: [BlockStateId; 12] = [
     block!("allium"),
@@ -32,10 +35,8 @@ impl NormalGenerator {
 }
 
 fn build_heightmap_interpolated(pos: ChunkPos, noise: &NoiseGenerator) -> [i32; 16 * 16] {
-    const STEP_XZ: i32 = 4;
-
-    let gx = (16 / STEP_XZ + 1) as usize;
-    let gz = (16 / STEP_XZ + 1) as usize;
+    let gx = (16 / HEIGHTMAP_STEP_XZ + 1) as usize;
+    let gz = (16 / HEIGHTMAP_STEP_XZ + 1) as usize;
 
     let idx = |ix: usize, iz: usize| -> usize { iz * gx + ix };
 
@@ -43,8 +44,8 @@ fn build_heightmap_interpolated(pos: ChunkPos, noise: &NoiseGenerator) -> [i32; 
 
     for ix in 0..gx {
         for iz in 0..gz {
-            let lx = (ix as i32) * STEP_XZ;
-            let lz = (iz as i32) * STEP_XZ;
+            let lx = (ix as i32) * HEIGHTMAP_STEP_XZ;
+            let lz = (iz as i32) * HEIGHTMAP_STEP_XZ;
 
             let world_x = pos.x() * 16 + lx;
             let world_z = pos.z() * 16 + lz;
@@ -57,11 +58,11 @@ fn build_heightmap_interpolated(pos: ChunkPos, noise: &NoiseGenerator) -> [i32; 
 
     for x in 0..16i32 {
         for z in 0..16i32 {
-            let base_ix = (x / STEP_XZ) as usize;
-            let base_iz = (z / STEP_XZ) as usize;
+            let base_ix = (x / HEIGHTMAP_STEP_XZ) as usize;
+            let base_iz = (z / HEIGHTMAP_STEP_XZ) as usize;
 
-            let tx = smoothstep(f64::from(x % STEP_XZ) / f64::from(STEP_XZ));
-            let tz = smoothstep(f64::from(z % STEP_XZ) / f64::from(STEP_XZ));
+            let tx = smoothstep(f64::from(x % HEIGHTMAP_STEP_XZ) / f64::from(HEIGHTMAP_STEP_XZ));
+            let tz = smoothstep(f64::from(z % HEIGHTMAP_STEP_XZ) / f64::from(HEIGHTMAP_STEP_XZ));
 
             let ix0 = base_ix;
             let ix1 = (base_ix + 1).min(gx - 1);
@@ -75,7 +76,7 @@ fn build_heightmap_interpolated(pos: ChunkPos, noise: &NoiseGenerator) -> [i32; 
 
             let height = bilerp(c00, c10, c01, c11, tx, tz);
 
-            out[(z as usize) * 16 + (x as usize)] = (height * 64.0) as i32 + 64;
+            out[(z as usize) * 16 + (x as usize)] = (height * HEIGHT_SCALE) as i32 + HEIGHT_OFFSET;
         }
     }
 

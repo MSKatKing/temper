@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::Res;
 use bevy_math::DVec3;
+use rand::prelude::SliceRandom;
 use std::time::Duration;
 use temper_components::player::position::Position;
 use temper_core::block_state_id::BlockStateId;
@@ -33,7 +34,10 @@ pub fn generate_spawn_positions(state: Res<GlobalStateResource>) {
             return;
         }
 
-        for (chunk_x, chunk_z) in chunk_ring(center_chunk, radius) {
+        let mut chunks = chunk_ring(center_chunk, radius).collect::<Vec<_>>();
+        chunks.shuffle(&mut rand::rng());
+
+        for (chunk_x, chunk_z) in chunks {
             if state.0.spawn_positions.is_full() {
                 info!(
                     "Finished generating {} spawn positions in {:.2} ms",
@@ -73,20 +77,26 @@ fn enqueue_spawn_positions_from_chunk(
 ) -> usize {
     let mut found = 0;
 
+    let mut coords = Vec::with_capacity(256);
     for x in 0..16 {
         for z in 0..16 {
-            if state.0.spawn_positions.is_full() {
-                return found;
-            }
+            coords.push((x, z));
+        }
+    }
+    coords.shuffle(&mut rand::rng());
 
-            if let Some(position) = spawn_position_for_column(chunk_pos, chunk, x, z) {
-                state
-                    .0
-                    .spawn_positions
-                    .push(position.xyz())
-                    .expect("Cannot push to queue");
-                found += 1;
-            }
+    for (x, z) in coords {
+        if state.0.spawn_positions.is_full() {
+            return found;
+        }
+
+        if let Some(position) = spawn_position_for_column(chunk_pos, chunk, x, z) {
+            state
+                .0
+                .spawn_positions
+                .push(position.xyz())
+                .expect("Cannot push to queue");
+            found += 1;
         }
     }
 

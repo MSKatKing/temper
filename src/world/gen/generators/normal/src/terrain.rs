@@ -17,7 +17,7 @@ impl NoiseGenerator {
 
         let peaks = RidgedMulti::<Perlin>::new((seed as u32).wrapping_add(1))
             .set_octaves(4)
-            .set_frequency(0.01);
+            .set_frequency(0.008);
 
         let mountain_mask = Fbm::<Perlin>::new((seed as u32).wrapping_add(2))
             .set_octaves(2)
@@ -51,19 +51,25 @@ impl NoiseGenerator {
         let mask = self.mountain_mask.get([x, z]);
         let mask01 = to01(mask);
 
-        let mask_shaped = smoothstep(((mask01 - 0.45) / (0.75 - 0.45)).clamp(0.0, 1.0));
+        let height = shape_height(base01, peaks01, mask01);
 
-        let valleys = base01.powf(1.3);
-        let mountain_add = peaks01.powf(2.2) * 0.25;
-
-        let height = valleys + mountain_add * mask_shaped;
-
-        (height.clamp(0.0, 1.0) * 2.0) - 1.0
+        (height * 2.0) - 1.0
     }
 
     pub fn get_cave_noise(&self, x: f64, y: f64, z: f64) -> f64 {
         self.caves_layer.get([x, y, z])
     }
+}
+
+fn shape_height(base01: f64, peaks01: f64, mask01: f64) -> f64 {
+    let land_lift = smoothstep(((base01 - 0.38) / 0.34).clamp(0.0, 1.0));
+    let mountain_mask = smoothstep(((mask01 - 0.5) / 0.3).clamp(0.0, 1.0));
+    let peak_gate = smoothstep(((base01 - 0.58) / 0.24).clamp(0.0, 1.0));
+
+    let plains = base01.powf(1.15) * 0.92 + land_lift * 0.06;
+    let peaks = peaks01.powf(3.0) * 0.16 * mountain_mask * peak_gate;
+
+    (plains + peaks).clamp(0.0, 1.0)
 }
 
 #[inline(always)]
@@ -141,4 +147,25 @@ pub fn dither_field(seed: u64, x: i32, z: i32, cell_size: i32) -> f64 {
     let a = lerp(v00, v10, tx);
     let b = lerp(v01, v11, tx);
     lerp(a, b, tz)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn peak_noise_is_gated_out_of_lower_terrain() {
+        let low_peak = shape_height(0.45, 0.1, 1.0);
+        let high_peak = shape_height(0.45, 1.0, 1.0);
+
+        assert!((high_peak - low_peak).abs() < 0.01);
+    }
+
+    #[test]
+    fn peak_noise_still_lifts_high_terrain() {
+        let low_peak = shape_height(0.75, 0.1, 1.0);
+        let high_peak = shape_height(0.75, 1.0, 1.0);
+
+        assert!(high_peak > low_peak + 0.1);
+    }
 }
