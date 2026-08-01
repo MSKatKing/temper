@@ -5,12 +5,14 @@ pub struct GenStage(u8);
 
 impl GenStage {
     pub const EMPTY: Self = Self(0);
-    pub const NOISE: Self = Self(1);
-    pub const BIOMES: Self = Self(2);
-    pub const SURFACE: Self = Self(3);
-    pub const CARVERS: Self = Self(4);
-    pub const FEATURES: Self = Self(5);
-    pub const FULL: Self = Self(6);
+    pub const STRUCTURE_STARTS: Self = Self(1);
+    pub const STRUCTURE_REFERENCES: Self = Self(2);
+    pub const BIOMES: Self = Self(3);
+    pub const NOISE: Self = Self(4);
+    pub const SURFACE: Self = Self(5);
+    pub const CARVERS: Self = Self(6);
+    pub const FEATURES: Self = Self(7);
+    pub const FULL: Self = Self(8);
 
     pub const fn new(stage: u8) -> Self {
         Self(stage)
@@ -124,8 +126,12 @@ mod tests {
     #[test]
     fn stage_arithmetic_stays_inside_u8() {
         assert_eq!(GenStage::EMPTY.previous(), None);
-        assert_eq!(GenStage::BIOMES.previous(), Some(GenStage::NOISE));
-        assert_eq!(GenStage::FULL.next(), Some(GenStage::new(7)));
+        assert_eq!(
+            GenStage::STRUCTURE_REFERENCES.previous(),
+            Some(GenStage::STRUCTURE_STARTS)
+        );
+        assert_eq!(GenStage::NOISE.previous(), Some(GenStage::BIOMES));
+        assert_eq!(GenStage::FULL.next(), Some(GenStage::new(9)));
         assert_eq!(GenStage::new(u8::MAX).next(), None);
     }
 }

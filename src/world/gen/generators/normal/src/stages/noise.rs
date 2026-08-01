@@ -1,7 +1,7 @@
 use crate::NormalGenerator;
 use gen_core::{GenerationError, StageInput};
-use quick_noise::{Fbm, Perlin};
 use quick_noise::simd::dispatch_simd;
+use quick_noise::{Fbm, Perlin};
 
 const MIN_Y: i32 = -64;
 
@@ -20,7 +20,7 @@ impl NormalGenerator {
             // Hardcoding seeds here is fine since it is combined with the grid/world seed and so each
             // noise type will be different from each other but the same when using the same world seed
             .seed(1)
-            .frequency(1.0 / 2048.0)
+            .frequency(1.0 / 1024.0)
             .octaves(4)
             .lacunarity(2.0)
             .persistence(0.45)
@@ -37,7 +37,7 @@ impl NormalGenerator {
         grid_2d
             .builder::<Fbm, Perlin>()
             .seed(2)
-            .frequency(1.0 / 600.0)
+            .frequency(1.0 / 360.0)
             .octaves(4)
             .lacunarity(2.0)
             .persistence(0.45)
@@ -53,7 +53,7 @@ impl NormalGenerator {
         grid_2d
             .builder::<Fbm, Perlin>()
             .seed(3)
-            .frequency(1.0 / 400.0)
+            .frequency(1.0 / 260.0)
             .octaves(3)
             .lacunarity(2.0)
             .persistence(0.5)
@@ -149,13 +149,13 @@ impl NormalGenerator {
 
         grid_3d
             .builder::<Fbm, Perlin>()
-            .seed(7)
+            .seed(8)
             .frequency(1.0 / 20.0)
             .scaling(1.0, 0.75, 1.0)
             .octaves(2)
             .lacunarity(2.0)
             .persistence(0.45)
-            .fill(input.target.noise.spaghetti_caves.as_mut_slice());
+            .fill(input.target.noise.noddle_caves.as_mut_slice());
 
         Ok(())
     }

@@ -1,7 +1,5 @@
-pub mod build_terrain_splines;
-pub mod density;
-pub mod splines;
 pub mod stages;
+mod terrain;
 
 use gen_core::{
     ChunkGenerator, GenStage, GenerationError, GeneratorId, StageDependencies, StageInput,
@@ -30,20 +28,30 @@ impl ChunkGenerator for NormalGenerator {
     fn stage_spec(&self, stage: GenStage) -> Option<StageSpec> {
         match stage {
             GenStage::EMPTY => Some(StageSpec::new(stage, "empty", StageDependencies::NONE)),
-            GenStage::NOISE => Some(StageSpec::new(
+            GenStage::STRUCTURE_STARTS => Some(StageSpec::new(
                 stage,
-                "noise",
+                "structure_starts",
                 StageDependencies::only_own(GenStage::EMPTY),
+            )),
+            GenStage::STRUCTURE_REFERENCES => Some(StageSpec::new(
+                stage,
+                "structure_references",
+                StageDependencies::only_own(GenStage::STRUCTURE_STARTS),
             )),
             GenStage::BIOMES => Some(StageSpec::new(
                 stage,
                 "biomes",
-                StageDependencies::only_own(GenStage::NOISE),
+                StageDependencies::only_own(GenStage::STRUCTURE_REFERENCES),
+            )),
+            GenStage::NOISE => Some(StageSpec::new(
+                stage,
+                "noise",
+                StageDependencies::only_own(GenStage::BIOMES),
             )),
             GenStage::SURFACE => Some(StageSpec::new(
                 stage,
                 "surface",
-                StageDependencies::only_own(GenStage::BIOMES),
+                StageDependencies::only_own(GenStage::NOISE),
             )),
             GenStage::CARVERS => Some(StageSpec::new(
                 stage,
@@ -67,10 +75,12 @@ impl ChunkGenerator for NormalGenerator {
     fn advance_stage(&self, input: StageInput<'_>) -> Result<(), GenerationError> {
         match input.stage {
             GenStage::EMPTY => generate_empty(input),
-            GenStage::NOISE => self.generate_noises(input),
+            GenStage::STRUCTURE_STARTS => generate_structure_starts(input, self.seed),
+            GenStage::STRUCTURE_REFERENCES => generate_structure_references(input, self.seed),
             GenStage::BIOMES => generate_biomes(input, self.seed),
+            GenStage::NOISE => self.generate_noises(input),
             GenStage::SURFACE => self.generate_surface(input),
-            GenStage::CARVERS => generate_carvers(input, self.seed),
+            GenStage::CARVERS => self.generate_carvers(input),
             GenStage::FEATURES => generate_features(input, self.seed),
             GenStage::FULL => finish_chunk(input),
             _ => Ok(()),
@@ -82,11 +92,18 @@ fn generate_empty(_input: StageInput<'_>) -> Result<(), GenerationError> {
     Ok(())
 }
 
-fn generate_biomes(_input: StageInput<'_>, _seed: u64) -> Result<(), GenerationError> {
+fn generate_structure_starts(_input: StageInput<'_>, _seed: u64) -> Result<(), GenerationError> {
     Ok(())
 }
 
-fn generate_carvers(_input: StageInput<'_>, _seed: u64) -> Result<(), GenerationError> {
+fn generate_structure_references(
+    _input: StageInput<'_>,
+    _seed: u64,
+) -> Result<(), GenerationError> {
+    Ok(())
+}
+
+fn generate_biomes(_input: StageInput<'_>, _seed: u64) -> Result<(), GenerationError> {
     Ok(())
 }
 
@@ -103,31 +120,6 @@ fn finish_chunk(input: StageInput<'_>) -> Result<(), GenerationError> {
     Ok(())
 }
 
-fn index3d(x: usize, y: usize, z: usize) -> usize {
-    assert!(x < 16);
-    assert!(y < 384);
-    assert!(z < 16);
-    // Layout is array[z][y][x], so x is the fastest-changing index.
-    // index = z * (Y * X) + y * X + x
-    const X: usize = 16;
-    const Y: usize = 384;
-    z * (Y * X) + y * X + x
-}
-
-#[inline]
-fn lerp(a: f32, b: f32, t: f32) -> f32 {
-    a + (b - a) * t
-}
-
-#[inline]
-fn inverse_lerp_clamped(start: f32, end: f32, value: f32) -> f32 {
-    if start == end {
-        return if value >= end { 1.0 } else { 0.0 };
-    }
-
-    ((value - start) / (end - start)).clamp(0.0, 1.0)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -142,8 +134,24 @@ mod tests {
     #[test]
     fn current_stages_only_depend_on_their_own_previous_stage() {
         assert_eq!(
-            dependencies(GenStage::SURFACE),
+            dependencies(GenStage::STRUCTURE_STARTS),
+            StageDependencies::only_own(GenStage::EMPTY),
+        );
+        assert_eq!(
+            dependencies(GenStage::STRUCTURE_REFERENCES),
+            StageDependencies::only_own(GenStage::STRUCTURE_STARTS),
+        );
+        assert_eq!(
+            dependencies(GenStage::BIOMES),
+            StageDependencies::only_own(GenStage::STRUCTURE_REFERENCES),
+        );
+        assert_eq!(
+            dependencies(GenStage::NOISE),
             StageDependencies::only_own(GenStage::BIOMES),
+        );
+        assert_eq!(
+            dependencies(GenStage::SURFACE),
+            StageDependencies::only_own(GenStage::NOISE),
         );
         assert_eq!(
             dependencies(GenStage::CARVERS),
@@ -153,13 +161,5 @@ mod tests {
             dependencies(GenStage::FEATURES),
             StageDependencies::only_own(GenStage::CARVERS),
         );
-    }
-
-    #[test]
-    fn index3d_matches_quick_noise_grid_layout() {
-        assert_eq!(index3d(0, 0, 0), 0);
-        assert_eq!(index3d(15, 0, 0), 15);
-        assert_eq!(index3d(0, 1, 0), 16);
-        assert_eq!(index3d(0, 0, 1), 16 * 384);
     }
 }

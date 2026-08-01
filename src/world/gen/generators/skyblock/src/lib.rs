@@ -34,20 +34,30 @@ impl ChunkGenerator for SkyblockGenerator {
     fn stage_spec(&self, stage: GenStage) -> Option<StageSpec> {
         match stage {
             GenStage::EMPTY => Some(StageSpec::new(stage, "empty", StageDependencies::NONE)),
-            GenStage::NOISE => Some(StageSpec::new(
+            GenStage::STRUCTURE_STARTS => Some(StageSpec::new(
                 stage,
-                "noise",
+                "structure_starts",
                 StageDependencies::only_own(GenStage::EMPTY),
+            )),
+            GenStage::STRUCTURE_REFERENCES => Some(StageSpec::new(
+                stage,
+                "structure_references",
+                StageDependencies::only_own(GenStage::STRUCTURE_STARTS),
             )),
             GenStage::BIOMES => Some(StageSpec::new(
                 stage,
                 "biomes",
-                StageDependencies::only_own(GenStage::NOISE),
+                StageDependencies::only_own(GenStage::STRUCTURE_REFERENCES),
+            )),
+            GenStage::NOISE => Some(StageSpec::new(
+                stage,
+                "noise",
+                StageDependencies::only_own(GenStage::BIOMES),
             )),
             GenStage::SURFACE => Some(StageSpec::new(
                 stage,
                 "surface",
-                StageDependencies::only_own(GenStage::BIOMES),
+                StageDependencies::only_own(GenStage::NOISE),
             )),
             GenStage::CARVERS => Some(StageSpec::new(
                 stage,

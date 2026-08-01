@@ -1,207 +1,203 @@
-use crate::build_terrain_splines::build_terrain_splines;
-use crate::density::{ChunkDensityField, TerrainDensitySettings};
-use crate::splines::{ColumnShape, TerrainPoint, TerrainSplines};
-use crate::{NormalGenerator, index3d, inverse_lerp_clamped, lerp};
+use crate::terrain::{bilerp, dither_field, smoothstep, NoiseGenerator};
+use crate::NormalGenerator;
 use gen_core::{GenerationError, StageInput};
-use std::sync::LazyLock;
+use rand::seq::IndexedRandom;
 use temper_core::block_state_id::BlockStateId;
-use temper_core::pos::ChunkBlockPos;
+use temper_core::pos::{ChunkBlockPos, ChunkPos};
 use temper_macros::block;
-use temper_world_format::{Chunk, ChunkNoises};
 
-static TERRAIN_SPLINES: LazyLock<TerrainSplines> =
-    LazyLock::new(|| build_terrain_splines().expect("hard-coded terrain splines must be valid"));
+const FLOWER_CHANCE: f64 = 0.03;
 
-pub const CHUNK_WIDTH: usize = 16;
-pub const COLUMN_COUNT: usize = CHUNK_WIDTH * CHUNK_WIDTH; // 256
+const FLOWERS: [BlockStateId; 12] = [
+    block!("allium"),
+    block!("azure_bluet"),
+    block!("blue_orchid"),
+    block!("cornflower"),
+    block!("dandelion"),
+    block!("lily_of_the_valley"),
+    block!("oxeye_daisy"),
+    block!("poppy"),
+    block!("orange_tulip"),
+    block!("pink_tulip"),
+    block!("red_tulip"),
+    block!("white_tulip"),
+];
+
 impl NormalGenerator {
     pub(crate) fn generate_surface(&self, input: StageInput<'_>) -> Result<(), GenerationError> {
-        let splines: &TerrainSplines = &TERRAIN_SPLINES;
-
-        let settings = TerrainDensitySettings::default();
-
-        let density = generate_density_field(input.target, splines, -64, 320, settings);
-
-        for y_index in 0..density.height {
-            let world_y = density.min_y + y_index as i32;
-
-            for z in 0..CHUNK_WIDTH {
-                for x in 0..CHUNK_WIDTH {
-                    let index = index3d(x, y_index, z);
-
-                    let value = density.values[index];
-
-                    let block = if value > 0.0 {
-                        block!("stone")
-                    } else if world_y <= settings.sea_level as i32 {
-                        block!("water", {level: 15})
-                    } else {
-                        block!("air")
-                    };
-
-                    input
-                        .target
-                        .set_block(ChunkBlockPos::new(x as u8, world_y as i16, z as u8), block);
-                }
-            }
-        }
+        let noise = NoiseGenerator::new(self.seed);
+        generate_plains(input, &noise);
         Ok(())
     }
 }
 
-fn build_column_shapes(
-    noises: &ChunkNoises,
-    splines: &TerrainSplines,
-) -> [ColumnShape; COLUMN_COUNT] {
-    let mut shapes = [ColumnShape {
-        offset_blocks: 0.0,
-        factor: 1.0,
-        jaggedness_blocks: 0.0,
-    }; COLUMN_COUNT];
+fn build_heightmap_interpolated(pos: ChunkPos, noise: &NoiseGenerator) -> [i32; 16 * 16] {
+    const STEP_XZ: i32 = 4;
 
-    for z in 0..CHUNK_WIDTH {
-        for x in 0..CHUNK_WIDTH {
-            let terrain_point = TerrainPoint::new(
-                noises.continentalness[z][x],
-                noises.erosion[z][x],
-                noises.weirdness[z][x],
-            );
+    let gx = (16 / STEP_XZ + 1) as usize;
+    let gz = (16 / STEP_XZ + 1) as usize;
 
-            let shape = splines.sample(terrain_point);
+    let idx = |ix: usize, iz: usize| -> usize { iz * gx + ix };
 
-            debug_assert!(
-                shape.offset_blocks.is_finite(),
-                "offset spline returned a non-finite value",
-            );
+    let mut grid = vec![0.0f64; gx * gz];
 
-            debug_assert!(
-                shape.factor.is_finite() && shape.factor > 0.0,
-                "factor spline returned an invalid value",
-            );
+    for ix in 0..gx {
+        for iz in 0..gz {
+            let lx = (ix as i32) * STEP_XZ;
+            let lz = (iz as i32) * STEP_XZ;
 
-            debug_assert!(
-                shape.jaggedness_blocks.is_finite(),
-                "jaggedness spline returned a non-finite value",
-            );
+            let world_x = pos.x() * 16 + lx;
+            let world_z = pos.z() * 16 + lz;
 
-            shapes[z * 16 + x] = shape;
+            grid[idx(ix, iz)] = noise.get_noise(f64::from(world_x), f64::from(world_z));
         }
     }
 
-    shapes
-}
+    let mut out = [0i32; 16 * 16];
 
-fn half_negative(value: f32) -> f32 {
-    if value < 0.0 { value * 0.5 } else { value }
-}
+    for x in 0..16i32 {
+        for z in 0..16i32 {
+            let base_ix = (x / STEP_XZ) as usize;
+            let base_iz = (z / STEP_XZ) as usize;
 
-fn density_at(
-    world_y: i32,
-    shape: ColumnShape,
-    jagged_noise: f32,
-    base_3d_noise: f32,
-    settings: TerrainDensitySettings,
-) -> f32 {
-    // The jaggedness spline says how many blocks of jagged displacement are
-    // permitted here. The separate jagged noise supplies the local pattern.
-    let jagged_height = shape.jaggedness_blocks * half_negative(jagged_noise);
+            let tx = smoothstep(f64::from(x % STEP_XZ) / f64::from(STEP_XZ));
+            let tz = smoothstep(f64::from(z % STEP_XZ) / f64::from(STEP_XZ));
 
-    // This is the column's broad expected surface elevation.
-    let target_surface = settings.sea_level + shape.offset_blocks + jagged_height;
+            let ix0 = base_ix;
+            let ix1 = (base_ix + 1).min(gx - 1);
+            let iz0 = base_iz;
+            let iz1 = (base_iz + 1).min(gz - 1);
 
-    // Positive below the expected surface, negative above it.
-    let vertical_density = (target_surface - world_y as f32) / settings.vertical_scale;
+            let c00 = grid[idx(ix0, iz0)];
+            let c10 = grid[idx(ix1, iz0)];
+            let c01 = grid[idx(ix0, iz1)];
+            let c11 = grid[idx(ix1, iz1)];
 
-    // Factor controls how strongly the column follows its broad vertical
-    // shape. Base 3D noise creates volumetric variation and overhangs.
-    vertical_density * shape.factor + base_3d_noise * settings.base_3d_amplitude
-}
+            let height = bilerp(c00, c10, c01, c11, tx, tz);
 
-fn apply_world_slides(
-    mut density: f32,
-    world_y: i32,
-    min_y: i32,
-    max_y: i32,
-    settings: TerrainDensitySettings,
-) -> f32 {
-    if settings.bottom_slide_size > 0 {
-        let bottom_end = min_y + settings.bottom_slide_size;
-
-        let t = inverse_lerp_clamped(min_y as f32, bottom_end as f32, world_y as f32);
-
-        // At min_y, force positive density.
-        density = lerp(1.0, density, t);
+            out[(z as usize) * 16 + (x as usize)] = (height * 64.0) as i32 + 64;
+        }
     }
 
-    if settings.top_slide_size > 0 {
-        let top_start = max_y - settings.top_slide_size;
-
-        let t = inverse_lerp_clamped(top_start as f32, max_y as f32, world_y as f32);
-
-        // At max_y, force negative density.
-        density = lerp(density, -1.0, t);
-    }
-
-    density
+    out
 }
 
-pub fn generate_density_field(
-    chunk: &Chunk,
-    splines: &TerrainSplines,
-    min_y: i32,
-    max_y: i32,
-    settings: TerrainDensitySettings,
-) -> ChunkDensityField {
-    assert!(max_y > min_y);
-    assert!(settings.vertical_scale > 0.0);
-    assert!(settings.base_3d_amplitude >= 0.0);
+fn generate_plains(input: StageInput<'_>, noise: &NoiseGenerator) {
+    let stone = block!("stone");
 
-    let height = (max_y - min_y) as usize;
-    let expected_3d_length = COLUMN_COUNT * height;
+    for section_y in -4..4 {
+        input
+            .target
+            .fill_section(section_y as i8, block!("water", {level: 0}));
+    }
 
-    assert_eq!(
-        chunk.noise.base3d.len(),
-        expected_3d_length,
-        "base 3D noise has the wrong dimensions",
-    );
+    let heights = build_heightmap_interpolated(input.pos, noise);
 
-    let column_shapes = build_column_shapes(&chunk.noise, splines);
+    let mut y_min = i32::MAX;
+    for &height in &heights {
+        y_min = y_min.min(height);
+    }
 
-    let mut values = vec![0.0; expected_3d_length];
+    let highest_full_section = y_min.div_euclid(16);
+    for section_y in -4..highest_full_section {
+        input.target.fill_section(section_y as i8, stone);
+    }
 
-    for y_index in 0..height {
-        let world_y = min_y + y_index as i32;
+    let above_filled_sections = highest_full_section * 16 - 1;
 
-        for z in 0..CHUNK_WIDTH {
-            for x in 0..CHUNK_WIDTH {
-                let density_index = index3d(x, y_index, z);
+    for chunk_x in 0..16i32 {
+        for chunk_z in 0..16i32 {
+            let height = heights[(chunk_z as usize) * 16 + (chunk_x as usize)];
 
-                let shape = column_shapes[z * 16 + x];
+            if height <= above_filled_sections {
+                continue;
+            }
 
-                let density = density_at(
-                    world_y,
-                    shape,
-                    chunk.noise.jaggedness[z][x],
-                    chunk.noise.base3d[density_index],
-                    settings,
-                );
+            let fill = height - above_filled_sections;
+            let global_x = input.pos.x() * 16 + chunk_x;
+            let global_z = input.pos.z() * 16 + chunk_z;
 
-                let density = apply_world_slides(density, world_y, min_y, max_y, settings);
+            let d = dither_field(noise.seed, global_x, global_z, 16);
+            let wobble = ((d * 2.0) - 1.0) * 2.0;
 
-                debug_assert!(
-                    density.is_finite(),
-                    "density became non-finite at \
-                     ({x}, {world_y}, {z})",
-                );
+            for dy in 0..fill {
+                let y = above_filled_sections + dy;
+                let dithered_y = y + wobble.round() as i32;
+                let pos = ChunkBlockPos::new(chunk_x as u8, y as i16, chunk_z as u8);
 
-                values[density_index] = density;
+                if dithered_y <= 64 {
+                    input
+                        .target
+                        .set_block_without_heightmap(pos, block!("sand"));
+                } else if dithered_y >= 80 {
+                    input.target.set_block_without_heightmap(pos, stone);
+                } else if dy == fill - 1 {
+                    input
+                        .target
+                        .set_block_without_heightmap(pos, block!("grass_block", {snowy: false}));
+
+                    if rand::random_bool(FLOWER_CHANCE) {
+                        let flower = FLOWERS.choose(&mut rand::rng()).unwrap();
+                        input.target.set_block_without_heightmap(
+                            ChunkBlockPos::new(chunk_x as u8, (y + 1) as i16, chunk_z as u8),
+                            *flower,
+                        );
+                    }
+                } else {
+                    input
+                        .target
+                        .set_block_without_heightmap(pos, block!("dirt"));
+                }
             }
         }
     }
 
-    ChunkDensityField {
-        min_y,
-        height,
-        values,
+    input.target.recalculate_heightmap();
+}
+
+#[cfg(test)]
+mod tests {
+    use gen_core::{GenStage, StageInput, StageNeighborhood};
+    use temper_core::pos::ChunkPos;
+    use temper_world_format::Chunk;
+
+    use super::*;
+
+    fn generate_surface(seed: u64, pos: ChunkPos) -> Chunk {
+        let generator = NormalGenerator::new(seed);
+        let mut chunk = Chunk::new_empty();
+
+        generator
+            .generate_surface(StageInput::new(
+                pos,
+                GenStage::SURFACE,
+                &mut chunk,
+                StageNeighborhood::empty(),
+            ))
+            .expect("normal surface generation should succeed");
+
+        chunk
+    }
+
+    #[test]
+    fn generates_origin_chunk() {
+        generate_surface(0, ChunkPos::new(0, 0));
+    }
+
+    #[test]
+    fn generated_chunks_count_water_for_motion_blocking() {
+        let chunk = generate_surface(0, ChunkPos::new(0, 0));
+
+        for x in 0..16 {
+            for z in 0..16 {
+                assert!(chunk.heightmaps.motion_blocking.get_height(x, z) >= 63);
+            }
+        }
+    }
+
+    #[test]
+    fn generates_high_coordinates() {
+        generate_surface(0, ChunkPos::new((1 << 22) - 1, (1 << 22) - 1));
+        generate_surface(0, ChunkPos::new(-((1 << 22) - 1), -((1 << 22) - 1)));
     }
 }

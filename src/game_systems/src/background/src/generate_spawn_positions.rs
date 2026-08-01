@@ -4,12 +4,15 @@ use std::time::Duration;
 use temper_components::player::position::Position;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::dimension::Dimension::Overworld;
+use temper_core::pos::{ChunkBlockPos, ChunkPos};
 use temper_macros::match_block;
 use temper_state::GlobalStateResource;
-use tracing::{error, info, trace};
+use temper_world::RefChunk;
+use tracing::{error, info};
 
 const SPAWN_CENTER: (i32, i32) = (8, 8);
-const MIN_RADIUS: u32 = 8;
+const SPAWN_SEARCH_BUDGET: Duration = Duration::from_millis(30);
+const MAX_SPAWN_CHUNK_RADIUS: i32 = 128;
 
 // Basically the easiest way to have available spawn positions is to just
 // generate a bunch and chuck them in a queue that can be pulled from
@@ -20,35 +23,32 @@ pub fn generate_spawn_positions(state: Res<GlobalStateResource>) {
         return;
     }
 
-    let mut attempts = 0u64;
-
     let mut found_coords = 0;
+    let center_chunk =
+        Position::new(f64::from(SPAWN_CENTER.0), 0.0, f64::from(SPAWN_CENTER.1)).chunk();
 
-    while !state.0.spawn_positions.is_full() {
-        // How many attempts to find a spawn location we should try before upping the search radius
-        let mut expand_cooldown = 4096;
-
-        let mut radius = MIN_RADIUS;
-
-        let mut found: Option<Position> = None;
-
-        if start.elapsed() > Duration::from_millis(30) {
+    for radius in 0..=MAX_SPAWN_CHUNK_RADIUS {
+        if start.elapsed() > SPAWN_SEARCH_BUDGET {
             info!("Generating spawn positions is taking longer than expected.");
             return;
         }
 
-        while found.is_none() {
-            if start.elapsed() > Duration::from_millis(30) {
+        for (chunk_x, chunk_z) in chunk_ring(center_chunk, radius) {
+            if state.0.spawn_positions.is_full() {
+                info!(
+                    "Finished generating {} spawn positions in {:.2} ms",
+                    found_coords,
+                    start.elapsed().as_secs_f32() * 1000.0
+                );
+                return;
+            }
+
+            if start.elapsed() > SPAWN_SEARCH_BUDGET {
                 info!("Generating spawn positions is taking longer than expected.");
                 return;
             }
 
-            let x = SPAWN_CENTER.0 + rand::random_range(-(radius as i32)..radius as i32);
-            let z = SPAWN_CENTER.1 + rand::random_range(-(radius as i32)..radius as i32);
-
-            let pos = Position::new(f64::from(x), 0.0, f64::from(z));
-
-            let chunk_pos = pos.chunk();
+            let chunk_pos = ChunkPos::new(chunk_x, chunk_z);
 
             let chunk = state
                 .0
@@ -56,47 +56,65 @@ pub fn generate_spawn_positions(state: Res<GlobalStateResource>) {
                 .get_or_generate_chunk(chunk_pos, Overworld)
                 .expect("Failed to generate chunk");
 
-            let height = chunk
-                .heightmaps
-                .motion_blocking
-                .get_height(chunk_column_pos(x), chunk_column_pos(z));
+            found_coords += enqueue_spawn_positions_from_chunk(&state, chunk_pos, &chunk);
+        }
+    }
 
-            let new_pos = Position::new(pos.x, f64::from(height), pos.z);
+    error!(
+        "Failed to find enough spawn positions within {MAX_SPAWN_CHUNK_RADIUS} chunks of spawn. Falling back to (0, 100, 0)."
+    );
+    let _ = state.0.spawn_positions.push((0.0, 100.0, 0.0));
+}
 
-            let candidate_block = chunk.get_block((new_pos.as_ivec3()).into());
+fn enqueue_spawn_positions_from_chunk(
+    state: &GlobalStateResource,
+    chunk_pos: ChunkPos,
+    chunk: &RefChunk<'_>,
+) -> usize {
+    let mut found = 0;
 
-            if is_valid_spawn_surface(candidate_block) {
-                found = Some(spawn_position_above_surface(new_pos));
-                found_coords += 1;
-                break;
-            } else {
-                if expand_cooldown > 0 {
-                    expand_cooldown -= 1;
-                } else {
-                    radius += 10;
-                }
-                attempts += 1;
+    for x in 0..16 {
+        for z in 0..16 {
+            if state.0.spawn_positions.is_full() {
+                return found;
+            }
 
-                if attempts > 1_000_000 {
-                    error!(
-                        "Failed to find a spawn position after 1,000,000 attempts. This is likely a bug in the world generation."
-                    );
-                    found = Some(Position::new(0.0, 100.0, 0.0));
-                }
+            if let Some(position) = spawn_position_for_column(chunk_pos, chunk, x, z) {
+                state
+                    .0
+                    .spawn_positions
+                    .push(position.xyz())
+                    .expect("Cannot push to queue");
+                found += 1;
             }
         }
-
-        state
-            .0
-            .spawn_positions
-            .push(found.expect("No coords found").xyz())
-            .expect("Cannot push to queue");
     }
-    trace!(
-        "Finished generating {} spawn positions in {:.2} ms",
-        found_coords,
-        start.elapsed().as_secs_f32() * 1000.0
-    );
+
+    found
+}
+
+fn spawn_position_for_column(
+    chunk_pos: ChunkPos,
+    chunk: &RefChunk<'_>,
+    local_x: u8,
+    local_z: u8,
+) -> Option<Position> {
+    let height = chunk
+        .heightmaps
+        .motion_blocking
+        .get_height(local_x, local_z);
+
+    let candidate_block = chunk.get_block(ChunkBlockPos::new(local_x, height, local_z));
+
+    if !is_valid_spawn_surface(candidate_block) {
+        return None;
+    }
+
+    let world_x = chunk_pos.pos.x + i32::from(local_x);
+    let world_z = chunk_pos.pos.y + i32::from(local_z);
+    let surface_pos = Position::new(f64::from(world_x), f64::from(height), f64::from(world_z));
+
+    Some(spawn_position_above_surface(surface_pos))
 }
 
 fn is_valid_spawn_surface(block: BlockStateId) -> bool {
@@ -110,13 +128,22 @@ fn spawn_position_above_surface(surface_pos: Position) -> Position {
     (*surface_pos + DVec3::new(0.5, 1.0, 0.5)).into()
 }
 
-fn chunk_column_pos(coord: i32) -> u8 {
-    coord.rem_euclid(16) as u8
+fn chunk_ring(center: ChunkPos, radius: i32) -> impl Iterator<Item = (i32, i32)> {
+    let center_x = center.x();
+    let center_z = center.z();
+
+    (-radius..=radius).flat_map(move |x| {
+        (-radius..=radius).filter_map(move |z| {
+            (x.abs().max(z.abs()) == radius).then_some((center_x + x, center_z + z))
+        })
+    })
 }
 
 #[cfg(test)]
 mod tests {
+    use bevy_ecs::schedule::Schedule;
     use temper_macros::block;
+    use temper_state::create_test_state;
 
     use super::*;
 
@@ -140,9 +167,32 @@ mod tests {
     }
 
     #[test]
-    fn chunk_column_positions_wrap_negative_coordinates() {
-        assert_eq!(chunk_column_pos(-1), 15);
-        assert_eq!(chunk_column_pos(-16), 0);
-        assert_eq!(chunk_column_pos(17), 1);
+    fn chunk_ring_starts_at_center_chunk() {
+        let chunks = chunk_ring(ChunkPos::new(3, -2), 0).collect::<Vec<_>>();
+
+        assert_eq!(chunks, vec![(3, -2)]);
+    }
+
+    #[test]
+    fn chunk_ring_visits_only_requested_radius() {
+        let chunks = chunk_ring(ChunkPos::new(0, 0), 1).collect::<Vec<_>>();
+
+        assert_eq!(chunks.len(), 8);
+        assert!(chunks.contains(&(-1, -1)));
+        assert!(chunks.contains(&(1, 1)));
+        assert!(!chunks.contains(&(0, 0)));
+    }
+
+    #[test]
+    fn generates_positions_into_queue() {
+        let (state, _temp_dir) = create_test_state();
+        let mut world = bevy_ecs::world::World::new();
+        let mut schedule = Schedule::default();
+
+        world.insert_resource(state.clone());
+        schedule.add_systems(generate_spawn_positions);
+        schedule.run(&mut world);
+
+        assert!(!state.0.spawn_positions.is_empty());
     }
 }
