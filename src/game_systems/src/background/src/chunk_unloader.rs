@@ -43,7 +43,8 @@ pub fn handle(
             }) {
                 trace!(
                     "Unloading live entity {:?} from chunk {:?} as no players are connected.",
-                    entity, pos
+                    entity,
+                    pos
                 );
                 if is_mob {
                     despawn_mobs.write(DespawnMob {
@@ -68,6 +69,7 @@ pub fn handle(
         }
         // Clear the entire cache
         state.0.world.get_cache().clear();
+        state.0.world.chunk_generator.forget_all();
         // Log how many chunks were removed
         if removed > 0 {
             trace!(
@@ -98,6 +100,7 @@ pub fn handle(
         let removed_chunk = state.0.world.get_cache().remove(&(*chunk_pos, Overworld));
         match removed_chunk {
             Some(((pos, dim), chunk)) => {
+                state.0.world.chunk_generator.forget_chunk(dim, pos);
                 for (entity, last_chunk, is_player, is_mob) in entity_query.iter() {
                     if is_player || last_chunk.0 != *chunk_pos {
                         continue;
@@ -138,6 +141,8 @@ pub fn handle(
     let remaining_chunks = state.0.world.get_cache().len();
     trace!(
         "Unloaded {} chunks from cache ({} written to world). {} chunks remain in cache.",
-        unloaded_entries, written_chunks, remaining_chunks
+        unloaded_entries,
+        written_chunks,
+        remaining_chunks
     );
 }

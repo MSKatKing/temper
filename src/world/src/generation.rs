@@ -57,9 +57,9 @@ impl WorldChunkGenerator {
             .map_err(scheduler_error)?;
         let wake_receiver = request.wake_receiver();
 
-        loop {
+        let result = loop {
             if chunk_has_stage(chunks, dimension, pos, stage)? {
-                return Ok(());
+                break Ok(());
             }
 
             if let Some(claimed) = self.scheduler.claim_next_for_request(&request) {
@@ -78,12 +78,23 @@ impl WorldChunkGenerator {
                 continue;
             }
 
-            wake_receiver.recv().map_err(|_| {
-                WorldError::WorldGenerationError(
+            if wake_receiver.recv().is_err() {
+                break Err(WorldError::WorldGenerationError(
                     "chunk generation request closed before the target completed".to_string(),
-                )
-            })?;
-        }
+                ));
+            }
+        };
+
+        self.scheduler.unregister_request(request.id);
+        result
+    }
+
+    pub fn forget_chunk(&self, dimension: Dimension, pos: ChunkPos) {
+        self.scheduler.forget_chunk(dimension, pos);
+    }
+
+    pub fn forget_all(&self) {
+        self.scheduler.forget_all();
     }
 
     fn run_stage(&self, chunks: &ChunkStore, key: JobKey) -> Result<(), WorldError> {

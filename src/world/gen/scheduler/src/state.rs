@@ -1,12 +1,13 @@
 use std::collections::HashSet;
-use std::sync::Arc;
-use std::sync::Mutex;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::AcqRel;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use crossbeam_queue::SegQueue;
 use dashmap::DashMap;
 use gen_core::{ChunkGenerator, StageDependencies};
+use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
 
 use crate::SchedulerError;
@@ -94,6 +95,31 @@ impl SchedulerState {
         }
 
         Ok(())
+    }
+
+    pub fn unregister_request(&self, request: RequestId) {
+        self.requests.remove(&request);
+    }
+
+    pub fn forget_chunk(&self, dimension: Dimension, pos: ChunkPos) {
+        let _registration_lock = self
+            .registration_lock
+            .lock()
+            .expect("registration lock poisoned");
+
+        self.jobs
+            .retain(|key, _| key.dimension != dimension || key.pos != pos);
+    }
+
+    pub fn forget_all(&self) {
+        let _registration_lock = self
+            .registration_lock
+            .lock()
+            .expect("registration lock poisoned");
+
+        self.jobs.clear();
+        self.requests.clear();
+        while self.global_ready.pop().is_some() {}
     }
 
     pub fn claim_next_for_request(&self, request: &RequestEntry) -> Option<ClaimedJob> {
@@ -251,8 +277,8 @@ fn chunk_coords(pos: ChunkPos) -> (i32, i32) {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
     use std::sync::atomic::Ordering::Acquire;
+    use std::sync::Arc;
 
     use dashmap::DashMap;
     use gen_core::GenStage;
@@ -551,5 +577,33 @@ mod tests {
                 assert_eq!(target.remaining_dependencies.load(Acquire), 0);
             }
         }
+    }
+
+    #[test]
+    fn forgetting_a_chunk_removes_its_generation_jobs() {
+        let scheduler = SchedulerState::new();
+        let target = JobKey::new(Dimension::Overworld, ChunkPos::new(0, 0), GenStage::SURFACE);
+
+        scheduler
+            .register_request(&TestGenerator, target)
+            .expect("request should register");
+
+        scheduler.forget_chunk(Dimension::Overworld, ChunkPos::new(0, 0));
+
+        assert!(scheduler.get_job(target).is_none());
+        assert!(scheduler
+            .get_job(JobKey::new(
+                Dimension::Overworld,
+                ChunkPos::new(0, 0),
+                GenStage::NOISE,
+            ))
+            .is_none());
+        assert!(scheduler
+            .get_job(JobKey::new(
+                Dimension::Overworld,
+                ChunkPos::new(1, 0),
+                GenStage::NOISE,
+            ))
+            .is_some());
     }
 }
