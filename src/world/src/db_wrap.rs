@@ -6,8 +6,14 @@ use temper_world_format::Chunk;
 use tracing::trace;
 use world_db::chunks::{
     chunk_exists_internal, delete_chunk_internal, load_chunk_internal, save_chunk_internal,
-    sync_internal,
+    save_serialized_chunk_internal, sync_internal,
 };
+
+struct ChunkSaveSnapshot {
+    pos: ChunkPos,
+    dimension: Dimension,
+    data: Vec<u8>,
+}
 
 impl ChunkStore {
     pub fn generation_stage(
@@ -124,14 +130,16 @@ impl ChunkStore {
     /// storage backend. This should be run after inserting or updating a large number of chunks
     /// to ensure that the data is properly saved to disk.
     pub fn sync(&self) -> Result<(), WorldError> {
+        let mut snapshots = Vec::new();
+
         for pair in self.cache.iter() {
             let k = pair.key();
             let v = pair.value();
-            if v.is_dirty() {
-                trace!("Chunk at {:?} is dirty, saving.", k.0);
-            } else {
+            if !v.is_dirty() {
                 continue;
             }
+
+            trace!("Chunk at {:?} is dirty, saving.", k.0);
             trace!("Syncing chunk: {:?}", k.0);
             if !v.entities.is_empty() {
                 trace!(
@@ -142,8 +150,28 @@ impl ChunkStore {
             } else {
                 trace!("Chunk at {:?} has no entities, saving.", k.0);
             }
-            save_chunk_internal(&self.storage_backend, k.0, k.1, v)?;
+
             v.clear_dirty();
+            snapshots.push(ChunkSaveSnapshot {
+                pos: k.0,
+                dimension: k.1,
+                data: bitcode::serialize(v).expect("Unable to serialize chunk"),
+            });
+        }
+
+        for snapshot in snapshots {
+            if let Err(err) = save_serialized_chunk_internal(
+                &self.storage_backend,
+                snapshot.pos,
+                snapshot.dimension,
+                &snapshot.data,
+            ) {
+                if let Ok(chunk) = self.get_chunk(snapshot.pos, snapshot.dimension) {
+                    chunk.mark_dirty();
+                }
+
+                return Err(err);
+            }
         }
 
         sync_internal(&self.storage_backend)

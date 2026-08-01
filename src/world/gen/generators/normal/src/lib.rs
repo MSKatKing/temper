@@ -61,7 +61,7 @@ impl ChunkGenerator for NormalGenerator {
             GenStage::FEATURES => Some(StageSpec::new(
                 stage,
                 "features",
-                StageDependencies::only_own(GenStage::CARVERS),
+                StageDependencies::with_neighbors(GenStage::CARVERS, GenStage::CARVERS, 1),
             )),
             GenStage::FULL => Some(StageSpec::new(
                 stage,
@@ -81,7 +81,7 @@ impl ChunkGenerator for NormalGenerator {
             GenStage::NOISE => self.generate_noises(input),
             GenStage::SURFACE => self.generate_surface(input),
             GenStage::CARVERS => self.generate_carvers(input),
-            GenStage::FEATURES => generate_features(input, self.seed),
+            GenStage::FEATURES => self.generate_features(input),
             GenStage::FULL => finish_chunk(input),
             _ => Ok(()),
         }
@@ -107,10 +107,6 @@ fn generate_biomes(_input: StageInput<'_>, _seed: u64) -> Result<(), GenerationE
     Ok(())
 }
 
-fn generate_features(_input: StageInput<'_>, _seed: u64) -> Result<(), GenerationError> {
-    Ok(())
-}
-
 fn finish_chunk(input: StageInput<'_>) -> Result<(), GenerationError> {
     // Clearing so we don't try to compress like 1.6mb of data we don't need on save
     input.target.noise.base3d.clear();
@@ -132,7 +128,7 @@ mod tests {
     }
 
     #[test]
-    fn current_stages_only_depend_on_their_own_previous_stage() {
+    fn current_stages_have_expected_dependencies() {
         assert_eq!(
             dependencies(GenStage::STRUCTURE_STARTS),
             StageDependencies::only_own(GenStage::EMPTY),
@@ -159,7 +155,7 @@ mod tests {
         );
         assert_eq!(
             dependencies(GenStage::FEATURES),
-            StageDependencies::only_own(GenStage::CARVERS),
+            StageDependencies::with_neighbors(GenStage::CARVERS, GenStage::CARVERS, 1),
         );
     }
 }

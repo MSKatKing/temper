@@ -3,8 +3,8 @@ use bevy_math::{IVec2, IVec3};
 use crossbeam_queue::SegQueue;
 use std::cmp::max;
 use std::collections::HashSet;
-use std::sync::Arc;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use temper_codec::encode::NetEncodeOpts;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::client_information::ClientInformationComponent;
@@ -140,6 +140,8 @@ pub fn handle(
                     for kv in chunk.entities.iter() {
                         entity_queue.push((*kv.key(), kv.value().0.to_entity_type().id));
                     }
+                    let chunk = (*chunk).clone();
+
                     let packet = ChunkAndLightData::from_chunk(coordinates, &chunk)
                         .expect("Failed to create ChunkAndLightData");
                     compress_packet(

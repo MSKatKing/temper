@@ -2,9 +2,9 @@ use std::hash::{Hash, Hasher};
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
 use temper_storage::lmdb::StorageBackend;
-use temper_world_format::Chunk;
 use temper_world_format::errors::WorldError;
 use temper_world_format::errors::WorldError::CorruptedChunkData;
+use temper_world_format::Chunk;
 use tracing::warn;
 use yazi::CompressionLevel;
 
@@ -14,11 +14,21 @@ pub fn save_chunk_internal(
     dimension: Dimension,
     chunk: &Chunk,
 ) -> Result<(), WorldError> {
+    let serialized = bitcode::serialize(chunk).expect("Unable to serialize chunk");
+    save_serialized_chunk_internal(storage, pos, dimension, &serialized)
+}
+
+pub fn save_serialized_chunk_internal(
+    storage: &StorageBackend,
+    pos: ChunkPos,
+    dimension: Dimension,
+    serialized_chunk: &[u8],
+) -> Result<(), WorldError> {
     if !storage.table_exists("chunks".to_string())? {
         storage.create_table("chunks".to_string())?;
     }
     let as_bytes = yazi::compress(
-        &bitcode::serialize(chunk).expect("Unable to serialize chunk"),
+        serialized_chunk,
         yazi::Format::Zlib,
         CompressionLevel::BestSpeed,
     )?;

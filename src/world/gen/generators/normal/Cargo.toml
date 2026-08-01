@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 gen-core = { path = "../../core" }
+gen-structures = { path = "../../structures" }
 quick-noise = { workspace = true }
 noise = { workspace = true }
 rand = { workspace = true }
