@@ -98,6 +98,7 @@ jobs:
     name: Run Tests
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-14
@@ -131,4 +132,22 @@ jobs:
           tool: cargo-nextest
 
       - name: Run Tests
-        run: cargo nextest run --target ${{ matrix.target }} --all-targets --all-features -E "not kind(bench)"
+        run: cargo nextest run --profile ci --target ${{ matrix.target }} --all-targets --all-features -E "not kind(bench)"
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.target }}
+          path: target/nextest/ci/junit.xml
+
+  event_file:
+    name: Event File
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload event file
+        uses: actions/upload-artifact@v4
+        with:
+          name: event-file
+          path: ${{ github.event_path }}
