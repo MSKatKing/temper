@@ -20,10 +20,7 @@ pub fn bench_gen(c: &mut criterion::Criterion) {
                 let mut elapsed = Duration::ZERO;
 
                 for _ in 0..iterations {
-                    let world = new_bench_world(
-                        temp_dir.path(),
-                        format!("{size}-{world_index}"),
-                    );
+                    let world = new_bench_world(temp_dir.path(), format!("{size}-{world_index}"));
                     world_index += 1;
 
                     let start = Instant::now();

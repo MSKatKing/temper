@@ -43,8 +43,7 @@ pub fn handle(
             }) {
                 trace!(
                     "Unloading live entity {:?} from chunk {:?} as no players are connected.",
-                    entity,
-                    pos
+                    entity, pos
                 );
                 if is_mob {
                     despawn_mobs.write(DespawnMob {
@@ -141,8 +140,6 @@ pub fn handle(
     let remaining_chunks = state.0.world.get_cache().len();
     trace!(
         "Unloaded {} chunks from cache ({} written to world). {} chunks remain in cache.",
-        unloaded_entries,
-        written_chunks,
-        remaining_chunks
+        unloaded_entries, written_chunks, remaining_chunks
     );
 }

@@ -1,5 +1,5 @@
-use crate::terrain::{bilerp, dither_field, smoothstep, NoiseGenerator};
 use crate::NormalGenerator;
+use crate::terrain::{NoiseGenerator, bilerp, dither_field, smoothstep};
 use gen_core::{GenerationError, StageInput};
 use rand::seq::IndexedRandom;
 use temper_core::block_state_id::BlockStateId;

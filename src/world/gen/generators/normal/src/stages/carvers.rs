@@ -1,5 +1,5 @@
-use crate::terrain::{smoothstep, trilerp, NoiseGenerator};
 use crate::NormalGenerator;
+use crate::terrain::{NoiseGenerator, smoothstep, trilerp};
 use gen_core::{GenerationError, StageInput};
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::ChunkBlockPos;
