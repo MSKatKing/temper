@@ -1,12 +1,12 @@
 use std::collections::HashSet;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering::AcqRel;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering::AcqRel;
 
 use crossbeam_queue::SegQueue;
 use dashmap::DashMap;
-use gen_core::{ChunkGenerator, StageDependencies};
+use gen_core::{ChunkGenerator, GenStage, StageDependencies};
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
 
@@ -107,8 +107,10 @@ impl SchedulerState {
             .lock()
             .expect("registration lock poisoned");
 
-        self.jobs
-            .retain(|key, _| key.dimension != dimension || key.pos != pos);
+        for stage in 0..=GenStage::FULL.raw() {
+            self.jobs
+                .remove(&JobKey::new(dimension, pos, GenStage::new(stage)));
+        }
     }
 
     pub fn forget_all(&self) {
@@ -277,8 +279,8 @@ fn chunk_coords(pos: ChunkPos) -> (i32, i32) {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::Ordering::Acquire;
     use std::sync::Arc;
+    use std::sync::atomic::Ordering::Acquire;
 
     use dashmap::DashMap;
     use gen_core::GenStage;
@@ -591,19 +593,23 @@ mod tests {
         scheduler.forget_chunk(Dimension::Overworld, ChunkPos::new(0, 0));
 
         assert!(scheduler.get_job(target).is_none());
-        assert!(scheduler
-            .get_job(JobKey::new(
-                Dimension::Overworld,
-                ChunkPos::new(0, 0),
-                GenStage::NOISE,
-            ))
-            .is_none());
-        assert!(scheduler
-            .get_job(JobKey::new(
-                Dimension::Overworld,
-                ChunkPos::new(1, 0),
-                GenStage::NOISE,
-            ))
-            .is_some());
+        assert!(
+            scheduler
+                .get_job(JobKey::new(
+                    Dimension::Overworld,
+                    ChunkPos::new(0, 0),
+                    GenStage::NOISE,
+                ))
+                .is_none()
+        );
+        assert!(
+            scheduler
+                .get_job(JobKey::new(
+                    Dimension::Overworld,
+                    ChunkPos::new(1, 0),
+                    GenStage::NOISE,
+                ))
+                .is_some()
+        );
     }
 }

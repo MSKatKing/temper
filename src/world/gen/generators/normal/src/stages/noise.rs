@@ -3,8 +3,6 @@ use gen_core::{GenerationError, StageInput};
 use quick_noise::simd::dispatch_simd;
 use quick_noise::{Fbm, Perlin};
 
-const MIN_Y: i32 = -64;
-
 impl NormalGenerator {
     #[dispatch_simd(A)]
     pub(crate) fn generate_noises(&self, input: StageInput<'_>) -> Result<(), GenerationError> {
@@ -113,49 +111,7 @@ impl NormalGenerator {
             input.target.noise.jaggedness[idx] = chunk.try_into().expect("Chunk length mismatch");
         });
 
-        let grid_3d = quick_noise::Grid::<3, A>::new(16, 384, 16)
-            .sample_position(input.pos.pos.x, MIN_Y, input.pos.pos.y)
-            .seed(self.seed as i64);
-
-        grid_3d
-            .builder::<Fbm, Perlin>()
-            .seed(7)
-            .frequency(1.0 / 80.0)
-            .scaling(1.0, 0.5, 1.0)
-            .octaves(3)
-            .lacunarity(2.0)
-            .persistence(0.5)
-            .fill(input.target.noise.base3d.as_mut_slice());
-
-        grid_3d
-            .builder::<Fbm, Perlin>()
-            .seed(7)
-            .frequency(1.0 / 100.0)
-            .scaling(1.0, 0.6, 1.0)
-            .octaves(3)
-            .lacunarity(2.0)
-            .persistence(0.5)
-            .fill(input.target.noise.cheese_caves.as_mut_slice());
-
-        grid_3d
-            .builder::<Fbm, Perlin>()
-            .seed(7)
-            .frequency(1.0 / 50.0)
-            .scaling(1.0, 0.7, 1.0)
-            .octaves(2)
-            .lacunarity(2.0)
-            .persistence(0.45)
-            .fill(input.target.noise.spaghetti_caves.as_mut_slice());
-
-        grid_3d
-            .builder::<Fbm, Perlin>()
-            .seed(8)
-            .frequency(1.0 / 20.0)
-            .scaling(1.0, 0.75, 1.0)
-            .octaves(2)
-            .lacunarity(2.0)
-            .persistence(0.45)
-            .fill(input.target.noise.noddle_caves.as_mut_slice());
+        input.target.noise.clear_transient_3d();
 
         Ok(())
     }
@@ -186,13 +142,12 @@ mod tests {
     }
 
     #[test]
-    fn base_3d_noise_uses_chunk_world_position() {
-        let origin = generate_noise(10, ChunkPos::new(0, 0));
-        let east = generate_noise(10, ChunkPos::new(1, 0));
+    fn transient_3d_noise_is_not_stored_by_default() {
+        let chunk = generate_noise(10, ChunkPos::new(0, 0));
 
-        assert_ne!(
-            origin.noise.base3d, east.noise.base3d,
-            "3D terrain noise must not repeat the same volume in every chunk",
-        );
+        assert!(chunk.noise.base3d.is_empty());
+        assert!(chunk.noise.cheese_caves.is_empty());
+        assert!(chunk.noise.spaghetti_caves.is_empty());
+        assert!(chunk.noise.noddle_caves.is_empty());
     }
 }

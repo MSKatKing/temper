@@ -7,8 +7,8 @@ use gen_core::{
 use gen_scheduler::{JobKey, SchedulerError, SchedulerState};
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
-use temper_world_format::errors::WorldError;
 use temper_world_format::Chunk;
+use temper_world_format::errors::WorldError;
 
 use crate::ChunkStore;
 
@@ -164,7 +164,7 @@ fn neighbor_snapshots(
             snapshots.push(NeighborSnapshot {
                 pos,
                 stage: GenStage::new(chunk.stage),
-                chunk: chunk.clone(),
+                chunk: chunk.clone_without_transient_noise(),
             });
         }
     }

@@ -1,8 +1,8 @@
 use crate::{ChunkStore, MutChunk, RefChunk, World};
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
-use temper_world_format::errors::WorldError;
 use temper_world_format::Chunk;
+use temper_world_format::errors::WorldError;
 use tracing::trace;
 use world_db::chunks::{
     chunk_exists_internal, delete_chunk_internal, load_chunk_internal, save_chunk_internal,
@@ -12,7 +12,7 @@ use world_db::chunks::{
 struct ChunkSaveSnapshot {
     pos: ChunkPos,
     dimension: Dimension,
-    data: Vec<u8>,
+    chunk: Chunk,
 }
 
 impl ChunkStore {
@@ -155,16 +155,17 @@ impl ChunkStore {
             snapshots.push(ChunkSaveSnapshot {
                 pos: k.0,
                 dimension: k.1,
-                data: bitcode::serialize(v).expect("Unable to serialize chunk"),
+                chunk: v.clone_without_transient_noise(),
             });
         }
 
         for snapshot in snapshots {
+            let data = bitcode::serialize(&snapshot.chunk).expect("Unable to serialize chunk");
             if let Err(err) = save_serialized_chunk_internal(
                 &self.storage_backend,
                 snapshot.pos,
                 snapshot.dimension,
-                &snapshot.data,
+                &data,
             ) {
                 if let Ok(chunk) = self.get_chunk(snapshot.pos, snapshot.dimension) {
                     chunk.mark_dirty();

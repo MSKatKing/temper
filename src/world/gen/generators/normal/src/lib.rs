@@ -109,10 +109,7 @@ fn generate_biomes(_input: StageInput<'_>, _seed: u64) -> Result<(), GenerationE
 
 fn finish_chunk(input: StageInput<'_>) -> Result<(), GenerationError> {
     // Clearing so we don't try to compress like 1.6mb of data we don't need on save
-    input.target.noise.base3d.clear();
-    input.target.noise.spaghetti_caves.clear();
-    input.target.noise.cheese_caves.clear();
-    input.target.noise.noddle_caves.clear();
+    input.target.noise.clear_transient_3d();
     Ok(())
 }
 
