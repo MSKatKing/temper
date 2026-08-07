@@ -220,10 +220,10 @@ num-bigint = "0.4.6"
 serde = { version = "1.0.229", features = ["derive", "std", "rc"] }
 serde_json = "1.0.151"
 serde_derive = "1.0.229"
-base64 = "0.23.0"
+base64 = "0.23.1"
 bitcode = "0.6.9"
 bitcode_derive = "0.6.9"
-toml = "1.1.2"
+toml = "1.1.4"
 craftflow-nbt = "2.1.0"
 figment = { version = "0.10.19", features = ["toml", "env"] }
 simd-json = "0.17.3"
@@ -248,12 +248,12 @@ syn = { version = "3.0.3", features = ["extra-traits", "full"] }
 proc-macro2 = "1.0.107"
 paste = "1.0.15"
 maplit = "1.0.2"
-macro_rules_attribute = "0.2.2"
+macro_rules_attribute = "0.2.3"
 type_hash = "0.3.0"
 
 # Magic
 dhat = "0.3.3"
-ctor = "1.0.10"
+ctor = "1.0.12"
 
 # Compression/Decompression
 yazi = "0.2.1"
@@ -267,7 +267,7 @@ heed = "0.22.1"
 # Misc
 deepsize = "0.2.0"
 page_size = "0.6.0"
-enum-ordinalize = "4.4.1"
+enum-ordinalize = "4.4.2"
 regex = "1.13.1"
 noise = "0.9.0"
 ctrlc = "3.5.2"
@@ -289,7 +289,7 @@ ratatui-core = "0.1.2"
 tui-input = "0.15.3"
 ratatui = "0.30.2"
 tui-logger = { version = "0.18.3", features = ["tracing-support", "crossterm"] }
-clap = { version = "4.6.4", features = ["derive", "env"] }
+clap = { version = "4.6.6", features = ["derive", "env"] }
 indicatif = "0.18.6"
 colored = "3.1.1"
 unicode-width = "0.2.2"
