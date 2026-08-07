@@ -1,5 +1,4 @@
 use std::fmt::{self, Display, Formatter};
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GenStage(u8);
 
@@ -13,7 +12,6 @@ impl GenStage {
     pub const CARVERS: Self = Self(6);
     pub const FEATURES: Self = Self(7);
     pub const FULL: Self = Self(8);
-
     pub const fn new(stage: u8) -> Self {
         Self(stage)
     }
@@ -55,6 +53,12 @@ impl From<GenStage> for u8 {
     }
 }
 
+/// The list of things that must exist before a stage can run.
+///
+/// `own_stage` is the earlier stage required on the target chunk itself. `neighbor_stage` and
+/// `neighbor_radius` describe the surrounding chunks needed by cross-chunk generation. For example,
+/// features can ask for all chunks in a radius of 1 to have reached the carver stage before trees
+/// try to spill across chunk borders.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StageDependencies {
     pub own_stage: Option<GenStage>,
@@ -81,6 +85,7 @@ impl StageDependencies {
         }
     }
 
+    /// Depends only on an earlier stage of the same chunk.
     pub const fn only_own(own_stage: GenStage) -> Self {
         Self {
             own_stage: Some(own_stage),
@@ -89,6 +94,7 @@ impl StageDependencies {
         }
     }
 
+    /// Depends on the same chunk and on neighboring chunks being generated far enough.
     pub const fn with_neighbors(
         own_stage: GenStage,
         neighbor_stage: GenStage,
@@ -102,6 +108,10 @@ impl StageDependencies {
     }
 }
 
+/// A generator's description of one stage.
+///
+/// The scheduler uses this as the recipe for expanding a requested stage into jobs. The `name` is
+/// mostly there to make debugging less miserable; the important bit is the dependency shape.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StageSpec {
     pub stage: GenStage,

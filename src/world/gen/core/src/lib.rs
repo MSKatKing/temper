@@ -1,3 +1,4 @@
+#![doc = include_str!("explainer.md")]
 mod errors;
 mod generator;
 mod stage;
