@@ -148,7 +148,7 @@ pub fn create_dummy_config() -> ServerConfig {
         },
         world_gen: WorldGenConfig {
             seed: "dummy".to_string(),
-            generator: "superflat".to_string(),
+            generator: "normal".to_string(),
         },
     }
 }
