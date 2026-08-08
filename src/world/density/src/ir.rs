@@ -83,12 +83,19 @@ impl DensityFunctionArgument {
         DensityFunctionArgument::Constant(val)
     }
 
-    fn constant(&self) -> Option<f64> {
+    pub fn constant(&self) -> Option<f64> {
         match self {
             Self::Constant(c) => Some(*c),
             Self::Function(func) if let DensityFunction::Constant { value } = func.as_ref() => {
                 Some(*value)
             }
+            _ => None,
+        }
+    }
+
+    pub fn function(&self) -> Option<&DensityFunction> {
+        match self {
+            Self::Function(func) => Some(func.as_ref()),
             _ => None,
         }
     }
@@ -210,8 +217,9 @@ impl DensityFunction {
                 let functions = functions.into_iter().map(fold_arg).collect::<Vec<_>>();
 
                 match input.constant() {
-                    Some(_) => {
-                        todo!()
+                    Some(val) => {
+                        let idx = thresholds.partition_point(|t| val >= *t);
+                        functions[idx].clone()
                     }
                     _ => Arg::wrap_func(DensityFunction::IntervalSelect {
                         input,
