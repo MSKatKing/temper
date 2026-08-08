@@ -165,7 +165,7 @@ mod tests {
         let ValueSource::Noise(accessor) = source else {
             panic!("clear buffer operation's source was not a noise source")
         };
-        
+
         assert_eq!(*destination, parent);
         assert_eq!(accessor.access_type, NoiseAccessType::Shift);
     }
