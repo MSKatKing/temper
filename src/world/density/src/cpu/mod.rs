@@ -4,6 +4,7 @@ pub mod buffer;
 pub mod operation;
 mod runtime;
 pub mod workspace;
+mod compiler;
 
 pub const OUT_BUFFER_LEN: usize = 16 * 16 * 320;
 
