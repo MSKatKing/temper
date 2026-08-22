@@ -33,11 +33,6 @@ pub fn sync_world(
     state: Res<GlobalStateResource>,
     mut last_synced: ResMut<WorldSyncTracker>,
 ) {
-    // if state.0.shut_down.load(std::sync::atomic::Ordering::Relaxed) {
-    //     return;
-    // }
-
-    // Always schedule a sync; frequency is handled by the schedule period.
     state.0.world.sync().expect("Failed to sync world");
 
     for (
