@@ -140,7 +140,6 @@ pub fn handle(
                     for kv in chunk.entities.iter() {
                         entity_queue.push((*kv.key(), kv.value().0.to_entity_type().id));
                     }
-                    let chunk = (*chunk).clone();
 
                     let packet = ChunkAndLightData::from_chunk(coordinates, &chunk)
                         .expect("Failed to create ChunkAndLightData");
