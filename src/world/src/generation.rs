@@ -135,6 +135,79 @@ impl WorldChunkGenerator {
     }
 }
 
+struct NeighborSnapshot {
+    pos: ChunkPos,
+    stage: GenStage,
+    chunk: Chunk,
+}
+
+fn neighbor_snapshots(
+    chunks: &ChunkStore,
+    key: JobKey,
+    stage_spec: StageSpec,
+) -> Result<Vec<NeighborSnapshot>, WorldError> {
+    let Some(stage) = stage_spec.dependencies.neighbor_stage else {
+        return Ok(Vec::new());
+    };
+
+    let radius = i32::from(stage_spec.dependencies.neighbor_radius);
+    let mut snapshots = Vec::new();
+
+    for x in -radius..=radius {
+        for z in -radius..=radius {
+            if x == 0 && z == 0 {
+                continue;
+            }
+
+            let pos = offset_chunk_pos(key.pos, x, z);
+            let chunk = chunks.get_chunk(pos, key.dimension)?;
+
+            if chunk.stage < stage.raw() {
+                return Err(WorldError::WorldGenerationError(format!(
+                    "chunk {:?} is at stage {}, but stage {} requires neighbor stage {}",
+                    pos, chunk.stage, key.stage, stage
+                )));
+            }
+
+            snapshots.push(NeighborSnapshot {
+                pos,
+                stage: GenStage::new(chunk.stage),
+                chunk: chunk.clone_without_transient_noise(),
+            });
+        }
+    }
+
+    Ok(snapshots)
+}
+
+fn chunk_has_stage(
+    chunks: &ChunkStore,
+    dimension: Dimension,
+    pos: ChunkPos,
+    stage: GenStage,
+) -> Result<bool, WorldError> {
+    Ok(chunks
+        .generation_stage(pos, dimension)?
+        .is_some_and(|chunk_stage| chunk_stage >= stage.raw()))
+}
+
+fn offset_chunk_pos(pos: ChunkPos, x: i32, z: i32) -> ChunkPos {
+    let (chunk_x, chunk_z) = chunk_coords(pos);
+    ChunkPos::new(chunk_x + x, chunk_z + z)
+}
+
+fn chunk_coords(pos: ChunkPos) -> (i32, i32) {
+    (pos.pos.x.div_euclid(16), pos.pos.y.div_euclid(16))
+}
+
+fn scheduler_error(err: SchedulerError) -> WorldError {
+    WorldError::WorldGenerationError(err.to_string())
+}
+
+fn generation_error(err: GenerationError) -> WorldError {
+    WorldError::WorldGenerationError(err.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -226,77 +299,4 @@ mod tests {
             "gameplay edits should still mark generated chunks dirty"
         );
     }
-}
-
-struct NeighborSnapshot {
-    pos: ChunkPos,
-    stage: GenStage,
-    chunk: Chunk,
-}
-
-fn neighbor_snapshots(
-    chunks: &ChunkStore,
-    key: JobKey,
-    stage_spec: StageSpec,
-) -> Result<Vec<NeighborSnapshot>, WorldError> {
-    let Some(stage) = stage_spec.dependencies.neighbor_stage else {
-        return Ok(Vec::new());
-    };
-
-    let radius = i32::from(stage_spec.dependencies.neighbor_radius);
-    let mut snapshots = Vec::new();
-
-    for x in -radius..=radius {
-        for z in -radius..=radius {
-            if x == 0 && z == 0 {
-                continue;
-            }
-
-            let pos = offset_chunk_pos(key.pos, x, z);
-            let chunk = chunks.get_chunk(pos, key.dimension)?;
-
-            if chunk.stage < stage.raw() {
-                return Err(WorldError::WorldGenerationError(format!(
-                    "chunk {:?} is at stage {}, but stage {} requires neighbor stage {}",
-                    pos, chunk.stage, key.stage, stage
-                )));
-            }
-
-            snapshots.push(NeighborSnapshot {
-                pos,
-                stage: GenStage::new(chunk.stage),
-                chunk: chunk.clone_without_transient_noise(),
-            });
-        }
-    }
-
-    Ok(snapshots)
-}
-
-fn chunk_has_stage(
-    chunks: &ChunkStore,
-    dimension: Dimension,
-    pos: ChunkPos,
-    stage: GenStage,
-) -> Result<bool, WorldError> {
-    Ok(chunks
-        .generation_stage(pos, dimension)?
-        .is_some_and(|chunk_stage| chunk_stage >= stage.raw()))
-}
-
-fn offset_chunk_pos(pos: ChunkPos, x: i32, z: i32) -> ChunkPos {
-    let (chunk_x, chunk_z) = chunk_coords(pos);
-    ChunkPos::new(chunk_x + x, chunk_z + z)
-}
-
-fn chunk_coords(pos: ChunkPos) -> (i32, i32) {
-    (pos.pos.x.div_euclid(16), pos.pos.y.div_euclid(16))
-}
-
-fn scheduler_error(err: SchedulerError) -> WorldError {
-    WorldError::WorldGenerationError(err.to_string())
-}
-
-fn generation_error(err: GenerationError) -> WorldError {
-    WorldError::WorldGenerationError(err.to_string())
 }
