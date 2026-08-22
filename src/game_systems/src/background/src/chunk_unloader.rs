@@ -29,13 +29,6 @@ pub fn handle(
                 acc
             });
         for (pos, entities) in chunk_mapped_entities {
-            let chunk = state
-                .0
-                .world
-                .get_cache()
-                .get(&(pos, Overworld))
-                .expect("Chunk position from entity last chunk pos should exist in cache.");
-            removed += 1;
             for (entity, _last_chunk, _is_player, is_mob) in entities.iter().map(|entity| {
                 entity_query
                     .get(*entity)
@@ -54,22 +47,39 @@ pub fn handle(
                     cmd.entity(entity).despawn();
                 }
             }
+        }
 
-            // Write chunks back to the world storage
+        let cache_keys = state
+            .0
+            .world
+            .get_cache()
+            .iter()
+            .map(|entry| *entry.key())
+            .collect::<Vec<_>>();
+
+        for (pos, dim) in cache_keys {
+            let Some((_, chunk)) = state.0.world.get_cache().remove(&(pos, dim)) else {
+                continue;
+            };
+
             if chunk.is_dirty() {
-                if let Err(err) = state.0.world.insert_chunk(pos, Overworld, chunk.clone()) {
-                    error!(
-                        "Failed to write chunk at position {:?} back to world storage: {:?}",
-                        pos, err
+                if state.0.world.is_fully_generated(&chunk) {
+                    state.0.world.get_cache().insert((pos, dim), chunk);
+                } else {
+                    removed += 1;
+                    state.0.world.chunk_generator.forget_chunk(dim, pos);
+                    trace!(
+                        "Dropping dirty chunk {:?} from cache without saving because it is only at stage {}.",
+                        pos, chunk.stage
                     );
                 }
                 continue;
             }
+
+            removed += 1;
+            state.0.world.chunk_generator.forget_chunk(dim, pos);
         }
-        // Clear the entire cache
-        state.0.world.get_cache().clear();
-        state.0.world.chunk_generator.forget_all();
-        // Log how many chunks were removed
+
         if removed > 0 {
             trace!(
                 "Unloaded {} chunks from cache as there are no connected players.",
@@ -93,7 +103,7 @@ pub fn handle(
         }
     }
     let mut unloaded_entries = 0;
-    let mut written_chunks = 0;
+    let mut retained_dirty_chunks = 0;
     // The difference is the set of chunks that are in the cache but not visible to any player
     for chunk_pos in all_chunks.difference(&visible_chunks) {
         let removed_chunk = state.0.world.get_cache().remove(&(*chunk_pos, Overworld));
@@ -120,12 +130,15 @@ pub fn handle(
                 }
                 let dirty = chunk.is_dirty();
                 if dirty {
-                    state
-                        .0
-                        .world
-                        .insert_chunk(pos, dim, chunk)
-                        .expect("Failed to re-insert chunk after unloading from cache.");
-                    written_chunks += 1;
+                    if state.0.world.is_fully_generated(&chunk) {
+                        state.0.world.get_cache().insert((pos, dim), chunk);
+                        retained_dirty_chunks += 1;
+                    } else {
+                        trace!(
+                            "Dropped dirty chunk {:?} from cache without saving because it is only at stage {}.",
+                            pos, chunk.stage
+                        );
+                    }
                 }
                 unloaded_entries += 1;
             }
@@ -139,7 +152,7 @@ pub fn handle(
     }
     let remaining_chunks = state.0.world.get_cache().len();
     trace!(
-        "Unloaded {} chunks from cache ({} written to world). {} chunks remain in cache.",
-        unloaded_entries, written_chunks, remaining_chunks
+        "Unloaded {} chunks from cache ({} retained dirty). {} chunks remain in cache.",
+        unloaded_entries, retained_dirty_chunks, remaining_chunks
     );
 }
