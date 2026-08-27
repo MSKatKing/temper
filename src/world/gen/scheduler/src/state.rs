@@ -66,15 +66,11 @@ impl SchedulerState {
     }
 
     pub fn mark_complete(&self, key: JobKey) -> Result<(), SchedulerError> {
-        let _registration_lock = self
-            .registration_lock
-            .lock()
-            .expect("registration lock poisoned");
         let job = self.jobs.get(&key).ok_or(SchedulerError::UnknownJob(key))?;
 
-        if !job.state.mark_complete_once() {
+        let Some(dependents) = job.complete_and_take_dependents() else {
             return Ok(());
-        }
+        };
 
         for request_id in job.interested_requests() {
             let Some(request) = self.requests.get(&request_id) else {
@@ -83,7 +79,7 @@ impl SchedulerState {
             request.wake();
         }
 
-        for dependent_key in job.dependents() {
+        for dependent_key in dependents {
             let Some(dependent) = self.jobs.get(&dependent_key) else {
                 continue;
             };
@@ -171,23 +167,24 @@ impl SchedulerState {
         let stage_spec = generator
             .stage_spec(key.stage)
             .ok_or(SchedulerError::UnknownStage(key))?;
-        let dependency_keys = dependency_keys(key, stage_spec.dependencies);
-        let mut remaining_dependencies = 0;
 
-        for dependency_key in dependency_keys {
-            let dependency = self.register_job(generator, request, dependency_key, visited)?;
-            dependency.add_dependent(key);
-
-            if dependency.state.load() != JobState::Complete {
-                remaining_dependencies += 1;
-            }
-        }
-
-        let job = Arc::new(JobEntry::new(key, remaining_dependencies));
+        let job = Arc::new(JobEntry::new_pending(key));
         self.jobs.insert(key, Arc::clone(&job));
         job.add_interested_request(request.id);
 
-        if remaining_dependencies == 0 {
+        let dependency_keys = dependency_keys(key, stage_spec.dependencies);
+
+        for dependency_key in dependency_keys {
+            let dependency = self.register_job(generator, request, dependency_key, visited)?;
+
+            if !dependency.add_dependent_or_already_complete(key) {
+                job.remaining_dependencies.fetch_add(1, AcqRel);
+            }
+        }
+
+        // Clear the placeholder dependency. If nothing real is outstanding
+        // either, this is the moment the job becomes ready.
+        if job.remaining_dependencies.fetch_sub(1, AcqRel) == 1 && job.state.mark_ready() {
             self.publish_ready(&job);
         }
 

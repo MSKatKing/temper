@@ -54,7 +54,7 @@ pub struct AtomicJobState {
 }
 
 impl AtomicJobState {
-    pub const fn new(state: JobState) -> Self {
+    pub fn new(state: JobState) -> Self {
         Self {
             state: AtomicU8::new(state as u8),
         }
@@ -123,6 +123,46 @@ impl JobEntry {
             dependents: Mutex::new(Vec::new()),
             interested_requests: Mutex::new(Vec::new()),
         }
+    }
+
+    /// Like `new`, but used while a job's real dependency count is still
+    /// being discovered. Starts with one placeholder dependency so nothing
+    /// can mark it Ready mid-registration; `register_job` clears it once
+    /// every real dependency has been wired up.
+    pub fn new_pending(key: JobKey) -> Self {
+        Self {
+            key,
+            state: AtomicJobState::new(JobState::Waiting),
+            remaining_dependencies: AtomicUsize::new(1),
+            dependents: Mutex::new(Vec::new()),
+            interested_requests: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// Registers `dependent` to be notified when this job completes.
+    /// Returns `true` if this job had *already* completed before this call
+    /// (in which case `mark_complete` already ran and will never notify
+    /// `dependent` — the caller must treat the dependency as satisfied
+    /// immediately instead of waiting for a notification).
+    pub fn add_dependent_or_already_complete(&self, dependent: JobKey) -> bool {
+        let mut dependents = self.dependents.lock().expect("dependent list poisoned");
+        if self.state.load() == JobState::Complete {
+            return true;
+        }
+        if !dependents.contains(&dependent) {
+            dependents.push(dependent);
+        }
+        false
+    }
+
+    /// Marks the job complete and, if this call is the one that actually
+    /// did it, returns the dependents to notify.
+    pub fn complete_and_take_dependents(&self) -> Option<Vec<JobKey>> {
+        let dependents = self.dependents.lock().expect("dependent list poisoned");
+        if !self.state.mark_complete_once() {
+            return None;
+        }
+        Some(dependents.clone())
     }
 
     pub fn add_dependent(&self, dependent: JobKey) {
