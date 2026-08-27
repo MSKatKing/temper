@@ -14,6 +14,7 @@ use temper_inventories::inventory::Inventory;
 use temper_permissions::player::PlayerPermission;
 use temper_resources::world_sync_tracker::WorldSyncTracker;
 use temper_state::GlobalStateResource;
+use tracing::error;
 
 pub fn sync_world(
     player_query: Query<(
@@ -33,12 +34,8 @@ pub fn sync_world(
     state: Res<GlobalStateResource>,
     mut last_synced: ResMut<WorldSyncTracker>,
 ) {
-    // if state.0.shut_down.load(std::sync::atomic::Ordering::Relaxed) {
-    //     return;
-    // }
-
-    // Always schedule a sync; frequency is handled by the schedule period.
-    state.0.world.sync().expect("Failed to sync world");
+    // collect player data in RAM
+    let mut players_to_save = Vec::with_capacity(player_query.iter().len());
 
     for (
         identity,
@@ -68,12 +65,24 @@ pub fn sync_world(
             active_effects: active_effects.clone(),
             permissions: permissions.clone(),
         };
-        state
-            .0
-            .world
-            .save_player_data(identity.uuid, &data)
-            .expect("Failed to save player data");
+        players_to_save.push((identity.uuid, data));
     }
+
+    // dispatch disk I/O to the thread pool
+    let state_clone = state.clone();
+    state.0.thread_pool.oneshot(move || {
+        // 1. Sync chunks to disk
+        if let Err(e) = state_clone.0.world.sync() {
+            error!("Failed to sync world chunks to disk: {}", e);
+        }
+
+        // 2. Save player data to disk
+        for (uuid, data) in players_to_save {
+            if let Err(e) = state_clone.0.world.save_player_data(uuid, &data) {
+                error!("Failed to save player data for {}: {}", uuid, e);
+            }
+        }
+    });
 
     last_synced.last_synced = std::time::Instant::now();
 }
