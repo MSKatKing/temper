@@ -41,11 +41,29 @@ pub fn handle(
         // ==========================================
         // PHASE 1: HARVEST & SEND COMPLETED CHUNKS
         // ==========================================
-        let mut ready_to_send = Vec::new();
+        let mut harvested = Vec::new();
 
-        // Pull everything that has finished generating in the background
+        // Pull everything the pool has finished with — successes and failures
         while let Ok(prepared) = chunk_receiver.ready_rx.try_recv() {
-            ready_to_send.push(prepared);
+            harvested.push(prepared);
+        }
+
+        // Anything harvested is no longer in flight, whatever its outcome.
+        // This is what stops a failure from stranding the coordinate forever.
+        for prepared in &harvested {
+            let pos = prepared.pos();
+            chunk_receiver.in_flight.remove(&(pos.x(), pos.z()));
+        }
+
+        let mut ready_to_send = Vec::new();
+        for prepared in harvested {
+            match prepared {
+                PreparedChunk::Ready { .. } => ready_to_send.push(prepared),
+                PreparedChunk::Failed { pos } => {
+                    // Put it back in the queue for another attempt next tick.
+                    chunk_receiver.loading.push_back((pos.x(), pos.z()));
+                }
+            }
         }
 
         if !ready_to_send.is_empty() {
@@ -62,22 +80,29 @@ pub fn handle(
             let packets_len = ready_to_send.len();
 
             for chunk in ready_to_send {
-                chunk_receiver
-                    .in_flight
-                    .remove(&(chunk.pos.x(), chunk.pos.z())); // Mark this chunk as no longer in-flight since it has been sent
-                chunk_receiver.loaded.insert((chunk.pos.x(), chunk.pos.z()));
+                let PreparedChunk::Ready {
+                    pos: chunk_pos,
+                    packet_data,
+                    entities,
+                    is_new_load,
+                } = chunk
+                else {
+                    continue; // filtered above; can't happen
+                };
 
-                if chunk.is_new_load {
+                chunk_receiver.loaded.insert((chunk_pos.x(), chunk_pos.z()));
+
+                if is_new_load {
                     mob_load_writer.write(temper_messages::load_chunk_entities::LoadChunkEntities(
-                        chunk.pos,
+                        chunk_pos,
                     ));
                 }
 
-                if let Err(err) = conn.send_raw_packet(chunk.packet_data) {
+                if let Err(err) = conn.send_raw_packet(packet_data) {
                     error!("Failed to send chunk packet: {:?}", err);
                 }
 
-                for entity_tuple in chunk.entities {
+                for entity_tuple in entities {
                     entity_tracker.to_track.push(entity_tuple);
                 }
             }
@@ -175,38 +200,49 @@ pub fn handle(
                 .insert((coordinates.x(), coordinates.z())); // Mark this chunk as in-flight to prevent duplicate generation
 
             state.0.thread_pool.oneshot(move || {
-                let chunk_data = {
-                    let chunk_ref = state_clone
-                        .0
-                        .world
-                        .get_or_generate_chunk(coordinates, Dimension::Overworld)
-                        .expect("Failed to load or generate chunk");
+                // Inner closure so we can use `?` on the three fallible steps
+                // instead of unwinding the whole pool thread on any of them.
+                let prepare = || -> Result<PreparedChunk, String> {
+                    let chunk_data = {
+                        let chunk_ref = state_clone
+                            .0
+                            .world
+                            .get_or_generate_chunk(coordinates, Dimension::Overworld)
+                            .map_err(|err| format!("load or generate failed: {err:?}"))?;
 
-                    (*chunk_ref).clone_without_transient_noise()
+                        (*chunk_ref).clone_without_transient_noise()
+                    };
+
+                    let mut entities = Vec::new();
+                    for kv in chunk_data.entities.iter() {
+                        entities.push((*kv.key(), kv.value().0.to_entity_type().id));
+                    }
+
+                    let packet = ChunkAndLightData::from_chunk(coordinates, &chunk_data)
+                        .map_err(|err| format!("building ChunkAndLightData failed: {err:?}"))?;
+
+                    let packet_data = compress_packet(
+                        &packet,
+                        is_compressed,
+                        &NetEncodeOpts::WithLength,
+                        state_clone.0.config.network_compression_threshold as usize,
+                    )
+                    .map_err(|err| format!("compressing chunk packet failed: {err:?}"))?;
+
+                    Ok(PreparedChunk::Ready {
+                        pos: coordinates,
+                        packet_data,
+                        entities,
+                        is_new_load,
+                    })
                 };
 
-                let mut entities = Vec::new();
-                for kv in chunk_data.entities.iter() {
-                    entities.push((*kv.key(), kv.value().0.to_entity_type().id));
-                }
-
-                let packet = ChunkAndLightData::from_chunk(coordinates, &chunk_data)
-                    .expect("Failed to create ChunkAndLightData");
-
-                let packet_data = compress_packet(
-                    &packet,
-                    is_compressed,
-                    &NetEncodeOpts::WithLength,
-                    state_clone.0.config.network_compression_threshold as usize,
-                )
-                .expect("Failed to compress ChunkAndLightData packet");
-
-                let _ = tx.send(PreparedChunk {
-                    pos: coordinates,
-                    packet_data,
-                    entities,
-                    is_new_load,
+                let message = prepare().unwrap_or_else(|err| {
+                    error!("Chunk {:?} failed to prepare: {}", coordinates, err);
+                    PreparedChunk::Failed { pos: coordinates }
                 });
+
+                let _ = tx.send(message);
             });
         }
     }

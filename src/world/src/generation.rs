@@ -1,4 +1,6 @@
+use crossbeam_channel::RecvTimeoutError;
 use std::sync::Arc;
+use std::time::Duration;
 
 use gen_core::{
     ChunkGenerator, GenStage, GenerationError, StageInput, StageNeighbor, StageNeighborhood,
@@ -69,7 +71,12 @@ impl WorldChunkGenerator {
                     claimed.key.pos,
                     claimed.key.stage,
                 )? {
-                    self.run_stage(chunks, claimed.key)?;
+                    if let Err(err) = self.run_stage(chunks, claimed.key) {
+                        // never leave a claimed job stuck in Running since
+                        // everything waiting on it would block forever.
+                        self.scheduler.fail_job(claimed.key);
+                        break Err(err);
+                    }
                 }
 
                 self.scheduler
@@ -78,15 +85,32 @@ impl WorldChunkGenerator {
                 continue;
             }
 
-            if wake_receiver.recv().is_err() {
-                break Err(WorldError::WorldGenerationError(
-                    "chunk generation request closed before the target completed".to_string(),
-                ));
+            // poll rather than block indefinitely: a dependency may have
+            // failed or been forgotten, in which case no wake is coming.
+            match wake_receiver.recv_timeout(Duration::from_millis(50)) {
+                Ok(()) => continue,
+                Err(RecvTimeoutError::Timeout) => {
+                    if self.scheduler.get_job(target).is_none() {
+                        break Err(WorldError::WorldGenerationError(format!(
+                            "generation jobs for {pos:?} were dropped while waiting"
+                        )));
+                    }
+                    continue;
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    break Err(WorldError::WorldGenerationError(
+                        "chunk generation request closed before the target completed".to_string(),
+                    ));
+                }
             }
         };
 
         self.scheduler.unregister_request(request.id);
         result
+    }
+
+    pub fn has_pending_jobs(&self, dimension: Dimension, pos: ChunkPos) -> bool {
+        self.scheduler.has_pending_jobs(dimension, pos)
     }
 
     pub fn forget_chunk(&self, dimension: Dimension, pos: ChunkPos) {

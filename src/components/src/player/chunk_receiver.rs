@@ -4,11 +4,25 @@ use std::collections::{HashSet, VecDeque};
 use temper_core::pos::ChunkPos;
 use uuid::Uuid;
 
-pub struct PreparedChunk {
-    pub pos: ChunkPos,
-    pub packet_data: Vec<u8>,
-    pub entities: Vec<(Uuid, u16)>,
-    pub is_new_load: bool,
+pub enum PreparedChunk {
+    Ready {
+        pos: ChunkPos,
+        packet_data: Vec<u8>,
+        entities: Vec<(Uuid, u16)>,
+        is_new_load: bool,
+    },
+    Failed {
+        pos: ChunkPos,
+    },
+}
+
+impl PreparedChunk {
+    /// The chunk this message is about, whether it succeeded or not.
+    pub fn pos(&self) -> ChunkPos {
+        match self {
+            Self::Ready { pos, .. } | Self::Failed { pos } => *pos,
+        }
+    }
 }
 
 #[derive(Component)]

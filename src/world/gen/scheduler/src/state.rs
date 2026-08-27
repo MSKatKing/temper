@@ -97,6 +97,14 @@ impl SchedulerState {
         self.requests.remove(&request);
     }
 
+    pub fn has_pending_jobs(&self, dimension: Dimension, pos: ChunkPos) -> bool {
+        (0..=GenStage::FULL.raw()).any(|stage| {
+            self.jobs
+                .get(&JobKey::new(dimension, pos, GenStage::new(stage)))
+                .is_some_and(|job| job.state.load() != JobState::Complete)
+        })
+    }
+
     pub fn forget_chunk(&self, dimension: Dimension, pos: ChunkPos) {
         let _registration_lock = self
             .registration_lock
@@ -138,6 +146,23 @@ impl SchedulerState {
 
     pub fn get_job(&self, key: JobKey) -> Option<Arc<JobEntry>> {
         self.jobs.get(&key).map(|job| Arc::clone(&job))
+    }
+
+    /// Releases a job that failed mid-run so it doesn't sit in `Running`
+    /// forever, and wakes anything waiting on it so those callers can
+    /// re-evaluate instead of sleeping indefinitely.
+    pub fn fail_job(&self, key: JobKey) {
+        let Some(job) = self.jobs.get(&key) else {
+            return;
+        };
+
+        job.state.mark_failed();
+
+        for request_id in job.interested_requests() {
+            if let Some(request) = self.requests.get(&request_id) {
+                request.wake();
+            }
+        }
     }
 
     pub fn next_request_id(&self) -> RequestId {

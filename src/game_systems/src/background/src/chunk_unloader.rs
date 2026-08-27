@@ -34,6 +34,11 @@ pub fn handle(
         for &(x, z) in &chunk_receiver.dirty {
             visible_chunks.insert(ChunkPos::new(x, z));
         }
+
+        // this protects chunks dispatched to the pool but not yet harvested
+        for &(x, z) in &chunk_receiver.in_flight {
+            visible_chunks.insert(ChunkPos::new(x, z));
+        }
     }
 
     // map all chunks currently in the cache
@@ -42,16 +47,40 @@ pub fn handle(
         all_chunks.insert(entry.key().0);
     }
 
+    // A chunk with live generation jobs also needs its neighbours kept
+    // resident: higher stages read neighbours as snapshots after those
+    // neighbours' own jobs have already completed, so `has_pending_jobs`
+    // alone doesn't protect them.
+    let mut generation_locked = HashSet::new();
+    for chunk_pos in all_chunks.iter() {
+        if state
+            .0
+            .world
+            .chunk_generator
+            .has_pending_jobs(Overworld, *chunk_pos)
+        {
+            for dx in -1..=1 {
+                for dz in -1..=1 {
+                    generation_locked.insert(ChunkPos::new(chunk_pos.x() + dx, chunk_pos.z() + dz));
+                }
+            }
+        }
+    }
+
     let mut unloaded_entries = 0;
-    let mut written_chunks = 0;
+    let mut chunks_to_write = Vec::new();
 
     // unload anything not in the visible/pending set
     // if 0 players are online, visible_chunks is empty, so this should gracefully unload the entire server.
     for chunk_pos in all_chunks.difference(&visible_chunks) {
+        if generation_locked.contains(chunk_pos) {
+            continue;
+        }
+
         if let Some(((pos, dim), chunk)) =
             state.0.world.get_cache().remove(&(*chunk_pos, Overworld))
         {
-            // cancel any pending generation for this chunk
+            // drop this chunk's completed job entries
             state.0.world.chunk_generator.forget_chunk(dim, pos);
 
             // despawn orphaned entities
@@ -70,17 +99,25 @@ pub fn handle(
                 }
             }
 
-            // save state
+            // queue for saving — writes happen off-thread, below
             if chunk.is_dirty() {
-                if let Err(err) = state.0.world.insert_chunk(pos, dim, chunk) {
-                    error!("Failed to write chunk {:?} back to storage: {:?}", pos, err);
-                } else {
-                    written_chunks += 1;
-                }
+                chunks_to_write.push((pos, dim, chunk));
             }
 
             unloaded_entries += 1;
         }
+    }
+
+    let written_chunks = chunks_to_write.len();
+    if written_chunks > 0 {
+        let state_clone = state.clone();
+        state.0.thread_pool.oneshot(move || {
+            for (pos, dim, chunk) in chunks_to_write {
+                if let Err(err) = state_clone.0.world.insert_chunk(pos, dim, chunk) {
+                    error!("Failed to write chunk {:?} back to storage: {:?}", pos, err);
+                }
+            }
+        });
     }
 
     if unloaded_entries > 0 {
