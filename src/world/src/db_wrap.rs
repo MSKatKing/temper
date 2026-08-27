@@ -3,7 +3,6 @@ use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
 use temper_world_format::errors::WorldError;
 use temper_world_format::Chunk;
-use tracing::trace;
 use world_db::chunks::{
     chunk_exists_internal, delete_chunk_internal, load_chunk_internal, save_chunk_internal,
     save_serialized_chunk_internal, sync_internal,
@@ -131,10 +130,10 @@ impl ChunkStore {
 
     /// Sync the storage backend.
     ///
-    /// This function will save all chunks in the cache to the storage backend and then sync the
-    /// storage backend. This should be run after inserting or updating a large number of chunks
-    /// to ensure that the data is properly saved to disk.
-    pub fn sync(&self) -> Result<(), WorldError> {
+    /// This function will save fully generated dirty chunks in the cache to the storage backend and
+    /// then sync the storage backend. This should be run after inserting or updating a large number
+    /// of chunks to ensure that the data is properly saved to disk.
+    pub fn sync(&self, minimum_stage: u8) -> Result<(), WorldError> {
         let mut snapshots = Vec::new();
 
         for pair in self.cache.iter() {
@@ -143,25 +142,16 @@ impl ChunkStore {
             if !v.is_dirty() {
                 continue;
             }
-
-            trace!("Chunk at {:?} is dirty, saving.", k.0);
-            trace!("Syncing chunk: {:?}", k.0);
-            if !v.entities.is_empty() {
-                trace!(
-                    "Chunk at {:?} has {} entities, saving.",
-                    k.0,
-                    v.entities.len()
-                );
-            } else {
-                trace!("Chunk at {:?} has no entities, saving.", k.0);
+            if v.stage < minimum_stage {
+                continue;
             }
 
-            v.clear_dirty();
             snapshots.push(ChunkSaveSnapshot {
                 pos: k.0,
                 dimension: k.1,
                 chunk: v.clone_without_transient_noise(),
             });
+            v.clear_dirty();
         }
 
         for snapshot in snapshots {
@@ -219,6 +209,91 @@ impl World {
     }
 
     pub fn sync(&self) -> Result<(), WorldError> {
-        self.chunks.sync()
+        self.chunks.sync(self.final_generation_stage())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gen_core::GenStage;
+    use temper_storage::lmdb::StorageBackend;
+    use tempfile::TempDir;
+    use wyhash::WyHasherBuilder;
+
+    use super::*;
+
+    fn test_store() -> (ChunkStore, TempDir) {
+        let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+        let storage =
+            StorageBackend::initialize(Some(temp_dir.path().to_path_buf()), 1024 * 1024 * 1024)
+                .expect("storage should initialize");
+
+        (
+            ChunkStore::new(storage, false, WyHasherBuilder::default()),
+            temp_dir,
+        )
+    }
+
+    #[test]
+    fn sync_skips_dirty_chunks_below_the_save_stage() {
+        let (store, _temp_dir) = test_store();
+        let pos = ChunkPos::new(0, 0);
+        let mut chunk = Chunk::new_empty();
+        chunk.stage = GenStage::FEATURES.raw();
+        chunk.mark_dirty();
+        store.cache.insert((pos, Dimension::Overworld), chunk);
+
+        store
+            .sync(GenStage::FULL.raw())
+            .expect("sync should succeed");
+
+        let cached = store
+            .get_cache()
+            .get(&(pos, Dimension::Overworld))
+            .expect("skipped chunk should stay cached");
+        assert!(
+            cached.is_dirty(),
+            "skipped partial chunks should remain dirty for a later full save"
+        );
+
+        drop(cached);
+        store.get_cache().clear();
+        assert!(
+            matches!(
+                store.get_chunk(pos, Dimension::Overworld),
+                Err(WorldError::ChunkNotFound)
+            ),
+            "partial chunks should not be written to storage"
+        );
+    }
+
+    #[test]
+    fn sync_saves_dirty_chunks_at_the_save_stage() {
+        let (store, _temp_dir) = test_store();
+        let pos = ChunkPos::new(1, 0);
+        let mut chunk = Chunk::new_empty();
+        chunk.stage = GenStage::FULL.raw();
+        chunk.mark_dirty();
+        store.cache.insert((pos, Dimension::Overworld), chunk);
+
+        store
+            .sync(GenStage::FULL.raw())
+            .expect("sync should succeed");
+
+        let cached = store
+            .get_cache()
+            .get(&(pos, Dimension::Overworld))
+            .expect("saved chunk should stay cached");
+        assert!(
+            !cached.is_dirty(),
+            "saved full chunks should be marked clean after snapshotting"
+        );
+
+        drop(cached);
+        store.get_cache().clear();
+        let loaded = store
+            .get_chunk(pos, Dimension::Overworld)
+            .expect("full chunk should reload from storage");
+        assert_eq!(loaded.stage, GenStage::FULL.raw());
     }
 }

@@ -98,6 +98,20 @@ pub fn handle(
                     cmd.entity(entity).despawn();
                 }
             }
+        }
+
+        let cache_keys = state
+            .0
+            .world
+            .get_cache()
+            .iter()
+            .map(|entry| *entry.key())
+            .collect::<Vec<_>>();
+
+        for (pos, dim) in cache_keys {
+            let Some((_, chunk)) = state.0.world.get_cache().remove(&(pos, dim)) else {
+                continue;
+            };
 
             // queue for saving — writes happen off-thread, below
             if chunk.is_dirty() {
