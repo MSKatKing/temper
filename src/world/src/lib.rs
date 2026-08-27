@@ -91,6 +91,14 @@ impl World {
         self.chunks.get_cache()
     }
 
+    pub fn final_generation_stage(&self) -> u8 {
+        self.chunk_generator.final_stage().raw()
+    }
+
+    pub fn is_fully_generated(&self, chunk: &Chunk) -> bool {
+        chunk.stage >= self.final_generation_stage()
+    }
+
     /// Loads a chunk from the database or cache, generating or advancing it first if needed.
     pub fn get_or_generate_chunk(
         &'_ self,

@@ -32,6 +32,10 @@ impl WorldChunkGenerator {
         Some(Self::new(world_gen::generator_from_name(name, seed)?))
     }
 
+    pub fn final_stage(&self) -> GenStage {
+        self.generator.final_stage()
+    }
+
     pub fn generate(
         &self,
         chunks: &ChunkStore,
@@ -145,7 +149,11 @@ impl WorldChunkGenerator {
             ))
             .map_err(generation_error)?;
         target.stage = key.stage.raw();
-        target.mark_dirty();
+        if key.stage == self.generator.final_stage() {
+            target.clear_dirty();
+        } else {
+            target.mark_dirty();
+        }
 
         Ok(())
     }
@@ -222,4 +230,97 @@ fn scheduler_error(err: SchedulerError) -> WorldError {
 
 fn generation_error(err: GenerationError) -> WorldError {
     WorldError::WorldGenerationError(err.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use gen_core::{ChunkGenerator, GeneratorId, StageDependencies};
+    use temper_core::block_state_id::BlockStateId;
+    use temper_core::dimension::Dimension;
+    use temper_core::pos::{ChunkBlockPos, ChunkPos};
+    use temper_macros::block;
+    use temper_storage::lmdb::StorageBackend;
+    use tempfile::TempDir;
+    use wyhash::WyHasherBuilder;
+
+    use crate::ChunkStore;
+
+    use super::*;
+
+    struct TestGenerator;
+
+    impl ChunkGenerator for TestGenerator {
+        fn id(&self) -> GeneratorId {
+            GeneratorId::new("test")
+        }
+
+        fn final_stage(&self) -> GenStage {
+            GenStage::SURFACE
+        }
+
+        fn stage_spec(&self, stage: GenStage) -> Option<StageSpec> {
+            match stage {
+                GenStage::EMPTY => Some(StageSpec::new(
+                    GenStage::EMPTY,
+                    "empty",
+                    StageDependencies::NONE,
+                )),
+                GenStage::SURFACE => Some(StageSpec::new(
+                    GenStage::SURFACE,
+                    "surface",
+                    StageDependencies::only_own(GenStage::EMPTY),
+                )),
+                _ => None,
+            }
+        }
+
+        fn advance_stage(&self, input: StageInput<'_>) -> Result<(), GenerationError> {
+            if input.stage == GenStage::SURFACE {
+                input
+                    .target
+                    .set_block(ChunkBlockPos::new(0, 64, 0), block!("stone"));
+            }
+            Ok(())
+        }
+    }
+
+    fn test_store() -> (ChunkStore, TempDir) {
+        let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+        let storage =
+            StorageBackend::initialize(Some(temp_dir.path().to_path_buf()), 1024 * 1024 * 1024)
+                .expect("storage should initialize");
+
+        (
+            ChunkStore::new(storage, false, WyHasherBuilder::default()),
+            temp_dir,
+        )
+    }
+
+    #[test]
+    fn generated_final_chunks_are_clean_until_modified() {
+        let (store, _temp_dir) = test_store();
+        let generator = WorldChunkGenerator::new(Arc::new(TestGenerator));
+        let pos = ChunkPos::new(0, 0);
+
+        generator
+            .generate(&store, Dimension::Overworld, pos)
+            .expect("chunk should generate");
+
+        let mut chunk = store
+            .get_chunk_mut(pos, Dimension::Overworld)
+            .expect("generated chunk should be cached");
+        assert_eq!(chunk.stage, GenStage::SURFACE.raw());
+        assert!(
+            !chunk.is_dirty(),
+            "completed generated chunks should not require storage writes"
+        );
+
+        chunk.set_block(ChunkBlockPos::new(1, 64, 1), block!("gold_block"));
+        assert!(
+            chunk.is_dirty(),
+            "gameplay edits should still mark generated chunks dirty"
+        );
+    }
 }

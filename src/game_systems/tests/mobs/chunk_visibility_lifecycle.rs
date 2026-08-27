@@ -156,18 +156,39 @@ fn multiple_entities_in_one_chunk_reload_together_when_player_returns() {
         "pig should unload when the player leaves the chunk"
     );
 
-    {
-        let saved_chunk = state
-            .0
-            .world
-            .get_chunk(chunk, Dimension::Overworld)
-            .expect("saved chunk should exist");
-        assert_eq!(
-            saved_chunk.entities.len(),
-            2,
-            "both entities should be persisted"
-        );
-    }
+    let cached_chunk = state
+        .0
+        .world
+        .get_cache()
+        .get(&(chunk, Dimension::Overworld))
+        .expect("dirty chunk should stay cached until world sync");
+    assert!(
+        cached_chunk.is_dirty(),
+        "unloaded dirty chunks should wait for the background sync pass"
+    );
+    assert_eq!(
+        cached_chunk.entities.len(),
+        2,
+        "both entities should be retained in the chunk"
+    );
+    drop(cached_chunk);
+
+    state
+        .0
+        .world
+        .sync()
+        .expect("dirty chunk should sync before restart-style reload");
+    let saved_chunk = state
+        .0
+        .world
+        .get_chunk(chunk, Dimension::Overworld)
+        .expect("saved chunk should exist");
+    assert_eq!(
+        saved_chunk.entities.len(),
+        2,
+        "both entities should be persisted"
+    );
+    drop(saved_chunk);
     state.0.world.get_cache().clear();
 
     {

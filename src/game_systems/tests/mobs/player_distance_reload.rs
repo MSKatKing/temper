@@ -132,14 +132,28 @@ fn player_can_unload_entities_by_moving_away_and_reload_them_after_returning() {
         live_foxes, 0,
         "fox should despawn when its chunk is unloaded"
     );
+    let cached_chunk = state
+        .0
+        .world
+        .get_cache()
+        .get(&(fox_chunk, Dimension::Overworld))
+        .expect("dirty fox chunk should stay cached until world sync");
     assert!(
-        !state
-            .0
-            .world
-            .get_cache()
-            .contains_key(&(fox_chunk, Dimension::Overworld)),
-        "fox chunk should be removed from cache after unload"
+        cached_chunk.is_dirty(),
+        "unloaded dirty chunks should wait for the background sync pass"
     );
+    assert_eq!(
+        cached_chunk.entities.len(),
+        1,
+        "only the test fox should be retained in the chunk"
+    );
+    drop(cached_chunk);
+
+    state
+        .0
+        .world
+        .sync()
+        .expect("dirty fox chunk should sync before restart-style reload");
     {
         let saved_chunk = state
             .0
