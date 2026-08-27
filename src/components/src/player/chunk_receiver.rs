@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::Component;
 use crossbeam_channel::{unbounded, Receiver, Sender};
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use temper_core::pos::ChunkPos;
 use uuid::Uuid;
 
@@ -35,6 +35,7 @@ pub struct ChunkReceiver {
     pub chunks_per_tick: f32,
     pub ready_tx: Sender<PreparedChunk>,
     pub ready_rx: Receiver<PreparedChunk>,
+    pub retry_counts: HashMap<(i32, i32), u8>,
 }
 
 impl ChunkReceiver {
@@ -49,6 +50,7 @@ impl ChunkReceiver {
             chunks_per_tick: 32.5,
             ready_tx,
             ready_rx,
+            retry_counts: HashMap::new(),
         }
     }
 }

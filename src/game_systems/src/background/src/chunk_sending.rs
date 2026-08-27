@@ -19,6 +19,9 @@ use temper_protocol::outgoing::set_center_chunk::SetCenterChunk;
 use temper_state::GlobalStateResource;
 use tracing::error;
 
+/// How many times a chunk may fail to prepare before we stop retrying it.
+const MAX_CHUNK_RETRIES: u8 = 3;
+
 pub fn handle(
     mut query: Query<(
         Entity,
@@ -58,10 +61,27 @@ pub fn handle(
         let mut ready_to_send = Vec::new();
         for prepared in harvested {
             match prepared {
-                PreparedChunk::Ready { .. } => ready_to_send.push(prepared),
+                PreparedChunk::Ready { pos, .. } => {
+                    // Success wipes the failure history for this chunk, so a
+                    // chunk that fails twice then succeeds starts clean.
+                    chunk_receiver.retry_counts.remove(&(pos.x(), pos.z()));
+                    ready_to_send.push(prepared);
+                }
                 PreparedChunk::Failed { pos } => {
-                    // Put it back in the queue for another attempt next tick.
-                    chunk_receiver.loading.push_back((pos.x(), pos.z()));
+                    let key = (pos.x(), pos.z());
+                    let attempts = chunk_receiver.retry_counts.entry(key).or_insert(0);
+                    *attempts += 1;
+
+                    if *attempts >= MAX_CHUNK_RETRIES {
+                        error!(
+                            "Chunk {:?} failed to prepare {} times; giving up for this session",
+                            pos, attempts
+                        );
+                        chunk_receiver.retry_counts.remove(&key);
+                    } else {
+                        // Put it back in the queue for another attempt next tick.
+                        chunk_receiver.loading.push_back(key);
+                    }
                 }
             }
         }
@@ -87,7 +107,7 @@ pub fn handle(
                     is_new_load,
                 } = chunk
                 else {
-                    continue; // filtered above; can't happen
+                    unreachable!();
                 };
 
                 chunk_receiver.loaded.insert((chunk_pos.x(), chunk_pos.z()));
