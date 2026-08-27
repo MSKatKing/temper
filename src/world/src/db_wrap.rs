@@ -29,6 +29,11 @@ impl ChunkStore {
     }
 
     pub fn ensure_chunk(&self, pos: ChunkPos, dimension: Dimension) -> Result<(), WorldError> {
+        // check cache first to avoid nuking io
+        if self.cache.contains_key(&(pos, dimension)) {
+            return Ok(());
+        }
+
         if self.chunk_exists(pos, dimension)? {
             return Ok(());
         }
