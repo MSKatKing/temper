@@ -98,22 +98,7 @@ pub fn handle(
                     cmd.entity(entity).despawn();
                 }
             }
-        }
-
-        let cache_keys = state
-            .0
-            .world
-            .get_cache()
-            .iter()
-            .map(|entry| *entry.key())
-            .collect::<Vec<_>>();
-
-        for (pos, dim) in cache_keys {
-            let Some((_, chunk)) = state.0.world.get_cache().remove(&(pos, dim)) else {
-                continue;
-            };
-
-            // queue for saving — writes happen off-thread, below
+            // queue for saving, writes happen off-thread, below
             if chunk.is_dirty() {
                 chunks_to_write.push((pos, dim, chunk));
             }
@@ -136,7 +121,7 @@ pub fn handle(
 
     if unloaded_entries > 0 {
         trace!(
-            "Unloaded {} chunks ({} written to disk). {} chunks remain in cache.",
+            "Unloaded {} chunks ({} queued for write to disk). {} chunks remain in cache.",
             unloaded_entries,
             written_chunks,
             state.0.world.get_cache().len()

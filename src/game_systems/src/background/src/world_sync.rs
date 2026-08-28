@@ -15,26 +15,24 @@ use temper_permissions::player::PlayerPermission;
 use temper_resources::world_sync_tracker::WorldSyncTracker;
 use temper_state::GlobalStateResource;
 use tracing::error;
+use uuid::Uuid;
 
-pub fn sync_world(
-    player_query: Query<(
-        &Identity,
-        &PlayerAbilities,
-        &GameModeComponent,
-        &Position,
-        &Rotation,
-        &Inventory,
-        &Health,
-        &Hunger,
-        &Experience,
-        &EnderChest,
-        &ActiveEffects,
-        &PlayerPermission,
-    )>,
-    state: Res<GlobalStateResource>,
-    mut last_synced: ResMut<WorldSyncTracker>,
-) {
-    // collect player data in RAM
+type PlayerSaveQuery<'a> = (
+    &'a Identity,
+    &'a PlayerAbilities,
+    &'a GameModeComponent,
+    &'a Position,
+    &'a Rotation,
+    &'a Inventory,
+    &'a Health,
+    &'a Hunger,
+    &'a Experience,
+    &'a EnderChest,
+    &'a ActiveEffects,
+    &'a PlayerPermission,
+);
+
+fn collect_player_data(player_query: &Query<PlayerSaveQuery>) -> Vec<(Uuid, OfflinePlayerData)> {
     let mut players_to_save = Vec::with_capacity(player_query.iter().len());
 
     for (
@@ -68,15 +66,24 @@ pub fn sync_world(
         players_to_save.push((identity.uuid, data));
     }
 
-    // dispatch disk I/O to the thread pool
+    players_to_save
+}
+
+/// Periodic world sync. Disk I/O goes to the thread pool so the schedule isn't
+/// blocked on LMDB, which only permits one writer at a time.
+pub fn sync_world(
+    player_query: Query<PlayerSaveQuery>,
+    state: Res<GlobalStateResource>,
+    mut last_synced: ResMut<WorldSyncTracker>,
+) {
+    let players_to_save = collect_player_data(&player_query);
+
     let state_clone = state.clone();
     state.0.thread_pool.oneshot(move || {
-        // 1. Sync chunks to disk
         if let Err(e) = state_clone.0.world.sync() {
             error!("Failed to sync world chunks to disk: {}", e);
         }
 
-        // 2. Save player data to disk
         for (uuid, data) in players_to_save {
             if let Err(e) = state_clone.0.world.save_player_data(uuid, &data) {
                 error!("Failed to save player data for {}: {}", uuid, e);
@@ -85,4 +92,19 @@ pub fn sync_world(
     });
 
     last_synced.last_synced = std::time::Instant::now();
+}
+
+/// Shutdown flush. Unlike `sync_world`, this writes synchronously: the process
+/// may exit as soon as the shutdown schedule returns, so a pool-dispatched
+/// write could be dropped before it lands.
+pub fn flush_world(player_query: Query<PlayerSaveQuery>, state: Res<GlobalStateResource>) {
+    if let Err(e) = state.0.world.sync() {
+        error!("Failed to sync world chunks to disk on shutdown: {}", e);
+    }
+
+    for (uuid, data) in collect_player_data(&player_query) {
+        if let Err(e) = state.0.world.save_player_data(uuid, &data) {
+            error!("Failed to save player data for {} on shutdown: {}", uuid, e);
+        }
+    }
 }
