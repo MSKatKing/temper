@@ -34,12 +34,36 @@ pub fn handle(
     state: Res<GlobalStateResource>,
     mut mob_load_writer: MessageWriter<temper_messages::load_chunk_entities::LoadChunkEntities>,
 ) {
+    // Cap on how much chunk work one player can have queued on the pool at once.
+    // Without it, fast flight outruns generation and `in_flight` grows without
+    // bound — measured climbing past 600 on a 24-core machine, with harvest
+    // batches large enough to push ticks to 350ms. The multiplier was fitted on
+    // that machine: 6x cores kept in-flight work bounded and the worst tick
+    // spikes under 100ms. It does not make generation faster; sustained flight
+    // past pool capacity still backs up, it just backs up in `loading` where it
+    // costs memory instead of pool depth.
+    let max_in_flight = state.0.thread_pool.core_count() * 6;
+
     for (eid, conn, mut chunk_receiver, pos, client_info, entity_tracker) in query.iter_mut() {
         if !state.0.players.is_connected(eid) {
             continue;
         }
 
         let chunk_receiver = &mut *chunk_receiver;
+
+        // Both phases need the same "is this chunk still worth working on"
+        // test, so compute it once per player.
+        let player_chunk = IVec2::new(
+            pos.coords.x.floor() as i32 >> 4,
+            pos.coords.z.floor() as i32 >> 4,
+        );
+        let view_distance = max(
+            u32::from(client_info.view_distance),
+            state.0.config.chunk_render_distance,
+        );
+        let max_distance_sq = (view_distance * view_distance) as i32;
+        let in_view =
+            |x: i32, z: i32| IVec2::new(x, z).distance_squared(player_chunk) <= max_distance_sq;
 
         // ==========================================
         // PHASE 1: HARVEST & SEND COMPLETED CHUNKS
@@ -61,25 +85,38 @@ pub fn handle(
         let mut ready_to_send = Vec::new();
         for prepared in harvested {
             match prepared {
-                PreparedChunk::Ready { pos, .. } => {
+                PreparedChunk::Ready { pos: chunk_pos, .. } => {
                     // Success wipes the failure history for this chunk, so a
                     // chunk that fails twice then succeeds starts clean.
-                    chunk_receiver.retry_counts.remove(&(pos.x(), pos.z()));
-                    ready_to_send.push(prepared);
+                    chunk_receiver
+                        .retry_counts
+                        .remove(&(chunk_pos.x(), chunk_pos.z()));
+
+                    // The player may have flown past while this was generating.
+                    // `in_flight` is already cleared above, so `chunk_calculator`
+                    // will requeue it if they come back.
+                    if in_view(chunk_pos.x(), chunk_pos.z()) {
+                        ready_to_send.push(prepared);
+                    }
                 }
-                PreparedChunk::Failed { pos } => {
-                    let key = (pos.x(), pos.z());
+                PreparedChunk::Failed { pos: chunk_pos } => {
+                    let key = (chunk_pos.x(), chunk_pos.z());
+
+                    if !in_view(key.0, key.1) {
+                        chunk_receiver.retry_counts.remove(&key);
+                        continue;
+                    }
+
                     let attempts = chunk_receiver.retry_counts.entry(key).or_insert(0);
                     *attempts += 1;
 
                     if *attempts >= MAX_CHUNK_RETRIES {
                         error!(
                             "Chunk {:?} failed to prepare {} times; giving up for this session",
-                            pos, attempts
+                            chunk_pos, attempts
                         );
                         chunk_receiver.retry_counts.remove(&key);
                     } else {
-                        // Put it back in the queue for another attempt next tick.
                         chunk_receiver.loading.push_back(key);
                     }
                 }
@@ -157,6 +194,12 @@ pub fn handle(
             hard_limit => hard_limit as usize,
         };
 
+        let dispatch_budget = max_in_flight.saturating_sub(chunk_receiver.in_flight.len());
+        if dispatch_budget == 0 {
+            continue;
+        }
+        let chunk_per_tick = chunk_per_tick.min(dispatch_budget);
+
         if chunk_receiver.dirty.is_empty() && chunk_receiver.loading.is_empty() {
             continue;
         }
@@ -194,19 +237,7 @@ pub fn handle(
         // dispatch to the thread pool
         for coordinates in needed_chunks
             .into_iter()
-            .filter(|coord| {
-                let chunk_pos = IVec2::new(coord.0, coord.1);
-                let player_chunk_pos = IVec2::new(
-                    pos.coords.x.floor() as i32 >> 4,
-                    pos.coords.z.floor() as i32 >> 4,
-                );
-                let distance = chunk_pos.distance_squared(player_chunk_pos);
-                let view_distance = max(
-                    u32::from(client_info.view_distance),
-                    state.0.config.chunk_render_distance,
-                );
-                distance <= (view_distance * view_distance) as i32
-            })
+            .filter(|coord| in_view(coord.0, coord.1))
             .map(|c| ChunkPos::new(c.0, c.1))
         {
             let is_new_load = loading_chunks.contains(&(coordinates.x(), coordinates.z()));
