@@ -29,6 +29,7 @@ temper-macros = { workspace = true }
 temper-messages = { workspace = true }
 temper-resources = { workspace = true }
 temper-state = { workspace = true }
+temper-world = {workspace = true}
 
 [lints]
 workspace = true
