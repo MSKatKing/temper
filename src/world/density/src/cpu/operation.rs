@@ -77,6 +77,11 @@ pub enum PowAmount {
     Reciprocal,
 }
 
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub enum NoiseAccessType {
+    Shift,
+}
+
 impl PowAmount {
     pub fn as_i32(&self) -> i32 {
         match self {

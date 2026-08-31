@@ -237,4 +237,38 @@ mod tests {
         assert_eq!(*value_range.start(), from_value as f32);
         assert_eq!(*value_range.end(), to_value as f32);
     }
+
+    #[test]
+    fn test_compile_add() {
+        let mut compiler = Compiler::new();
+
+        let func = DensityFunction::Add {
+            left: DensityFunctionArgument::Function(Box::new(DensityFunction::Shift { noise: "minecraft:aquifer_barrier".to_string() })),
+            right: DensityFunctionArgument::Function(Box::new(DensityFunction::Shift { noise: "aquifer_barrier".to_string() })),
+        };
+
+        let parent = BufferId { ty: BufferType::Out, id: 0 };
+        let out = compile(&mut compiler, &func, parent);
+
+        assert_eq!(parent, out);
+        assert_eq!(compiler.ops.len(), 3);
+        assert!(compiler.ops.last().is_some());
+        assert!(matches!(compiler.ops.last().unwrap(), Operation::AddBuffer { .. }));
+    }
+
+    #[test]
+    #[should_panic = "functions should be folded prior to being compiled"]
+    fn test_compile_add_no_fold() {
+        let mut compiler = Compiler::new();
+
+        let func = DensityFunction::Add {
+            left: DensityFunctionArgument::Constant(1.0),
+            right: DensityFunctionArgument::Constant(2.0),
+        };
+
+        let parent = compiler.alloc_buffer(BufferType::Out);
+
+        // should panic because func should've been folded into a constant prior to compilation
+        compile(&mut compiler, &func, parent);
+    }
 }
