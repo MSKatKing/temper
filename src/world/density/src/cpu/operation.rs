@@ -1,3 +1,4 @@
+use temper_data::noise::NoiseParameter;
 use crate::cpu::buffer::BufferId;
 use temper_noise::NormalNoise;
 
@@ -5,6 +6,9 @@ use temper_noise::NormalNoise;
 pub enum Operation {
     /// Clears the specified buffer, setting all values to `value`
     ClearBuffer { destination: BufferId, value: f32 },
+    
+    /// Fills the destination buffer with noise values
+    FillNoiseBuffer { destination: BufferId, noise: &'static NoiseParameter, access_type: NoiseAccessType },
 
     /// Adds values from `source` into `destination`
     AddBuffer {
@@ -71,6 +75,11 @@ pub enum PowAmount {
     Square,
     Cube,
     Reciprocal,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub enum NoiseAccessType {
+    Shift,
 }
 
 impl PowAmount {
