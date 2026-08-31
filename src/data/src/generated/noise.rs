@@ -1,283 +1,283 @@
 #[derive(Debug, Clone, PartialEq)]
 pub struct NoiseParameter {
     pub first_octave: i32,
-    pub amplitudes: &'static [f32],
+    pub amplitudes: &'static [f64],
 }
 impl NoiseParameter {
     pub const AQUIFER_BARRIER: NoiseParameter = NoiseParameter {
         first_octave: -3i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const AQUIFER_FLUID_LEVEL_FLOODEDNESS: NoiseParameter = NoiseParameter {
         first_octave: -7i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const AQUIFER_FLUID_LEVEL_SPREAD: NoiseParameter = NoiseParameter {
         first_octave: -5i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const AQUIFER_LAVA: NoiseParameter = NoiseParameter {
         first_octave: -1i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const BADLANDS_PILLAR: NoiseParameter = NoiseParameter {
         first_octave: -2i32,
-        amplitudes: &[1f32, 1f32, 1f32, 1f32],
+        amplitudes: &[1f64, 1f64, 1f64, 1f64],
     };
     pub const BADLANDS_PILLAR_ROOF: NoiseParameter = NoiseParameter {
         first_octave: -8i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const BADLANDS_SURFACE: NoiseParameter = NoiseParameter {
         first_octave: -6i32,
-        amplitudes: &[1f32, 1f32, 1f32],
+        amplitudes: &[1f64, 1f64, 1f64],
     };
     pub const CALCITE: NoiseParameter = NoiseParameter {
         first_octave: -9i32,
-        amplitudes: &[1f32, 1f32, 1f32, 1f32],
+        amplitudes: &[1f64, 1f64, 1f64, 1f64],
     };
     pub const CAVE_CHEESE: NoiseParameter = NoiseParameter {
         first_octave: -8i32,
-        amplitudes: &[0.5f32, 1f32, 2f32, 1f32, 2f32, 1f32, 0f32, 2f32, 0f32],
+        amplitudes: &[0.5f64, 1f64, 2f64, 1f64, 2f64, 1f64, 0f64, 2f64, 0f64],
     };
     pub const CAVE_ENTRANCE: NoiseParameter = NoiseParameter {
         first_octave: -7i32,
-        amplitudes: &[0.4f32, 0.5f32, 1f32],
+        amplitudes: &[0.4f64, 0.5f64, 1f64],
     };
     pub const CAVE_LAYER: NoiseParameter = NoiseParameter {
         first_octave: -8i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const CLAY_BANDS_OFFSET: NoiseParameter = NoiseParameter {
         first_octave: -8i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const CONTINENTALNESS: NoiseParameter = NoiseParameter {
         first_octave: -9i32,
-        amplitudes: &[1f32, 1f32, 2f32, 2f32, 2f32, 1f32, 1f32, 1f32, 1f32],
+        amplitudes: &[1f64, 1f64, 2f64, 2f64, 2f64, 1f64, 1f64, 1f64, 1f64],
     };
     pub const CONTINENTALNESS_LARGE: NoiseParameter = NoiseParameter {
         first_octave: -11i32,
-        amplitudes: &[1f32, 1f32, 2f32, 2f32, 2f32, 1f32, 1f32, 1f32, 1f32],
+        amplitudes: &[1f64, 1f64, 2f64, 2f64, 2f64, 1f64, 1f64, 1f64, 1f64],
     };
     pub const EROSION: NoiseParameter = NoiseParameter {
         first_octave: -9i32,
-        amplitudes: &[1f32, 1f32, 0f32, 1f32, 1f32],
+        amplitudes: &[1f64, 1f64, 0f64, 1f64, 1f64],
     };
     pub const EROSION_LARGE: NoiseParameter = NoiseParameter {
         first_octave: -11i32,
-        amplitudes: &[1f32, 1f32, 0f32, 1f32, 1f32],
+        amplitudes: &[1f64, 1f64, 0f64, 1f64, 1f64],
     };
     pub const GRAVEL: NoiseParameter = NoiseParameter {
         first_octave: -8i32,
-        amplitudes: &[1f32, 1f32, 1f32, 1f32],
+        amplitudes: &[1f64, 1f64, 1f64, 1f64],
     };
     pub const GRAVEL_LAYER: NoiseParameter = NoiseParameter {
         first_octave: -8i32,
         amplitudes: &[
-            1f32,
-            1f32,
-            1f32,
-            1f32,
-            0f32,
-            0f32,
-            0f32,
-            0f32,
-            0.013333334f32,
+            1f64,
+            1f64,
+            1f64,
+            1f64,
+            0f64,
+            0f64,
+            0f64,
+            0f64,
+            0.013333333333333334f64,
         ],
     };
     pub const ICE: NoiseParameter = NoiseParameter {
         first_octave: -4i32,
-        amplitudes: &[1f32, 1f32, 1f32, 1f32],
+        amplitudes: &[1f64, 1f64, 1f64, 1f64],
     };
     pub const ICEBERG_PILLAR: NoiseParameter = NoiseParameter {
         first_octave: -6i32,
-        amplitudes: &[1f32, 1f32, 1f32, 1f32],
+        amplitudes: &[1f64, 1f64, 1f64, 1f64],
     };
     pub const ICEBERG_PILLAR_ROOF: NoiseParameter = NoiseParameter {
         first_octave: -3i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const ICEBERG_SURFACE: NoiseParameter = NoiseParameter {
         first_octave: -6i32,
-        amplitudes: &[1f32, 1f32, 1f32],
+        amplitudes: &[1f64, 1f64, 1f64],
     };
     pub const JAGGED: NoiseParameter = NoiseParameter {
         first_octave: -16i32,
         amplitudes: &[
-            1f32, 1f32, 1f32, 1f32, 1f32, 1f32, 1f32, 1f32, 1f32, 1f32, 1f32, 1f32, 1f32, 1f32,
-            1f32, 1f32,
+            1f64, 1f64, 1f64, 1f64, 1f64, 1f64, 1f64, 1f64, 1f64, 1f64, 1f64, 1f64, 1f64, 1f64,
+            1f64, 1f64,
         ],
     };
     pub const NETHER_TEMPERATURE: NoiseParameter = NoiseParameter {
         first_octave: -7i32,
-        amplitudes: &[1f32, 1f32],
+        amplitudes: &[1f64, 1f64],
     };
     pub const NETHER_VEGETATION: NoiseParameter = NoiseParameter {
         first_octave: -7i32,
-        amplitudes: &[1f32, 1f32],
+        amplitudes: &[1f64, 1f64],
     };
     pub const NETHER_STATE_SELECTOR: NoiseParameter = NoiseParameter {
         first_octave: -4i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const NETHER_WART: NoiseParameter = NoiseParameter {
         first_octave: -3i32,
-        amplitudes: &[1f32, 0f32, 0f32, 0.9f32],
+        amplitudes: &[1f64, 0f64, 0f64, 0.9f64],
     };
     pub const NETHERRACK: NoiseParameter = NoiseParameter {
         first_octave: -3i32,
-        amplitudes: &[1f32, 0f32, 0f32, 0.35f32],
+        amplitudes: &[1f64, 0f64, 0f64, 0.35f64],
     };
     pub const NOODLE: NoiseParameter = NoiseParameter {
         first_octave: -8i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const NOODLE_RIDGE_A: NoiseParameter = NoiseParameter {
         first_octave: -7i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const NOODLE_RIDGE_B: NoiseParameter = NoiseParameter {
         first_octave: -7i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const NOODLE_THICKNESS: NoiseParameter = NoiseParameter {
         first_octave: -8i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const OFFSET: NoiseParameter = NoiseParameter {
         first_octave: -3i32,
-        amplitudes: &[1f32, 1f32, 1f32, 0f32],
+        amplitudes: &[1f64, 1f64, 1f64, 0f64],
     };
     pub const ORE_GAP: NoiseParameter = NoiseParameter {
         first_octave: -5i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const ORE_VEIN_A: NoiseParameter = NoiseParameter {
         first_octave: -7i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const ORE_VEIN_B: NoiseParameter = NoiseParameter {
         first_octave: -7i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const ORE_VEININESS: NoiseParameter = NoiseParameter {
         first_octave: -8i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const PACKED_ICE: NoiseParameter = NoiseParameter {
         first_octave: -7i32,
-        amplitudes: &[1f32, 1f32, 1f32, 1f32],
+        amplitudes: &[1f64, 1f64, 1f64, 1f64],
     };
     pub const PATCH: NoiseParameter = NoiseParameter {
         first_octave: -5i32,
-        amplitudes: &[1f32, 0f32, 0f32, 0f32, 0f32, 0.013333334f32],
+        amplitudes: &[1f64, 0f64, 0f64, 0f64, 0f64, 0.013333333333333334f64],
     };
     pub const PILLAR: NoiseParameter = NoiseParameter {
         first_octave: -7i32,
-        amplitudes: &[1f32, 1f32],
+        amplitudes: &[1f64, 1f64],
     };
     pub const PILLAR_RARENESS: NoiseParameter = NoiseParameter {
         first_octave: -8i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const PILLAR_THICKNESS: NoiseParameter = NoiseParameter {
         first_octave: -8i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const POWDER_SNOW: NoiseParameter = NoiseParameter {
         first_octave: -6i32,
-        amplitudes: &[1f32, 1f32, 1f32, 1f32],
+        amplitudes: &[1f64, 1f64, 1f64, 1f64],
     };
     pub const RIDGE: NoiseParameter = NoiseParameter {
         first_octave: -7i32,
-        amplitudes: &[1f32, 2f32, 1f32, 0f32, 0f32, 0f32],
+        amplitudes: &[1f64, 2f64, 1f64, 0f64, 0f64, 0f64],
     };
     pub const SOUL_SAND_LAYER: NoiseParameter = NoiseParameter {
         first_octave: -8i32,
         amplitudes: &[
-            1f32,
-            1f32,
-            1f32,
-            1f32,
-            0f32,
-            0f32,
-            0f32,
-            0f32,
-            0.013333334f32,
+            1f64,
+            1f64,
+            1f64,
+            1f64,
+            0f64,
+            0f64,
+            0f64,
+            0f64,
+            0.013333333333333334f64,
         ],
     };
     pub const SPAGHETTI_2D: NoiseParameter = NoiseParameter {
         first_octave: -7i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const SPAGHETTI_2D_ELEVATION: NoiseParameter = NoiseParameter {
         first_octave: -8i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const SPAGHETTI_2D_MODULATOR: NoiseParameter = NoiseParameter {
         first_octave: -11i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const SPAGHETTI_2D_THICKNESS: NoiseParameter = NoiseParameter {
         first_octave: -11i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const SPAGHETTI_3D_1: NoiseParameter = NoiseParameter {
         first_octave: -7i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const SPAGHETTI_3D_2: NoiseParameter = NoiseParameter {
         first_octave: -7i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const SPAGHETTI_3D_RARITY: NoiseParameter = NoiseParameter {
         first_octave: -11i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const SPAGHETTI_3D_THICKNESS: NoiseParameter = NoiseParameter {
         first_octave: -8i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const SPAGHETTI_ROUGHNESS: NoiseParameter = NoiseParameter {
         first_octave: -5i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const SPAGHETTI_ROUGHNESS_MODULATOR: NoiseParameter = NoiseParameter {
         first_octave: -8i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const SULFUR_CAVE_GRADIENT: NoiseParameter = NoiseParameter {
         first_octave: -5i32,
-        amplitudes: &[1f32, 0f32, 1f32],
+        amplitudes: &[1f64, 0f64, 1f64],
     };
     pub const SURFACE: NoiseParameter = NoiseParameter {
         first_octave: -6i32,
-        amplitudes: &[1f32, 1f32, 1f32],
+        amplitudes: &[1f64, 1f64, 1f64],
     };
     pub const SURFACE_SECONDARY: NoiseParameter = NoiseParameter {
         first_octave: -6i32,
-        amplitudes: &[1f32, 1f32, 0f32, 1f32],
+        amplitudes: &[1f64, 1f64, 0f64, 1f64],
     };
     pub const SURFACE_SWAMP: NoiseParameter = NoiseParameter {
         first_octave: -2i32,
-        amplitudes: &[1f32],
+        amplitudes: &[1f64],
     };
     pub const TEMPERATURE: NoiseParameter = NoiseParameter {
         first_octave: -10i32,
-        amplitudes: &[1.5f32, 0f32, 1f32, 0f32, 0f32, 0f32],
+        amplitudes: &[1.5f64, 0f64, 1f64, 0f64, 0f64, 0f64],
     };
     pub const TEMPERATURE_LARGE: NoiseParameter = NoiseParameter {
         first_octave: -12i32,
-        amplitudes: &[1.5f32, 0f32, 1f32, 0f32, 0f32, 0f32],
+        amplitudes: &[1.5f64, 0f64, 1f64, 0f64, 0f64, 0f64],
     };
     pub const VEGETATION: NoiseParameter = NoiseParameter {
         first_octave: -8i32,
-        amplitudes: &[1f32, 1f32, 0f32, 0f32, 0f32, 0f32],
+        amplitudes: &[1f64, 1f64, 0f64, 0f64, 0f64, 0f64],
     };
     pub const VEGETATION_LARGE: NoiseParameter = NoiseParameter {
         first_octave: -10i32,
-        amplitudes: &[1f32, 1f32, 0f32, 0f32, 0f32, 0f32],
+        amplitudes: &[1f64, 1f64, 0f64, 0f64, 0f64, 0f64],
     };
     pub fn get_by_name<'a>(name: &str) -> Option<&'a Self> {
         match name {
