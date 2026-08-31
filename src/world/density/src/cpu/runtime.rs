@@ -1,7 +1,9 @@
+use std::ops::RangeInclusive;
 use crate::cpu::buffer::BufferId;
 use crate::cpu::operation::{NegativeDecayType, Operation, ValueSource};
-use crate::cpu::{Workspace, unpack_coord};
+use crate::cpu::{unpack_buffer_coord, unpack_coord, Workspace};
 use bevy_math::DVec3;
+use temper_core::math::lerp;
 
 pub fn execute_function(workspace: &mut Workspace) -> Option<()> {
     for operation in workspace.operations {
@@ -14,6 +16,11 @@ pub fn execute_function(workspace: &mut Workspace) -> Option<()> {
                 noise,
                 access_type,
             } => todo!(),
+            Operation::YClampedGradient {
+                destination,
+                y_range,
+                value_range,
+            } => handle_y_clamped_gradient(*destination, y_range.clone(), value_range.clone(), workspace)?,
             Operation::AddBuffer {
                 destination,
                 source,
@@ -58,6 +65,24 @@ pub fn execute_function(workspace: &mut Workspace) -> Option<()> {
                 .for_each(|v| *v = v.clamp(*min, *max)),
         }
     }
+
+    Some(())
+}
+
+pub fn handle_y_clamped_gradient(
+    destination: BufferId,
+    y_range: RangeInclusive<i16>,
+    value_range: RangeInclusive<f32>,
+    workspace: &mut Workspace,
+) -> Option<()> {
+    let dest = workspace.get_buffer_mut(destination)?;
+
+    dest.iter_mut().enumerate().for_each(|(i, v)| {
+        let (_, y, _) = unpack_buffer_coord(i as u32, destination.ty);
+
+        let y = y.clamp(*y_range.start(), *y_range.end());
+        *v = lerp(y as f64 / (y_range.end() - y_range.start()) as f64, [*value_range.start() as f64, *value_range.end() as f64]) as f32;
+    });
 
     Some(())
 }
