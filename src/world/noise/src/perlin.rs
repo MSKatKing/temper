@@ -3,6 +3,7 @@ use bevy_math::DVec3;
 use std::ops::Mul;
 use temper_core::random::{PositionalRandom, RandomSource};
 
+#[derive(Clone)]
 pub struct PerlinNoise {
     noise_levels: Box<[Option<(ImprovedNoise, f64)>]>,
     lowest_freq_value_factor: f64,

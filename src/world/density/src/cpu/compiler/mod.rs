@@ -3,7 +3,7 @@ mod math;
 use crate::cpu::buffer::{BufferId, BufferType};
 use crate::cpu::compiler::math::compile_add;
 use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
-use crate::cpu::operation::{Operation, ValueSource};
+use crate::cpu::operation::{Operation, Projection, ValueSource};
 use crate::{DensityFunction, DensityFunctionArgument};
 use std::collections::{HashMap, VecDeque};
 use temper_data::noise::NoiseParameter;
@@ -14,7 +14,32 @@ pub struct Compiler {
     ops: Vec<Operation>,
 }
 
+#[derive(Clone)]
+pub struct CompiledDensityFunction {
+    pub(crate) ops: Vec<Operation>,
+    pub(crate) buffers: HashMap<BufferType, VecDeque<usize>>,
+}
+
 impl Compiler {
+    pub fn compile(func: &DensityFunction) -> CompiledDensityFunction {
+        let mut this = Compiler::new();
+        
+        let out = this.alloc_buffer(BufferType::Out);
+        let actual = compile(&mut this, func, out);
+        
+        if actual != out {
+            this.push_op(Operation::ClearBuffer {
+                destination: out,
+                source: ValueSource::Buffer(out, Projection::None)
+            });
+        }
+        
+        CompiledDensityFunction {
+            ops: this.ops,
+            buffers: this.buffers,
+        }
+    }
+    
     fn new() -> Compiler {
         Compiler {
             buffers: HashMap::with_capacity(5),

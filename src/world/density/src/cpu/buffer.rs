@@ -1,4 +1,5 @@
 use std::ops::{Deref, DerefMut};
+use crate::cpu::unpack_buffer_coord;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug, PartialOrd, Ord)]
 pub enum BufferType {
@@ -23,10 +24,10 @@ pub struct Buffer {
 impl BufferType {
     pub fn size(&self) -> usize {
         match self {
-            BufferType::Out | BufferType::Full => 16 * 16 * 320,
+            BufferType::Out | BufferType::Full => 16 * 16 * 384,
             BufferType::Flat => 16 * 16,
             BufferType::FlatCell => 4 * 4,
-            BufferType::Interpolated => 8 * (4 * 4 * (320 / 4)),
+            BufferType::Interpolated => 8 * (4 * 4 * (384 / 4)),
         }
     }
 }
@@ -56,6 +57,25 @@ impl BufferId {
             ty: BufferType::Interpolated,
             id,
         }
+    }
+}
+
+impl Buffer {
+    pub fn new(ty: BufferType) -> Self {
+        Self {
+            data: vec![0.0; ty.size()].into_boxed_slice(),
+            ty,
+        }
+    }
+    
+    pub fn pos_iter(&mut self) -> impl Iterator<Item = (u8, i16, u8, &mut f32)> + '_ {
+        self.data
+            .iter_mut()
+            .enumerate()
+            .map(|(i, v)| {
+                let (x, y, z) = unpack_buffer_coord(i as u32, self.ty);
+                (x, y, z, v)
+            })
     }
 }
 
