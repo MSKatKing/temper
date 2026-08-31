@@ -9,6 +9,11 @@ pub fn execute_function(workspace: &mut Workspace) -> Option<()> {
             Operation::ClearBuffer { destination, value } => {
                 workspace.get_buffer_mut(*destination)?.fill(*value)
             }
+            Operation::FillNoiseBuffer {
+                destination,
+                noise,
+                access_type,
+            } => todo!(),
             Operation::AddBuffer {
                 destination,
                 source,

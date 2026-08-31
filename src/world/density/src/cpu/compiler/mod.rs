@@ -1,11 +1,13 @@
 use crate::cpu::buffer::{BufferId, BufferType};
 use crate::DensityFunction;
 use std::collections::{HashMap, VecDeque};
-use crate::cpu::operation::{Operation, Projection, ValueSource};
+use temper_data::noise::NoiseParameter;
+use crate::cpu::operation::{NoiseAccessType, Operation, Projection, ValueSource};
 
 pub struct Compiler {
     buffers: HashMap<BufferType, VecDeque<usize>>,
     next_buffer: HashMap<BufferType, usize>,
+    ops: Vec<Operation>,
 }
 
 impl Compiler {
@@ -13,6 +15,7 @@ impl Compiler {
         Compiler {
             buffers: HashMap::with_capacity(5),
             next_buffer: HashMap::with_capacity(5),
+            ops: Vec::new(),
         }
     }
 
@@ -39,7 +42,7 @@ impl Compiler {
     }
 
     fn push_op(&mut self, op: Operation) {
-        todo!()
+        self.ops.push(op);
     }
 }
 
@@ -66,6 +69,8 @@ fn compile(compiler: &mut Compiler, func: &DensityFunction, parent_buffer: Buffe
                         destination: parent_buffer,
                         source: ValueSource::Constant(val as _),
                     });
+
+                    parent_buffer
                 },
                 (None, None) => {
                     let left = left.function().unwrap();
@@ -81,8 +86,91 @@ fn compile(compiler: &mut Compiler, func: &DensityFunction, parent_buffer: Buffe
                         destination: parent_buffer,
                         source: ValueSource::Buffer(buffer, Projection::None)
                     });
+
+                    parent_buffer
                 }
             }
-        }
+        },
+        DensityFunction::Shift { noise } => {
+            let noise_split = noise.split(":").collect::<Vec<_>>();
+            let noise = if noise_split.len() == 2 {
+                noise.clone()
+            } else {
+                format!("minecraft:{}", noise_split[0])
+            };
+
+            compiler.push_op(Operation::FillNoiseBuffer {
+                destination: parent_buffer,
+                noise: NoiseParameter::get_by_name(noise.as_str()).unwrap_or_else(|| panic!("'{}' is not a valid noise parameter", noise)),
+                access_type: NoiseAccessType::Shift,
+            });
+
+            parent_buffer
+        },
+        _ => todo!(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::DensityFunctionArgument;
+    use super::*;
+
+    #[test]
+    fn test_compile_shift() {
+        let mut compiler = Compiler::new();
+
+        let func = DensityFunction::Shift {
+            noise: "minecraft:aquifer_barrier".to_string(),
+        };
+
+        let parent = BufferId { ty: BufferType::Out, id: 0 };
+        let out = compile(&mut compiler, &func, parent);
+
+        assert_eq!(parent, out);
+        assert_eq!(compiler.ops.len(), 1);
+        assert!(compiler.ops.last().is_some());
+
+        let Some(Operation::FillNoiseBuffer { destination, noise, access_type }) = compiler.ops.last() else {
+            panic!("last operation was not a fill noise buffer operation")
+        };
+
+        assert_eq!(Some(*noise), NoiseParameter::get_by_name("minecraft:aquifer_barrier"));
+        assert_eq!(*destination, parent);
+        assert_eq!(*access_type, NoiseAccessType::Shift);
+    }
+
+    #[test]
+    fn test_compile_add() {
+        let mut compiler = Compiler::new();
+
+        let func = DensityFunction::Add {
+            left: DensityFunctionArgument::Function(Box::new(DensityFunction::Shift { noise: "minecraft:aquifer_barrier".to_string() })),
+            right: DensityFunctionArgument::Function(Box::new(DensityFunction::Shift { noise: "aquifer_barrier".to_string() })),
+        };
+
+        let parent = BufferId { ty: BufferType::Out, id: 0 };
+        let out = compile(&mut compiler, &func, parent);
+
+        assert_eq!(parent, out);
+        assert_eq!(compiler.ops.len(), 3);
+        assert!(compiler.ops.last().is_some());
+        assert!(matches!(compiler.ops.last().unwrap(), Operation::AddBuffer { .. }));
+    }
+
+    #[test]
+    #[should_panic = "functions should be folded prior to being compiled"]
+    fn test_compile_add_no_fold() {
+        let mut compiler = Compiler::new();
+
+        let func = DensityFunction::Add {
+            left: DensityFunctionArgument::Constant(1.0),
+            right: DensityFunctionArgument::Constant(2.0),
+        };
+
+        let parent = compiler.alloc_buffer(BufferType::Out);
+
+        // should panic because func should've been folded into a constant prior to compilation
+        compile(&mut compiler, &func, parent);
     }
 }

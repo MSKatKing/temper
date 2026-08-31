@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum BufferType {
     Out,
     Full,
@@ -9,7 +9,7 @@ pub enum BufferType {
     Interpolated,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct BufferId {
     pub ty: BufferType,
     pub id: u8,
