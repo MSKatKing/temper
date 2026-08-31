@@ -168,7 +168,6 @@ temper-world = { path = "src/world" }
 temper-world-format = { path = "src/world/format" }
 temper-world-noise = { path = "src/world/noise" }
 temper-world-gen = { path = "src/world/gen" }
-temper-world-noise = { path = "src/world/noise" }
 
 # Asynchronous
 tokio = { version = "1.52.3", features = [
