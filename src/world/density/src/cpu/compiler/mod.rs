@@ -1,8 +1,12 @@
+mod math;
+
 use crate::cpu::buffer::{BufferId, BufferType};
-use crate::DensityFunction;
+use crate::cpu::compiler::math::compile_add;
+use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
+use crate::cpu::operation::{Operation, ValueSource};
+use crate::{DensityFunction, DensityFunctionArgument};
 use std::collections::{HashMap, VecDeque};
 use temper_data::noise::NoiseParameter;
-use crate::cpu::operation::{NoiseAccessType, Operation, Projection, ValueSource};
 
 pub struct Compiler {
     buffers: HashMap<BufferType, VecDeque<usize>>,
@@ -58,39 +62,7 @@ fn buffer_size_of(func: &DensityFunction, parent_size: BufferType) -> BufferType
 
 fn compile(compiler: &mut Compiler, func: &DensityFunction, parent_buffer: BufferId) -> BufferId {
     match func {
-        DensityFunction::Add { left, right } => {
-            match (left.constant(), right.constant()) {
-                (Some(_), Some(_)) => panic!("functions should be folded prior to being compiled"),
-                (Some(val), None) | (None, Some(val)) => {
-                    let func = left.function().or(right.function()).unwrap();
-                    compile(compiler, func, parent_buffer);
-
-                    compiler.push_op(Operation::AddBuffer {
-                        destination: parent_buffer,
-                        source: ValueSource::Constant(val as _),
-                    });
-
-                    parent_buffer
-                },
-                (None, None) => {
-                    let left = left.function().unwrap();
-                    let right = right.function().unwrap();
-
-                    compile(compiler, left, parent_buffer);
-
-                    let buffer = compiler.alloc_buffer(parent_buffer.ty);
-                    compile(compiler, right, buffer);
-                    compiler.free_buffer(buffer);
-
-                    compiler.push_op(Operation::AddBuffer {
-                        destination: parent_buffer,
-                        source: ValueSource::Buffer(buffer, Projection::None)
-                    });
-
-                    parent_buffer
-                }
-            }
-        },
+        DensityFunction::Add { left, right } => compile_add(compiler, parent_buffer, left, right),
         DensityFunction::Shift { noise } => {
             let noise_split = noise.split(":").collect::<Vec<_>>();
             let noise = if noise_split.len() == 2 {
@@ -99,10 +71,14 @@ fn compile(compiler: &mut Compiler, func: &DensityFunction, parent_buffer: Buffe
                 format!("minecraft:{}", noise_split[0])
             };
 
-            compiler.push_op(Operation::FillNoiseBuffer {
+            compiler.push_op(Operation::ClearBuffer {
                 destination: parent_buffer,
-                noise: NoiseParameter::get_by_name(noise.as_str()).unwrap_or_else(|| panic!("'{}' is not a valid noise parameter", noise)),
-                access_type: NoiseAccessType::Shift,
+                source: ValueSource::Noise(
+                    NoiseAccessor::new(
+                        NoiseParameter::get_by_name(noise.as_str()).unwrap_or_else(|| panic!("'{}' is not a valid noise parameter", noise)),
+                        NoiseAccessType::Shift,
+                    ),
+                ),
             });
 
             parent_buffer
@@ -113,17 +89,59 @@ fn compile(compiler: &mut Compiler, func: &DensityFunction, parent_buffer: Buffe
                 y_range: (*from_y as i16)..=(*to_y as i16),
                 value_range: (*from_value as f32)..=(*to_value as f32),
             });
-            
+
             parent_buffer
         }
         _ => todo!(),
     }
 }
 
+impl TryFrom<&DensityFunctionArgument> for ValueSource {
+    type Error = ();
+
+    fn try_from(value: &DensityFunctionArgument) -> Result<Self, Self::Error> {
+        match value {
+            DensityFunctionArgument::Function(func) => match func.as_ref() {
+                DensityFunction::Constant { value } => Ok(ValueSource::Constant(*value as _)),
+                DensityFunction::Noise { noise, xz_scale, y_scale } => {
+                    let param = NoiseParameter::get_by_name(noise.as_str()).ok_or(())?;
+
+                    Ok(
+                        ValueSource::Noise(
+                            NoiseAccessor::new(
+                                param,
+                                NoiseAccessType::Basic {
+                                    xz_scale: * xz_scale as f32,
+                                    y_scale: *y_scale as f32
+                                }
+                            )
+                        )
+                    )
+                },
+                DensityFunction::Shift { noise } => {
+                    let param = NoiseParameter::get_by_name(noise.as_str()).ok_or(())?;
+
+                    Ok(
+                        ValueSource::Noise(
+                            NoiseAccessor::new(
+                                param,
+                                NoiseAccessType::Shift,
+                            ),
+                        ),
+                    )
+                }
+                _ => Err(())
+            }
+            DensityFunctionArgument::Constant(value) => Ok(ValueSource::Constant(*value as _)),
+            DensityFunctionArgument::External(_) => panic!("functions should be linked prior to being compiled"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::DensityFunctionArgument;
     use super::*;
+    use crate::DensityFunctionArgument;
 
     #[test]
     fn test_compile_shift() {
@@ -140,13 +158,16 @@ mod tests {
         assert_eq!(compiler.ops.len(), 1);
         assert!(compiler.ops.last().is_some());
 
-        let Some(Operation::FillNoiseBuffer { destination, noise, access_type }) = compiler.ops.last() else {
-            panic!("last operation was not a fill noise buffer operation")
+        let Some(Operation::ClearBuffer { destination, source }) = compiler.ops.last() else {
+            panic!("last operation was not a clear buffer operation")
         };
 
-        assert_eq!(Some(*noise), NoiseParameter::get_by_name("minecraft:aquifer_barrier"));
+        let ValueSource::Noise(accessor) = source else {
+            panic!("clear buffer operation's source was not a noise source")
+        };
+        
         assert_eq!(*destination, parent);
-        assert_eq!(*access_type, NoiseAccessType::Shift);
+        assert_eq!(accessor.access_type, NoiseAccessType::Shift);
     }
 
     #[test]
@@ -182,34 +203,34 @@ mod tests {
         // should panic because func should've been folded into a constant prior to compilation
         compile(&mut compiler, &func, parent);
     }
-    
+
     #[test]
     fn test_compile_y_clamped_gradient() {
         let mut compiler = Compiler::new();
-        
+
         let from_y = -16;
         let to_y = 16;
         let from_value = -1.0;
         let to_value = 1.0;
-        
+
         let func = DensityFunction::YClampedGradient {
             from_y,
             to_y,
             from_value,
             to_value,
         };
-        
+
         let parent = compiler.alloc_buffer(BufferType::Out);
         let out = compile(&mut compiler, &func, parent);
-        
+
         assert_eq!(parent, out);
         assert_eq!(compiler.ops.len(), 1);
         assert!(compiler.ops.last().is_some());
-        
+
         let Some(Operation::YClampedGradient { destination, y_range, value_range }) = compiler.ops.last() else {
             panic!("last operation was not a y-clamped gradient")
         };
-        
+
         assert_eq!(*destination, out);
         assert_eq!(*y_range.start(), from_y as i16);
         assert_eq!(*y_range.end(), to_y as i16);

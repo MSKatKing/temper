@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 #[serde(rename_all = "camelCase")]
 struct NoiseParameter {
     first_octave: i32,
-    amplitudes: Vec<f32>,
+    amplitudes: Vec<f64>,
 }
 
 pub fn build() -> TokenStream {
@@ -42,7 +42,7 @@ pub fn build() -> TokenStream {
         #[derive(Debug, Clone, PartialEq)]
         pub struct NoiseParameter {
             pub first_octave: i32,
-            pub amplitudes: &'static [f32],
+            pub amplitudes: &'static [f64],
         }
 
         impl NoiseParameter {
