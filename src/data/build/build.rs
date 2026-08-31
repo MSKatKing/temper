@@ -16,6 +16,7 @@ mod potions;
 mod recipes;
 mod sounds;
 mod tags;
+mod noise;
 
 pub const OUT_DIR: &str = "src/generated";
 
@@ -48,6 +49,7 @@ pub fn main() {
         (items::build, "items.rs"),
         (recipes::build, "recipes.rs"),
         (tags::build, "tags.rs"),
+        (noise::build, "noise.rs"),
     ];
 
     // Build other files normally
