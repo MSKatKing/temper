@@ -107,6 +107,15 @@ fn compile(compiler: &mut Compiler, func: &DensityFunction, parent_buffer: Buffe
 
             parent_buffer
         },
+        DensityFunction::YClampedGradient { from_y, to_y, from_value, to_value } => {
+            compiler.push_op(Operation::YClampedGradient {
+                destination: parent_buffer,
+                y_range: (*from_y as i16)..=(*to_y as i16),
+                value_range: (*from_value as f32)..=(*to_value as f32),
+            });
+            
+            parent_buffer
+        }
         _ => todo!(),
     }
 }
@@ -172,5 +181,39 @@ mod tests {
 
         // should panic because func should've been folded into a constant prior to compilation
         compile(&mut compiler, &func, parent);
+    }
+    
+    #[test]
+    fn test_compile_y_clamped_gradient() {
+        let mut compiler = Compiler::new();
+        
+        let from_y = -16;
+        let to_y = 16;
+        let from_value = -1.0;
+        let to_value = 1.0;
+        
+        let func = DensityFunction::YClampedGradient {
+            from_y,
+            to_y,
+            from_value,
+            to_value,
+        };
+        
+        let parent = compiler.alloc_buffer(BufferType::Out);
+        let out = compile(&mut compiler, &func, parent);
+        
+        assert_eq!(parent, out);
+        assert_eq!(compiler.ops.len(), 1);
+        assert!(compiler.ops.last().is_some());
+        
+        let Some(Operation::YClampedGradient { destination, y_range, value_range }) = compiler.ops.last() else {
+            panic!("last operation was not a y-clamped gradient")
+        };
+        
+        assert_eq!(*destination, out);
+        assert_eq!(*y_range.start(), from_y as i16);
+        assert_eq!(*y_range.end(), to_y as i16);
+        assert_eq!(*value_range.start(), from_value as f32);
+        assert_eq!(*value_range.end(), to_value as f32);
     }
 }

@@ -1,3 +1,4 @@
+use crate::cpu::buffer::BufferType;
 use crate::cpu::workspace::Workspace;
 
 pub mod buffer;
@@ -13,6 +14,23 @@ fn unpack_coord(coord: u32) -> (u8, i16, u8) {
     let z = (coord >> 4) as u8 & 0xF;
     let y = (coord >> 8) as i16 - 64;
     (x, y, z)
+}
+
+fn unpack_buffer_coord(coord: u32, buffer_type: BufferType) -> (u8, i16, u8) {
+    match buffer_type {
+        BufferType::Out | BufferType::Full => unpack_coord(coord),
+        BufferType::Interpolated => todo!(),
+        BufferType::Flat => {
+            let x = coord as u8 & 0xF;
+            let z = (coord >> 4) as u8 & 0xF;
+            (x, 0, z)
+        },
+        BufferType::FlatCell => {
+            let x = (coord as u8 & 0x4) * 4;
+            let z = ((coord >> 2) as u8 & 0x4) * 4;
+            (x, 0, z)
+        }
+    }
 }
 
 #[cfg(test)]
