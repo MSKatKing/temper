@@ -1,15 +1,12 @@
+use crate::cpu::buffer::BufferId;
+use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
 use std::ops::RangeInclusive;
 use temper_data::noise::NoiseParameter;
-use crate::cpu::buffer::BufferId;
-use temper_noise::NormalNoise;
 
 /// Represents a specific operation to carry out on a buffer(s)
 pub enum Operation {
     /// Clears the specified buffer, setting all values to `value`
-    ClearBuffer { destination: BufferId, value: f32 },
-    
-    /// Fills the destination buffer with noise values
-    FillNoiseBuffer { destination: BufferId, noise: &'static NoiseParameter, access_type: NoiseAccessType },
+    ClearBuffer { destination: BufferId, source: ValueSource },
 
     YClampedGradient { destination: BufferId, y_range: RangeInclusive<i16>, value_range: RangeInclusive<f32> },
 
@@ -80,11 +77,6 @@ pub enum PowAmount {
     Reciprocal,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
-pub enum NoiseAccessType {
-    Shift,
-}
-
 impl PowAmount {
     pub fn as_i32(&self) -> i32 {
         match self {
@@ -114,5 +106,5 @@ impl Projection {
 pub enum ValueSource {
     Buffer(BufferId, Projection),
     Constant(f32),
-    Noise(NormalNoise),
+    Noise(NoiseAccessor),
 }

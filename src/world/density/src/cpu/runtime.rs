@@ -8,14 +8,24 @@ use temper_core::math::lerp;
 pub fn execute_function(workspace: &mut Workspace) -> Option<()> {
     for operation in workspace.operations {
         match operation {
-            Operation::ClearBuffer { destination, value } => {
-                workspace.get_buffer_mut(*destination)?.fill(*value)
+            Operation::ClearBuffer { destination, source } if let ValueSource::Constant(value) = source => {
+                workspace.get_buffer_mut(*destination)?.fill(*value);
             }
-            Operation::FillNoiseBuffer {
-                destination,
-                noise,
-                access_type,
-            } => todo!(),
+            Operation::ClearBuffer { destination, source } => {
+                let noise = match source {
+                    ValueSource::Noise(accessor) => accessor,
+                    ValueSource::Buffer(..) => panic!("cannot clear buffer with another buffer"),
+                    ValueSource::Constant(_) => unreachable!(),
+                };
+
+                let buffer = workspace.get_buffer_mut(*destination)?;
+                let ty = destination.ty;
+
+                buffer.iter_mut().enumerate().for_each(|(i, v)| {
+                    let (x, y, z) = unpack_buffer_coord(i as u32, ty);
+                    *v = noise.noise(DVec3::new(x as _, y as _, z as _))
+                })
+            }
             Operation::YClampedGradient {
                 destination,
                 y_range,
@@ -98,7 +108,7 @@ pub fn handle_add(
         ValueSource::Constant(v) => dest.iter_mut().for_each(|f| *f += v),
         ValueSource::Noise(n) => dest.iter_mut().enumerate().for_each(|(i, f)| {
             let (x, y, z) = unpack_coord(i as u32);
-            *f += n.noise(DVec3::new(x as f64, y as f64, z as f64)) as f32;
+            *f += n.noise(DVec3::new(x as f64, y as f64, z as f64));
         }),
         ValueSource::Buffer(source, _) if destination == source => {
             dest.iter_mut().for_each(|f| *f *= 2.0)
@@ -132,7 +142,7 @@ pub fn handle_sub(
         ValueSource::Constant(v) => dest.iter_mut().for_each(|f| *f -= v),
         ValueSource::Noise(n) => dest.iter_mut().enumerate().for_each(|(i, f)| {
             let (x, y, z) = unpack_coord(i as u32);
-            *f -= n.noise(DVec3::new(x as f64, y as f64, z as f64)) as f32;
+            *f -= n.noise(DVec3::new(x as f64, y as f64, z as f64));
         }),
         ValueSource::Buffer(source, _) if destination == source => dest.fill(0.0),
         ValueSource::Buffer(source, projection) => {
@@ -164,7 +174,7 @@ pub fn handle_div(
         ValueSource::Constant(v) => dest.iter_mut().for_each(|f| *f /= v),
         ValueSource::Noise(n) => dest.iter_mut().enumerate().for_each(|(i, f)| {
             let (x, y, z) = unpack_coord(i as u32);
-            *f /= n.noise(DVec3::new(x as f64, y as f64, z as f64)) as f32;
+            *f /= n.noise(DVec3::new(x as f64, y as f64, z as f64));
         }),
         ValueSource::Buffer(source, _) if destination == source => dest.fill(1.0),
         ValueSource::Buffer(source, projection) => {
@@ -196,7 +206,7 @@ pub fn handle_mul(
         ValueSource::Constant(v) => dest.iter_mut().for_each(|f| *f *= v),
         ValueSource::Noise(n) => dest.iter_mut().enumerate().for_each(|(i, f)| {
             let (x, y, z) = unpack_coord(i as u32);
-            *f *= n.noise(DVec3::new(x as f64, y as f64, z as f64)) as f32;
+            *f *= n.noise(DVec3::new(x as f64, y as f64, z as f64));
         }),
         ValueSource::Buffer(source, _) if destination == source => {
             dest.iter_mut().for_each(|f| *f = f.powi(2))
@@ -230,7 +240,7 @@ pub fn handle_min(
         ValueSource::Constant(v) => dest.iter_mut().for_each(|f| *f = f.min(*v)),
         ValueSource::Noise(n) => dest.iter_mut().enumerate().for_each(|(i, f)| {
             let (x, y, z) = unpack_coord(i as u32);
-            *f = f.min(n.noise(DVec3::new(x as f64, y as f64, z as f64)) as f32);
+            *f = f.min(n.noise(DVec3::new(x as f64, y as f64, z as f64)));
         }),
         ValueSource::Buffer(source, _) if destination == source => {} // f.min(f) = f so we don't do anything here
         ValueSource::Buffer(source, projection) => {
@@ -262,7 +272,7 @@ pub fn handle_max(
         ValueSource::Constant(v) => dest.iter_mut().for_each(|f| *f = f.max(*v)),
         ValueSource::Noise(n) => dest.iter_mut().enumerate().for_each(|(i, f)| {
             let (x, y, z) = unpack_coord(i as u32);
-            *f = f.max(n.noise(DVec3::new(x as f64, y as f64, z as f64)) as f32);
+            *f = f.max(n.noise(DVec3::new(x as f64, y as f64, z as f64)));
         }),
         ValueSource::Buffer(source, _) if destination == source => {} // f.max(f) = f so we don't do anything here
         ValueSource::Buffer(source, projection) => {

@@ -6,6 +6,7 @@ pub mod operation;
 mod runtime;
 pub mod workspace;
 mod compiler;
+pub mod noise;
 
 pub const OUT_BUFFER_LEN: usize = 16 * 16 * 320;
 
@@ -40,6 +41,7 @@ mod tests {
     use crate::cpu::operation::{Operation, Projection, ValueSource};
     use temper_core::random::XoroshiroRandomSource;
     use temper_noise::NormalNoise;
+    use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
 
     #[test]
     pub fn test_simple() {
@@ -48,11 +50,16 @@ mod tests {
         let ops = [
             Operation::ClearBuffer {
                 destination: BufferId::OUT,
-                value: 0.0,
+                source: ValueSource::Constant(0.0),
             },
             Operation::AddBuffer {
                 destination: BufferId::OUT,
-                source: ValueSource::Noise(NormalNoise::new(&mut rand, 1, &[3.0, 2.0, 1.0])),
+                source: ValueSource::Noise(
+                    NoiseAccessor::new_noise(
+                        NormalNoise::new(&mut rand, 1, &[3.0, 2.0, 1.0]),
+                        NoiseAccessType::Basic { xz_scale: 1.0, y_scale: 1.0 },
+                    )
+                ),
             },
             Operation::MulBuffer {
                 destination: BufferId::OUT,
@@ -60,11 +67,16 @@ mod tests {
             },
             Operation::ClearBuffer {
                 destination: BufferId::flat(0),
-                value: 3.0,
+                source: ValueSource::Constant(3.0),
             },
             Operation::AddBuffer {
                 destination: BufferId::flat(0),
-                source: ValueSource::Noise(NormalNoise::new(&mut rand, 4, &[1.0, 2.0, 3.0])),
+                source: ValueSource::Noise(
+                    NoiseAccessor::new_noise(
+                        NormalNoise::new(&mut rand, 4, &[1.0, 2.0, 3.0]),
+                        NoiseAccessType::Basic { xz_scale: 1.0, y_scale: 1.0 }
+                    )
+                ),
             },
             Operation::AddBuffer {
                 destination: BufferId::OUT,

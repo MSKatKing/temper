@@ -3,6 +3,7 @@ use std::hint::black_box;
 use temper_core::random::XoroshiroRandomSource;
 use temper_density::cpu::OUT_BUFFER_LEN;
 use temper_density::cpu::buffer::{Buffer, BufferId, BufferType};
+use temper_density::cpu::noise::{NoiseAccessType, NoiseAccessor};
 use temper_density::cpu::operation::{Operation, Projection, ValueSource};
 use temper_density::cpu::workspace::Workspace;
 use temper_noise::NormalNoise;
@@ -13,7 +14,7 @@ fn bench_density(c: &mut Criterion) {
     let operations = [
         Operation::ClearBuffer {
             destination: BufferId::OUT,
-            value: 5.0,
+            source: ValueSource::Constant(5.0),
         },
         // Operation::AddBuffer { destination: BufferId::OUT, source: ValueSource::Noise(NormalNoise::new(&mut rand, 1, &[3.0, 2.0, 1.0])) },
         Operation::MulBuffer {
@@ -22,11 +23,16 @@ fn bench_density(c: &mut Criterion) {
         },
         Operation::ClearBuffer {
             destination: BufferId::flat(0),
-            value: 3.0,
+            source: ValueSource::Constant(3.0),
         },
         Operation::AddBuffer {
             destination: BufferId::flat(0),
-            source: ValueSource::Noise(NormalNoise::new(&mut rand, 4, &[1.0, 2.0, 3.0])),
+            source: ValueSource::Noise(
+                NoiseAccessor::new_noise(
+                    NormalNoise::new(&mut rand, 4, &[1.0, 2.0, 3.0]),
+                    NoiseAccessType::Basic { xz_scale: 1.0, y_scale: 1.0, },
+                ),
+            ),
         },
         Operation::AddBuffer {
             destination: BufferId::OUT,
