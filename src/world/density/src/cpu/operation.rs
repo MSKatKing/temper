@@ -1,3 +1,4 @@
+use std::ops::RangeInclusive;
 use temper_data::noise::NoiseParameter;
 use crate::cpu::buffer::BufferId;
 use temper_noise::NormalNoise;
@@ -9,6 +10,8 @@ pub enum Operation {
     
     /// Fills the destination buffer with noise values
     FillNoiseBuffer { destination: BufferId, noise: &'static NoiseParameter, access_type: NoiseAccessType },
+
+    YClampedGradient { destination: BufferId, y_range: RangeInclusive<i16>, value_range: RangeInclusive<f32> },
 
     /// Adds values from `source` into `destination`
     AddBuffer {
