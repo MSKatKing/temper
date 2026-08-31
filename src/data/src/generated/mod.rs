@@ -14,3 +14,4 @@ pub mod potions;
 pub mod recipes;
 pub mod sounds;
 pub mod tags;
+pub mod noise;
