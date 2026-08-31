@@ -7,6 +7,8 @@ use crate::errors::WorldGenError;
 use crate::interp::smoothstep;
 use noise::{Fbm, MultiFractal, NoiseFn, Perlin, RidgedMulti};
 use temper_core::pos::ChunkPos;
+use temper_density::cpu::compiler::{CompiledDensityFunction, Compiler};
+use temper_density::DensityFunction;
 use temper_world_format::Chunk;
 
 /// Trait for generating a biome
@@ -15,7 +17,7 @@ use temper_world_format::Chunk;
 pub(crate) trait BiomeGenerator {
     fn _biome_id(&self) -> u8;
     fn _biome_name(&self) -> String;
-    fn generate_chunk(&self, pos: ChunkPos, noise: &NoiseGenerator)
+    fn generate_chunk(&self, pos: ChunkPos, noise: &NoiseGenerator, density_function: &CompiledDensityFunction)
     -> Result<Chunk, WorldGenError>;
 }
 
@@ -23,6 +25,7 @@ pub(crate) trait BiomeGenerator {
 pub struct WorldGenerator {
     _seed: u64,
     noise_generator: NoiseGenerator,
+    final_density: CompiledDensityFunction,
 }
 #[derive(Clone)]
 pub(crate) struct NoiseGenerator {
@@ -104,9 +107,17 @@ impl NoiseGenerator {
 
 impl WorldGenerator {
     pub fn new(seed: u64) -> Self {
+        let compiled = Compiler::compile(&DensityFunction::YClampedGradient {
+            from_y: 32,
+            to_y: 96,
+            from_value: 1.0,
+            to_value: -1.0,
+        });
+
         Self {
             _seed: seed,
             noise_generator: NoiseGenerator::new(seed),
+            final_density: compiled,
         }
     }
 
@@ -117,7 +128,7 @@ impl WorldGenerator {
 
     pub fn generate_chunk(&self, pos: ChunkPos) -> Result<Chunk, WorldGenError> {
         let biome = self.get_biome(pos);
-        let mut chunk = biome.generate_chunk(pos, &self.noise_generator)?;
+        let mut chunk = biome.generate_chunk(pos, &self.noise_generator, &self.final_density)?;
         caves::generate_caves(&mut chunk, pos, &self.noise_generator);
         Ok(chunk)
     }

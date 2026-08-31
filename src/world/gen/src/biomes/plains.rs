@@ -4,6 +4,8 @@ use crate::{BiomeGenerator, NoiseGenerator};
 use rand::seq::IndexedRandom;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::{ChunkBlockPos, ChunkHeight, ChunkPos};
+use temper_density::cpu::compiler::CompiledDensityFunction;
+use temper_density::cpu::workspace::Workspace;
 use temper_macros::block;
 use temper_world_format::Chunk;
 
@@ -93,14 +95,32 @@ impl BiomeGenerator for PlainsBiome {
         &self,
         pos: ChunkPos,
         noise: &NoiseGenerator,
+        density_function: &CompiledDensityFunction,
     ) -> Result<Chunk, WorldGenError> {
         let mut chunk = Chunk::new_empty_with_height(ChunkHeight::new(-64, 384));
         let stone = block!("stone");
+
+        let mut workspace = Workspace::new(density_function);
+        workspace.execute();
 
         // Fill with water first
         for section_y in -4..4 {
             chunk.fill_section(section_y as i8, block!("water", {level: 0}));
         }
+
+        for y in 0..384usize {
+            for z in 0..16usize {
+                for x in 0..16usize {
+                    let idx = (y << 8) | (z << 4) | x;
+
+                    if workspace.out[idx] >= 0.0 {
+                        chunk.set_block(ChunkBlockPos::new(x as _, y as i16 - 64, z as _), stone);
+                    }
+                }
+            }
+        }
+
+        return Ok(chunk);
 
         // Build heightmap
         let heights = build_heightmap_interpolated(pos, noise);

@@ -1,4 +1,5 @@
 use crate::cpu::buffer::{Buffer, BufferId, BufferType};
+use crate::cpu::compiler::CompiledDensityFunction;
 use crate::cpu::operation::Operation;
 use crate::cpu::runtime::execute_function;
 
@@ -12,6 +13,29 @@ pub struct Workspace<'func> {
 }
 
 impl Workspace<'_> {
+    pub fn new(density_function: &CompiledDensityFunction) -> Workspace<'_> {
+        fn instantiate_buffers(function: &CompiledDensityFunction, ty: BufferType) -> Vec<Buffer> {
+            function.buffers
+                .get(&ty)
+                .map(|buffers| {
+                    buffers
+                        .iter()
+                        .map(|_| Buffer::new(ty))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_else(|| Vec::with_capacity(0))
+        }
+
+        Workspace {
+            out: Buffer::new(BufferType::Out),
+            full: instantiate_buffers(density_function, BufferType::Full),
+            interpolated: instantiate_buffers(density_function, BufferType::Interpolated),
+            flat: instantiate_buffers(density_function, BufferType::Flat),
+            flat_cell: instantiate_buffers(density_function, BufferType::FlatCell),
+            operations: &density_function.ops,
+        }
+    }
+
     pub fn get_buffer(&self, id: BufferId) -> Option<&Buffer> {
         match id.ty {
             BufferType::Out => Some(&self.out),

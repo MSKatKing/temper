@@ -2,6 +2,7 @@ use crate::perlin::PerlinNoise;
 use bevy_math::DVec3;
 use temper_core::random::RandomSource;
 
+#[derive(Clone)]
 pub struct NormalNoise {
     noises: [PerlinNoise; 2],
     value_factor: f64,

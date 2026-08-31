@@ -139,6 +139,7 @@ temper-core = { path = "src/core" }
 temper-dashboard = { path = "src/dashboard" }
 temper-data = { path = "src/data" }
 temper-default-commands = { path = "src/default_commands" }
+temper-density = { path = "src/world/density" }
 temper-encryption = { path = "src/net/encryption" }
 temper-entities = { path = "src/entities" }
 temper-game-systems = { path = "src/game_systems" }

@@ -1,9 +1,9 @@
 use crate::cpu::buffer::BufferId;
-use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
+use crate::cpu::noise::NoiseAccessor;
 use std::ops::RangeInclusive;
-use temper_data::noise::NoiseParameter;
 
 /// Represents a specific operation to carry out on a buffer(s)
+#[derive(Clone)]
 pub enum Operation {
     /// Clears the specified buffer, setting all values to `value`
     ClearBuffer { destination: BufferId, source: ValueSource },
@@ -66,11 +66,13 @@ pub enum Operation {
     },
 }
 
+#[derive(Clone)]
 pub enum NegativeDecayType {
     Half,
     Quarter,
 }
 
+#[derive(Clone)]
 pub enum PowAmount {
     Square,
     Cube,
@@ -87,6 +89,7 @@ impl PowAmount {
     }
 }
 
+#[derive(Clone)]
 pub enum Projection {
     None,
     DropY,
@@ -103,6 +106,7 @@ impl Projection {
     }
 }
 
+#[derive(Clone)]
 pub enum ValueSource {
     Buffer(BufferId, Projection),
     Constant(f32),

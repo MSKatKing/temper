@@ -87,12 +87,20 @@ pub fn handle_y_clamped_gradient(
 ) -> Option<()> {
     let dest = workspace.get_buffer_mut(destination)?;
 
-    dest.iter_mut().enumerate().for_each(|(i, v)| {
-        let (_, y, _) = unpack_buffer_coord(i as u32, destination.ty);
+    dest.fill(*value_range.start());
 
-        let y = y.clamp(*y_range.start(), *y_range.end());
-        *v = lerp(y as f64 / (y_range.end() - y_range.start()) as f64, [*value_range.start() as f64, *value_range.end() as f64]) as f32;
-    });
+    dest
+        .pos_iter()
+        .filter(|(_, y, _, _)| {
+            y > y_range.start()
+        })
+        .for_each(|(_, y, _, v)| {
+            if y > *y_range.end() {
+                *v = *value_range.end()
+            } else {
+                *v = lerp((y as f64 - *y_range.start() as f64) / (y_range.end() - y_range.start()) as f64, [*value_range.start() as f64, *value_range.end() as f64]) as f32;
+            }
+        });
 
     Some(())
 }

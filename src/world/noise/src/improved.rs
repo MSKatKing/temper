@@ -3,6 +3,7 @@ use bevy_math::{DVec3, IVec3};
 use temper_core::math::{lerp3, smooth_step};
 use temper_core::random::RandomSource;
 
+#[derive(Clone)]
 pub struct ImprovedNoise {
     p: [u8; 256],
     pos: DVec3,
