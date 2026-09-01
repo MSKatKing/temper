@@ -5,7 +5,7 @@ use temper_core::random::XoroshiroRandomSource;
 use temper_density::cpu::OUT_BUFFER_LEN;
 use temper_density::cpu::buffer::{Buffer, BufferId, BufferType};
 use temper_density::cpu::noise::{NoiseAccessType, NoiseAccessor};
-use temper_density::cpu::operation::{Operation, Projection, ValueSource};
+use temper_density::cpu::operation::{Operation, ValueSource};
 use temper_density::cpu::workspace::Workspace;
 use temper_noise::NormalNoise;
 
@@ -37,7 +37,7 @@ fn bench_density(c: &mut Criterion) {
         },
         Operation::AddBuffer {
             destination: BufferId::OUT,
-            source: ValueSource::Buffer(BufferId::flat(0), Projection::DropY),
+            source: ValueSource::Buffer(BufferId::flat(0)),
         },
     ];
 

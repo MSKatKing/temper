@@ -1,7 +1,7 @@
 mod math;
 
 use crate::cpu::buffer::{BufferId, BufferType};
-use crate::cpu::compiler::math::compile_add;
+use crate::cpu::compiler::math::{compile_add, compile_max, compile_min, compile_mul, compile_sub};
 use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
 use crate::cpu::operation::{Operation, ValueSource};
 use crate::{DensityFunction, DensityFunctionArgument};
@@ -153,6 +153,10 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compiler, ran
 
     match func {
         DensityFunction::Add { left, right } => compile_add(compiler, rand, parent_buffer, left, right),
+        DensityFunction::Sub { left, right } => compile_sub(compiler, rand, parent_buffer, left, right),
+        DensityFunction::Mul { left, right } => compile_mul(compiler, rand, parent_buffer, left, right),
+        DensityFunction::Min { left, right } => compile_min(compiler, rand, parent_buffer, left, right),
+        DensityFunction::Max { left, right } => compile_max(compiler, rand, parent_buffer, left, right),
         DensityFunction::Shift { noise } => {
             let noise_split = noise.split(":").collect::<Vec<_>>();
             let noise = if noise_split.len() == 2 {
