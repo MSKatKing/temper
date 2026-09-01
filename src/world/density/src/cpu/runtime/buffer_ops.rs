@@ -19,6 +19,48 @@ use temper_core::pos::ChunkBlockPos;
 ///  * `None`: `dst` was greater than `src`. No data was copied.
 #[must_use]
 pub fn buffer_copy_to(dst: &mut Buffer, src: &Buffer) -> Option<()> {
+    buffer_apply_func(dst, src, |src, _| src)
+}
+
+/// Adds the values from `src` and `dst`, storing the result in `dst`. `dst` must be a larger buffer
+/// than `src` or nothing will be added.
+///
+/// # Notes
+/// This function will perform the interpolation for [`BufferType::Interpolated`].
+///
+/// # Arguments
+///  * `dst`: the destination buffer.
+///  * `src`: the source buffer.
+///
+/// # Returns
+///  * `Some(())`: the operation completed successfully.
+///  * `None`: `dst` was greater than `src`. No data was added.
+#[must_use]
+pub fn buffer_add_to(dst: &mut Buffer, src: &Buffer) -> Option<()> {
+    buffer_apply_func(dst, src, |src, dst| src + dst)
+}
+
+/// Expands values from `src` and uses the action function to determine the value to store in `dst`.
+///
+/// # Notes
+/// This function will perform the interpolation for [`BufferType::Interpolated`]. Those values will
+/// be passed in as the `src` value in `action`.
+///
+/// # Arguments
+///  * `dst`: the destination buffer.
+///  * `src`: the source buffer.
+///  * `action`: the function that takes in two f32s, one from `src` and one from `dst`, and
+/// returns the value to store into `dst`. The arguments are `fn action(src: f32, dst: f32) -> f32`.
+///
+/// # Returns
+///  * `Some(())`: the operation completed successfully.
+///  * `None`: `dst` was greater than `src`. Nothing was stored into `dst`.
+#[must_use]
+pub fn buffer_apply_func<F: Fn(f32, f32) -> f32>(
+    dst: &mut Buffer,
+    src: &Buffer,
+    action: F
+) -> Option<()> {
     if dst.ty < src.ty {
         return None;
     }
@@ -55,9 +97,12 @@ pub fn buffer_copy_to(dst: &mut Buffer, src: &Buffer) -> Option<()> {
                                         BufferType::Full,
                                     ) as usize;
 
-                                    dst[i] = lerp3_f32(
-                                        [x as f32 / 4.0, z as f32 / 4.0, y as f32 / 4.0],
-                                        data
+                                    dst[i] = action(
+                                        lerp3_f32(
+                                            [x as f32 / 4.0, z as f32 / 4.0, y as f32 / 4.0],
+                                            data
+                                        ),
+                                        dst[i],
                                     );
                                 }
                             }
@@ -78,7 +123,10 @@ pub fn buffer_copy_to(dst: &mut Buffer, src: &Buffer) -> Option<()> {
                                 BufferType::Full
                             ) as usize;
 
-                            dst[i] = *val;
+                            dst[i] = action(
+                                *val,
+                                dst[i],
+                            );
                         }
                     })
             },
@@ -98,14 +146,82 @@ pub fn buffer_copy_to(dst: &mut Buffer, src: &Buffer) -> Option<()> {
                                         BufferType::Full,
                                     ) as usize;
 
-                                    dst[i] = *val;
+                                    dst[i] = action(
+                                        *val,
+                                        dst[i],
+                                    );
                                 }
                             }
                         }
                     })
             }
         },
-        _ => todo!()
+        BufferType::Interpolated => match src.ty {
+            BufferType::Out | BufferType::Full => unreachable!(),
+            BufferType::Interpolated => unreachable!(),
+            BufferType::Flat => {
+                dst
+                    .pos_iter_mut()
+                    .for_each(|(pos, val)| {
+                        let i = pack_buffer_coord(
+                            ChunkBlockPos::new(
+                                pos.x(),
+                                0,
+                                pos.z(),
+                            ),
+                            BufferType::Flat,
+                        ) as usize;
+
+                        *val = action(
+                            src[i],
+                            *val,
+                        );
+                    })
+            },
+            BufferType::FlatCell => {
+                dst
+                    .chunks_exact_mut(8)
+                    .enumerate()
+                    .for_each(|(i, val)| {
+                        let pos = unpack_buffer_coord(
+                            (i as u32) << 3,
+                            BufferType::Interpolated
+                        );
+                        let i = pack_buffer_coord(pos, BufferType::FlatCell) as usize;
+
+                        val
+                            .iter_mut()
+                            .for_each(|v| {
+                                *v = action(
+                                    src[i],
+                                    *v,
+                                );
+                            })
+                    })
+            },
+        },
+        BufferType::Flat => match src.ty {
+            BufferType::Out | BufferType::Full => unreachable!(),
+            BufferType::Interpolated => unreachable!(),
+            BufferType::Flat => unreachable!(),
+            BufferType::FlatCell => {
+                dst
+                    .iter_mut()
+                    .enumerate()
+                    .for_each(|(i, val)| {
+                        let x = (i >> 2) & 0x3;
+                        let z = (i >> 6) & 0x3;
+                        
+                        let i = (z << 2) | x;
+                        
+                        *val = action(
+                            src[i], 
+                            *val
+                        );
+                    })
+            }
+        }
+        BufferType::FlatCell => unreachable!(),
     }
 
     Some(())

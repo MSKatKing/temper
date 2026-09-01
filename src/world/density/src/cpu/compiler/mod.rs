@@ -112,38 +112,16 @@ fn buffer_size_of(func: &DensityFunction, parent_size: BufferType) -> BufferType
 }
 
 fn compile<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compiler, rand: &mut P, func: &DensityFunction, parent_buffer: BufferId) -> BufferId {
-    match func {
-        DensityFunction::Add { left, right } => compile_add(compiler, rand, parent_buffer, left, right),
-        DensityFunction::Shift { noise } => {
-            let noise_split = noise.split(":").collect::<Vec<_>>();
-            let noise = if noise_split.len() == 2 {
-                noise.clone()
-            } else {
-                format!("minecraft:{}", noise_split[0])
-            };
-
-            compiler.push_op(Operation::ClearBuffer {
-                destination: parent_buffer,
-                source: ValueSource::Noise(
-                    NoiseAccessor::new(
-                        NoiseParameter::get_by_name(noise.as_str()).unwrap_or_else(|| panic!("'{}' is not a valid noise parameter", noise)),
-                        rand,
-                        noise.as_str(),
-                        NoiseAccessType::Shift,
-                    ),
-                ),
-            });
-
-            parent_buffer
-        },
-        DensityFunction::Interpolated { input } => {
-            let buffer = if parent_buffer.ty == BufferType::Interpolated {
+    macro_rules! marker_compile {
+        ($buffer_type:ident, $input:expr) => {
+            {
+            let buffer = if parent_buffer.ty == BufferType::$buffer_type {
                 parent_buffer
             } else {
-                compiler.alloc_buffer(BufferType::Interpolated)
+                compiler.alloc_buffer(BufferType::$buffer_type)
             };
 
-            match input {
+            match $input {
                 DensityFunctionArgument::Constant(val) => {
                     compiler.push_op(Operation::ClearBuffer {
                         destination: buffer,
@@ -170,6 +148,61 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compiler, ran
                 DensityFunctionArgument::External(_) => panic!("functions should be linked before being compiled"),
             }
         }
+        };
+    }
+
+    match func {
+        DensityFunction::Add { left, right } => compile_add(compiler, rand, parent_buffer, left, right),
+        DensityFunction::Shift { noise } => {
+            let noise_split = noise.split(":").collect::<Vec<_>>();
+            let noise = if noise_split.len() == 2 {
+                noise.clone()
+            } else {
+                format!("minecraft:{}", noise_split[0])
+            };
+
+            compiler.push_op(Operation::ClearBuffer {
+                destination: parent_buffer,
+                source: ValueSource::Noise(
+                    NoiseAccessor::new(
+                        NoiseParameter::get_by_name(noise.as_str()).unwrap_or_else(|| panic!("'{}' is not a valid noise parameter", noise)),
+                        rand,
+                        noise.as_str(),
+                        NoiseAccessType::Shift,
+                    ),
+                ),
+            });
+
+            parent_buffer
+        },
+        DensityFunction::Noise { noise, xz_scale, y_scale } => {
+            let noise_split = noise.split(":").collect::<Vec<_>>();
+            let noise = if noise_split.len() == 2 {
+                noise.clone()
+            } else {
+                format!("minecraft:{}", noise_split[0])
+            };
+
+            compiler.push_op(Operation::ClearBuffer {
+                destination: parent_buffer,
+                source: ValueSource::Noise(
+                    NoiseAccessor::new(
+                        NoiseParameter::get_by_name(noise.as_str()).unwrap_or_else(|| panic!("'{}' is not a valid noise parameter", noise)),
+                        rand,
+                        noise.as_str(),
+                        NoiseAccessType::Basic { xz_scale: *xz_scale as f32, y_scale: *y_scale as f32 },
+                    )
+                )
+            });
+
+            parent_buffer
+        }
+        DensityFunction::Interpolated { input } =>
+            marker_compile!(Interpolated, input),
+        DensityFunction::Cache2d { input } =>
+            marker_compile!(Flat, input),
+        DensityFunction::FlatCache { input } =>
+            marker_compile!(FlatCell, input),
         DensityFunction::YClampedGradient { from_y, to_y, from_value, to_value } => {
             compiler.push_op(Operation::YClampedGradient {
                 destination: parent_buffer,
@@ -179,7 +212,7 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compiler, ran
 
             parent_buffer
         }
-        _ => todo!(),
+        _ => todo!("{:?}", func),
     }
 }
 
