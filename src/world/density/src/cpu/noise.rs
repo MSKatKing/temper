@@ -13,7 +13,7 @@ pub enum NoiseAccessType {
     Shift,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct NoiseAccessor {
     noise: NormalNoise,
     pub access_type: NoiseAccessType,

@@ -11,7 +11,7 @@ pub struct Workspace<'func> {
     pub flat_cell: Vec<Buffer>,
     pub interpolated: Vec<Buffer>,
     pub operations: &'func [Operation],
-    
+
     pub current_pos: ChunkPos,
 }
 
@@ -39,7 +39,7 @@ impl Workspace<'_> {
             current_pos: ChunkPos::new(0, 0),
         }
     }
-    
+
     pub fn set_pos(&mut self, pos: ChunkPos) {
         self.current_pos = pos;
     }
@@ -162,11 +162,12 @@ impl Workspace<'_> {
             )),
         }
     }
-    
+
     pub fn get_global_pos(&self, local_pos: ChunkBlockPos) -> BlockPos {
         self.current_pos.chunk_block(local_pos)
     }
 
+    #[must_use]
     pub fn execute(&mut self) -> Option<()> {
         execute_function(self)
     }

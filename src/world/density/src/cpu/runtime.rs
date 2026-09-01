@@ -1,6 +1,9 @@
+mod buffer_ops;
+
+use crate::cpu::Workspace;
 use crate::cpu::buffer::BufferId;
 use crate::cpu::operation::{NegativeDecayType, Operation, ValueSource};
-use crate::cpu::Workspace;
+use crate::cpu::runtime::buffer_ops::buffer_copy_to;
 use std::ops::RangeInclusive;
 use temper_core::math::lerp;
 
@@ -10,20 +13,24 @@ pub fn execute_function(workspace: &mut Workspace) -> Option<()> {
             Operation::ClearBuffer { destination, source } if let ValueSource::Constant(value) = source => {
                 workspace.get_buffer_mut(*destination)?.fill(*value);
             }
-            Operation::ClearBuffer { destination, source } => {
-                let noise = match source {
-                    ValueSource::Noise(accessor) => accessor,
-                    ValueSource::Buffer(..) => todo!("copy buffer to buffer"),
-                    ValueSource::Constant(_) => unreachable!(),
-                };
-                
+            Operation::ClearBuffer { destination, source } if let ValueSource::Noise(noise) = source => {
                 let chunk_pos = workspace.current_pos;
                 let buffer = workspace.get_buffer_mut(*destination)?;
 
-                buffer.pos_iter().for_each(|(local_pos, v)| {
+                buffer.pos_iter_mut().for_each(|(local_pos, v)| {
                     *v = noise.noise(chunk_pos.chunk_block(local_pos))
                 })
+            },
+            Operation::ClearBuffer { destination, source } if let ValueSource::Buffer(src, _) = source => {
+                assert_ne!(destination, src, "cannot copy buffer to itself");
+
+                let Some((dst, src)) = workspace.get_dst_src(*destination, *src) else {
+                    unreachable!()
+                };
+
+                buffer_copy_to(dst, src)?;
             }
+            Operation::ClearBuffer { .. } => unreachable!(),
             Operation::YClampedGradient {
                 destination,
                 y_range,
@@ -88,7 +95,7 @@ pub fn handle_y_clamped_gradient(
     dest.fill(*value_range.start());
 
     dest
-        .pos_iter()
+        .pos_iter_mut()
         .filter(|(local_pos, _)| {
             local_pos.y() > *y_range.start()
         })
@@ -113,7 +120,7 @@ pub fn handle_add(
 
     match source {
         ValueSource::Constant(v) => dest.iter_mut().for_each(|f| *f += v),
-        ValueSource::Noise(n) => dest.pos_iter().for_each(|(local_pos, f)| {
+        ValueSource::Noise(n) => dest.pos_iter_mut().for_each(|(local_pos, f)| {
             *f += n.noise(chunk_pos.chunk_block(local_pos));
         }),
         ValueSource::Buffer(source, _) if destination == source => {
@@ -147,7 +154,7 @@ pub fn handle_sub(
 
     match source {
         ValueSource::Constant(v) => dest.iter_mut().for_each(|f| *f -= v),
-        ValueSource::Noise(n) => dest.pos_iter().for_each(|(local_pos, f)| {
+        ValueSource::Noise(n) => dest.pos_iter_mut().for_each(|(local_pos, f)| {
             *f -= n.noise(chunk_pos.chunk_block(local_pos));
         }),
         ValueSource::Buffer(source, _) if destination == source => dest.fill(0.0),
@@ -179,7 +186,7 @@ pub fn handle_div(
 
     match source {
         ValueSource::Constant(v) => dest.iter_mut().for_each(|f| *f /= v),
-        ValueSource::Noise(n) => dest.pos_iter().for_each(|(local_pos, f)| {
+        ValueSource::Noise(n) => dest.pos_iter_mut().for_each(|(local_pos, f)| {
             *f /= n.noise(chunk_pos.chunk_block(local_pos));
         }),
         ValueSource::Buffer(source, _) if destination == source => dest.fill(1.0),
@@ -211,7 +218,7 @@ pub fn handle_mul(
 
     match source {
         ValueSource::Constant(v) => dest.iter_mut().for_each(|f| *f *= v),
-        ValueSource::Noise(n) => dest.pos_iter().for_each(|(local_pos, f)| {
+        ValueSource::Noise(n) => dest.pos_iter_mut().for_each(|(local_pos, f)| {
             *f *= n.noise(chunk_pos.chunk_block(local_pos));
         }),
         ValueSource::Buffer(source, _) if destination == source => {
@@ -245,7 +252,7 @@ pub fn handle_min(
 
     match source {
         ValueSource::Constant(v) => dest.iter_mut().for_each(|f| *f = f.min(*v)),
-        ValueSource::Noise(n) => dest.pos_iter().for_each(|(local_pos, f)| {
+        ValueSource::Noise(n) => dest.pos_iter_mut().for_each(|(local_pos, f)| {
             *f = f.min(n.noise(chunk_pos.chunk_block(local_pos)));
         }),
         ValueSource::Buffer(source, _) if destination == source => {} // f.min(f) = f so we don't do anything here
@@ -277,7 +284,7 @@ pub fn handle_max(
 
     match source {
         ValueSource::Constant(v) => dest.iter_mut().for_each(|f| *f = f.max(*v)),
-        ValueSource::Noise(n) => dest.pos_iter().for_each(|(local_pos, f)| {
+        ValueSource::Noise(n) => dest.pos_iter_mut().for_each(|(local_pos, f)| {
             *f = f.max(n.noise(chunk_pos.chunk_block(local_pos)));
         }),
         ValueSource::Buffer(source, _) if destination == source => {} // f.max(f) = f so we don't do anything here
