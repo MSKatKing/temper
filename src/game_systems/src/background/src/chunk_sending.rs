@@ -1,10 +1,11 @@
+use anyhow::Context;
 use bevy_ecs::prelude::{Entity, MessageWriter, Query, Res};
-use bevy_math::{IVec2, IVec3};
+use bevy_math::IVec2;
 use std::cmp::max;
 use std::collections::HashSet;
 use std::sync::atomic::Ordering;
 use temper_codec::encode::NetEncodeOpts;
-use temper_components::player::chunk_receiver::{ChunkReceiver, PreparedChunk};
+use temper_components::player::chunk_receiver::{ChunkReceiver, PreparedChunk, ReadyChunk};
 use temper_components::player::client_information::ClientInformationComponent;
 use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::position::Position;
@@ -53,10 +54,8 @@ pub fn handle(
 
         // Both phases need the same "is this chunk still worth working on"
         // test, so compute it once per player.
-        let player_chunk = IVec2::new(
-            pos.coords.x.floor() as i32 >> 4,
-            pos.coords.z.floor() as i32 >> 4,
-        );
+        let player_chunk_pos = ChunkPos::from(pos.coords);
+        let player_chunk = IVec2::new(player_chunk_pos.x(), player_chunk_pos.z());
         let view_distance = max(
             u32::from(client_info.view_distance),
             state.0.config.chunk_render_distance,
@@ -78,28 +77,28 @@ pub fn handle(
         // Anything harvested is no longer in flight, whatever its outcome.
         // This is what stops a failure from stranding the coordinate forever.
         for prepared in &harvested {
-            let pos = prepared.pos();
+            let pos = prepared.chunk_pos();
             chunk_receiver.in_flight.remove(&(pos.x(), pos.z()));
         }
 
-        let mut ready_to_send = Vec::new();
+        let mut ready_to_send: Vec<ReadyChunk> = Vec::new();
         for prepared in harvested {
             match prepared {
-                PreparedChunk::Ready { pos: chunk_pos, .. } => {
+                PreparedChunk::Ready(ready) => {
                     // Success wipes the failure history for this chunk, so a
                     // chunk that fails twice then succeeds starts clean.
                     chunk_receiver
                         .retry_counts
-                        .remove(&(chunk_pos.x(), chunk_pos.z()));
+                        .remove(&(ready.chunk_pos.x(), ready.chunk_pos.z()));
 
                     // The player may have flown past while this was generating.
                     // `in_flight` is already cleared above, so `chunk_calculator`
                     // will requeue it if they come back.
-                    if in_view(chunk_pos.x(), chunk_pos.z()) {
-                        ready_to_send.push(prepared);
+                    if in_view(ready.chunk_pos.x(), ready.chunk_pos.z()) {
+                        ready_to_send.push(ready);
                     }
                 }
-                PreparedChunk::Failed { pos: chunk_pos } => {
+                PreparedChunk::Failed { chunk_pos } => {
                     let key = (chunk_pos.x(), chunk_pos.z());
 
                     if !in_view(key.0, key.1) {
@@ -127,39 +126,31 @@ pub fn handle(
             conn.send_packet(ChunkBatchStart {})
                 .expect("Failed to send ChunkBatchStart");
 
-            let center_chunk: IVec3 = pos.coords.floor().as_ivec3() >> 4;
+            let center_chunk = ChunkPos::from(pos.coords);
             conn.send_packet(SetCenterChunk {
-                x: center_chunk.x.into(),
-                z: center_chunk.z.into(),
+                x: center_chunk.x().into(),
+                z: center_chunk.z().into(),
             })
             .expect("Failed to send SetCenterChunk");
 
             let packets_len = ready_to_send.len();
 
             for chunk in ready_to_send {
-                let PreparedChunk::Ready {
-                    pos: chunk_pos,
-                    packet_data,
-                    entities,
-                    is_new_load,
-                } = chunk
-                else {
-                    unreachable!();
-                };
+                chunk_receiver
+                    .loaded
+                    .insert((chunk.chunk_pos.x(), chunk.chunk_pos.z()));
 
-                chunk_receiver.loaded.insert((chunk_pos.x(), chunk_pos.z()));
-
-                if is_new_load {
+                if chunk.is_new_load {
                     mob_load_writer.write(temper_messages::load_chunk_entities::LoadChunkEntities(
-                        chunk_pos,
+                        chunk.chunk_pos,
                     ));
                 }
 
-                if let Err(err) = conn.send_raw_packet(packet_data) {
+                if let Err(err) = conn.send_raw_packet(chunk.packet_data) {
                     error!("Failed to send chunk packet: {:?}", err);
                 }
 
-                for entity_tuple in entities {
+                for entity_tuple in chunk.entities {
                     entity_tracker.to_track.push(entity_tuple);
                 }
             }
@@ -251,15 +242,15 @@ pub fn handle(
                 .insert((coordinates.x(), coordinates.z())); // Mark this chunk as in-flight to prevent duplicate generation
 
             state.0.thread_pool.oneshot(move || {
-                // Inner closure so we can use `?` on the three fallible steps
-                // instead of unwinding the whole pool thread on any of them.
-                let prepare = || -> Result<PreparedChunk, String> {
+                // Inner closure so we can use `?` on the fallible steps instead
+                // of unwinding the whole pool thread on any of them.
+                let prepare = || -> anyhow::Result<PreparedChunk> {
                     let chunk_data = {
                         let chunk_ref = state_clone
                             .0
                             .world
                             .get_or_generate_chunk(coordinates, Dimension::Overworld)
-                            .map_err(|err| format!("load or generate failed: {err:?}"))?;
+                            .context("load or generate failed")?;
 
                         (*chunk_ref).clone_without_transient_noise()
                     };
@@ -270,7 +261,7 @@ pub fn handle(
                     }
 
                     let packet = ChunkAndLightData::from_chunk(coordinates, &chunk_data)
-                        .map_err(|err| format!("building ChunkAndLightData failed: {err:?}"))?;
+                        .context("building ChunkAndLightData failed")?;
 
                     let packet_data = compress_packet(
                         &packet,
@@ -278,19 +269,21 @@ pub fn handle(
                         &NetEncodeOpts::WithLength,
                         state_clone.0.config.network_compression_threshold as usize,
                     )
-                    .map_err(|err| format!("compressing chunk packet failed: {err:?}"))?;
+                    .context("compressing chunk packet failed")?;
 
-                    Ok(PreparedChunk::Ready {
-                        pos: coordinates,
+                    Ok(PreparedChunk::Ready(ReadyChunk {
+                        chunk_pos: coordinates,
                         packet_data,
                         entities,
                         is_new_load,
-                    })
+                    }))
                 };
 
                 let message = prepare().unwrap_or_else(|err| {
-                    error!("Chunk {:?} failed to prepare: {}", coordinates, err);
-                    PreparedChunk::Failed { pos: coordinates }
+                    error!("Chunk {:?} failed to prepare: {err:#}", coordinates);
+                    PreparedChunk::Failed {
+                        chunk_pos: coordinates,
+                    }
                 });
 
                 let _ = tx.send(message);

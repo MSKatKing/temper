@@ -4,23 +4,24 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use temper_core::pos::ChunkPos;
 use uuid::Uuid;
 
+pub struct ReadyChunk {
+    pub chunk_pos: ChunkPos,
+    pub packet_data: Vec<u8>,
+    pub entities: Vec<(Uuid, u16)>,
+    pub is_new_load: bool,
+}
+
 pub enum PreparedChunk {
-    Ready {
-        pos: ChunkPos,
-        packet_data: Vec<u8>,
-        entities: Vec<(Uuid, u16)>,
-        is_new_load: bool,
-    },
-    Failed {
-        pos: ChunkPos,
-    },
+    Ready(ReadyChunk),
+    Failed { chunk_pos: ChunkPos },
 }
 
 impl PreparedChunk {
     /// The chunk this message is about, whether it succeeded or not.
-    pub fn pos(&self) -> ChunkPos {
+    pub fn chunk_pos(&self) -> ChunkPos {
         match self {
-            Self::Ready { pos, .. } | Self::Failed { pos } => *pos,
+            Self::Ready(ready) => ready.chunk_pos,
+            Self::Failed { chunk_pos } => *chunk_pos,
         }
     }
 }
