@@ -3,7 +3,7 @@ mod buffer_ops;
 use crate::cpu::Workspace;
 use crate::cpu::buffer::BufferId;
 use crate::cpu::operation::{NegativeDecayType, Operation, ValueSource};
-use crate::cpu::runtime::buffer_ops::buffer_copy_to;
+use crate::cpu::runtime::buffer_ops::{buffer_add_to, buffer_copy_to};
 use std::ops::RangeInclusive;
 use temper_core::math::lerp;
 
@@ -126,18 +126,10 @@ pub fn handle_add(
         ValueSource::Buffer(source, _) if destination == source => {
             dest.iter_mut().for_each(|f| *f *= 2.0)
         }
-        ValueSource::Buffer(source, projection) => {
+        ValueSource::Buffer(source, _) => {
             let (dest, src) = workspace.get_dst_src(*destination, *source)?;
-
-            if destination.ty == source.ty {
-                dest.iter_mut()
-                    .zip(src.iter())
-                    .for_each(|(f, src)| *f += src)
-            } else {
-                for (i, f) in dest.iter_mut().enumerate() {
-                    *f += src[projection.project(i)]
-                }
-            }
+            
+            buffer_add_to(dest, src)?;
         }
     }
 

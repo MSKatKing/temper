@@ -36,7 +36,7 @@ pub fn compile_add<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compi
 
             let out = compile(compiler, rand, func, buffer);
 
-            if out != buffer {
+            if out != buffer && buffer != parent_buffer {
                 compiler.free_buffer(buffer);
             }
 

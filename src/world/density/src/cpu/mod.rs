@@ -65,7 +65,12 @@ fn pack_buffer_coord(local_pos: ChunkBlockPos, buffer_type: BufferType) -> u32 {
             let cell_idx = (cell_x & 0x4) | ((cell_z & 0x4) << 2) | (cell_y << 4);
             cell_idx << 3
         },
-        BufferType::Flat => todo!(),
+        BufferType::Flat => {
+            let x = local_pos.x() as u32;
+            let z = local_pos.z() as u32;
+
+            (z << 4) | x
+        },
         BufferType::FlatCell => todo!(),
     }
 }

@@ -116,8 +116,19 @@ impl WorldGenerator {
                     from_value: 10.0,
                     to_value: -10.0,
                 })),
-                right: DensityFunctionArgument::Function(Box::new(DensityFunction::Shift {
-                    noise: "minecraft:surface".to_string()
+                right: DensityFunctionArgument::Function(Box::new(DensityFunction::Add {
+                    left: DensityFunctionArgument::Function(Box::new(DensityFunction::FlatCache {
+                        input: DensityFunctionArgument::Function(Box::new(DensityFunction::Noise {
+                            noise: "minecraft:surface".to_string(),
+                            xz_scale: 0.25,
+                            y_scale: 1.0,
+                        })),
+                    })),
+                    right: DensityFunctionArgument::Function(Box::new(DensityFunction::Cache2d {
+                        input: DensityFunctionArgument::Function(Box::new(DensityFunction::Shift {
+                            noise: "minecraft:surface".to_string()
+                        }))
+                    }))
                 })),
             }))
         };
