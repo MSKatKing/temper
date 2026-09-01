@@ -115,16 +115,9 @@ pub fn buffer_apply_func<F: Fn(f32, f32) -> f32>(
                 src
                     .pos_iter()
                     .for_each(|(pos, val)| {
-                        for y in -64..320 {
-                            let i = pack_buffer_coord(
-                                ChunkBlockPos::new(
-                                    pos.x(),
-                                    y,
-                                    pos.z(),
-                                ),
-                                BufferType::Full
-                            ) as usize;
+                        let xz_idx = ((pos.z() as usize) << 4) | (pos.x() as usize);
 
+                        for i in (xz_idx..((384 << 8) | xz_idx)).step_by(1 << 8) {
                             dst[i] = action(
                                 *val,
                                 dst[i],

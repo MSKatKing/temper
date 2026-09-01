@@ -9,8 +9,6 @@ pub mod workspace;
 pub mod compiler;
 pub mod noise;
 
-pub const OUT_BUFFER_LEN: usize = 16 * 16 * 320;
-
 fn unpack_coord(coord: u32) -> ChunkBlockPos {
     let x = coord as u8 & 0xF;
     let z = (coord >> 4) as u8 & 0xF;
@@ -127,15 +125,9 @@ mod tests {
         ];
 
         let mut workspace = Workspace {
-            out: Buffer {
-                ty: BufferType::Out,
-                data: vec![0.0; OUT_BUFFER_LEN].into_boxed_slice(),
-            },
+            out: Buffer::new(BufferType::Out),
             full: Vec::new(),
-            flat: vec![Buffer {
-                ty: BufferType::Flat,
-                data: vec![0.0; BufferType::Flat.size()].into_boxed_slice(),
-            }],
+            flat: vec![Buffer::new(BufferType::Flat)],
             flat_cell: Vec::new(),
             interpolated: Vec::new(),
             operations: &ops,
