@@ -3,7 +3,7 @@ mod math;
 use crate::cpu::buffer::{BufferId, BufferType};
 use crate::cpu::compiler::math::compile_add;
 use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
-use crate::cpu::operation::{Operation, Projection, ValueSource};
+use crate::cpu::operation::{Operation, ValueSource};
 use crate::{DensityFunction, DensityFunctionArgument};
 use std::collections::{HashMap, VecDeque};
 use temper_core::random::{PositionalRandom, RandomSource};
@@ -42,7 +42,7 @@ impl Compiler {
         if actual != out {
             this.push_op(Operation::ClearBuffer {
                 destination: out,
-                source: ValueSource::Buffer(actual, Projection::None)
+                source: ValueSource::Buffer(actual)
             });
         }
 

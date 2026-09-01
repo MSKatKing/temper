@@ -1,7 +1,7 @@
 use temper_core::random::{PositionalRandom, RandomSource};
 use crate::cpu::buffer::BufferId;
 use crate::cpu::compiler::{compile, Compiler};
-use crate::cpu::operation::{Operation, Projection, ValueSource};
+use crate::cpu::operation::{Operation, ValueSource};
 use crate::DensityFunctionArgument;
 
 pub fn compile_add<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compiler, rand: &mut P, parent_buffer: BufferId, left: &DensityFunctionArgument, right: &DensityFunctionArgument) -> BufferId {
@@ -15,7 +15,7 @@ pub fn compile_add<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compi
             let out = compile(compiler, rand, func, parent_buffer);
 
             (
-                ValueSource::Buffer(out, Projection::None),
+                ValueSource::Buffer(out),
                 Some(out)
             )
         }
@@ -41,7 +41,7 @@ pub fn compile_add<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compi
             }
 
             (
-                ValueSource::Buffer(out, Projection::None),
+                ValueSource::Buffer(out),
                 Some(out)
             )
         }

@@ -93,25 +93,8 @@ impl PowAmount {
 }
 
 #[derive(Clone, Debug)]
-pub enum Projection {
-    None,
-    DropY,
-    ShrinkXZ2,
-}
-
-impl Projection {
-    pub fn project(&self, idx: usize) -> usize {
-        match self {
-            Projection::None => idx,
-            Projection::DropY => idx & 0xFF,
-            Projection::ShrinkXZ2 => ((idx & 0x03) >> 2) | (idx & 0x3),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
 pub enum ValueSource {
-    Buffer(BufferId, Projection),
+    Buffer(BufferId),
     Constant(f32),
     Noise(NoiseAccessor),
 }
