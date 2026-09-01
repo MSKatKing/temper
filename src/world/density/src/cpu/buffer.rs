@@ -1,4 +1,5 @@
 use std::ops::{Deref, DerefMut};
+use temper_core::pos::ChunkBlockPos;
 use crate::cpu::unpack_buffer_coord;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug, PartialOrd, Ord)]
@@ -68,14 +69,11 @@ impl Buffer {
         }
     }
     
-    pub fn pos_iter(&mut self) -> impl Iterator<Item = (u8, i16, u8, &mut f32)> + '_ {
+    pub fn pos_iter(&mut self) -> impl Iterator<Item = (ChunkBlockPos, &mut f32)> + '_ {
         self.data
             .iter_mut()
             .enumerate()
-            .map(|(i, v)| {
-                let (x, y, z) = unpack_buffer_coord(i as u32, self.ty);
-                (x, y, z, v)
-            })
+            .map(|(i, v)| (unpack_buffer_coord(i as u32, self.ty), v))
     }
 }
 

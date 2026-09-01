@@ -1,3 +1,4 @@
+use temper_core::pos::{BlockPos, ChunkBlockPos, ChunkPos};
 use crate::cpu::buffer::{Buffer, BufferId, BufferType};
 use crate::cpu::compiler::CompiledDensityFunction;
 use crate::cpu::operation::Operation;
@@ -10,6 +11,8 @@ pub struct Workspace<'func> {
     pub flat_cell: Vec<Buffer>,
     pub interpolated: Vec<Buffer>,
     pub operations: &'func [Operation],
+    
+    pub current_pos: ChunkPos,
 }
 
 impl Workspace<'_> {
@@ -33,7 +36,12 @@ impl Workspace<'_> {
             flat: instantiate_buffers(density_function, BufferType::Flat),
             flat_cell: instantiate_buffers(density_function, BufferType::FlatCell),
             operations: &density_function.ops,
+            current_pos: ChunkPos::new(0, 0),
         }
+    }
+    
+    pub fn set_pos(&mut self, pos: ChunkPos) {
+        self.current_pos = pos;
     }
 
     pub fn get_buffer(&self, id: BufferId) -> Option<&Buffer> {
@@ -153,6 +161,10 @@ impl Workspace<'_> {
                 self.flat_cell.get(src.id as usize)?,
             )),
         }
+    }
+    
+    pub fn get_global_pos(&self, local_pos: ChunkBlockPos) -> BlockPos {
+        self.current_pos.chunk_block(local_pos)
     }
 
     pub fn execute(&mut self) -> Option<()> {

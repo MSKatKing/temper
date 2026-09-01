@@ -101,6 +101,7 @@ impl BiomeGenerator for PlainsBiome {
         let stone = block!("stone");
 
         let mut workspace = Workspace::new(density_function);
+        workspace.set_pos(pos);
         workspace.execute();
 
         // Fill with water first

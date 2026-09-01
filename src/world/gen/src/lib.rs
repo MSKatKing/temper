@@ -7,8 +7,9 @@ use crate::errors::WorldGenError;
 use crate::interp::smoothstep;
 use noise::{Fbm, MultiFractal, NoiseFn, Perlin, RidgedMulti};
 use temper_core::pos::ChunkPos;
+use temper_core::random::XoroshiroRandomSource;
 use temper_density::cpu::compiler::{CompiledDensityFunction, Compiler};
-use temper_density::DensityFunction;
+use temper_density::{DensityFunction, DensityFunctionArgument};
 use temper_world_format::Chunk;
 
 /// Trait for generating a biome
@@ -107,12 +108,22 @@ impl NoiseGenerator {
 
 impl WorldGenerator {
     pub fn new(seed: u64) -> Self {
-        let compiled = Compiler::compile(&DensityFunction::YClampedGradient {
-            from_y: 32,
-            to_y: 96,
-            from_value: 1.0,
-            to_value: -1.0,
-        });
+        let func = DensityFunction::Add {
+            left: DensityFunctionArgument::Function(Box::new(DensityFunction::YClampedGradient {
+                from_y: 32,
+                to_y: 96,
+                from_value: 10.0,
+                to_value: -10.0,
+            })),
+            right: DensityFunctionArgument::Function(Box::new(DensityFunction::Shift {
+                noise: "minecraft:surface".to_string()
+            })),
+        };
+        
+        let func = func.fold();
+
+        let mut rand = XoroshiroRandomSource::new(seed);
+        let compiled = Compiler::compile(&mut rand, func);
 
         Self {
             _seed: seed,

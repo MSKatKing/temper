@@ -1,3 +1,4 @@
+use temper_core::pos::ChunkBlockPos;
 use crate::cpu::buffer::BufferType;
 use crate::cpu::workspace::Workspace;
 
@@ -10,32 +11,46 @@ pub mod noise;
 
 pub const OUT_BUFFER_LEN: usize = 16 * 16 * 320;
 
-fn unpack_coord(coord: u32) -> (u8, i16, u8) {
+fn unpack_coord(coord: u32) -> ChunkBlockPos {
     let x = coord as u8 & 0xF;
     let z = (coord >> 4) as u8 & 0xF;
     let y = (coord >> 8) as i16 - 64;
-    (x, y, z)
+    ChunkBlockPos::new(x, y, z)
 }
 
-fn unpack_buffer_coord(coord: u32, buffer_type: BufferType) -> (u8, i16, u8) {
+fn unpack_buffer_coord(coord: u32, buffer_type: BufferType) -> ChunkBlockPos {
     match buffer_type {
         BufferType::Out | BufferType::Full => unpack_coord(coord),
-        BufferType::Interpolated => todo!(),
+        BufferType::Interpolated => {
+            let corner_idx = coord & 0x7;
+            let cell_idx = coord >> 3;
+
+            let cell_x = (cell_idx as u8 & 0x4) * 4;
+            let cell_z = ((cell_idx >> 2) as u8 & 0x4) * 4;
+            let cell_y = ((cell_idx >> 4) as i16) * 4;
+
+            ChunkBlockPos::new(
+                cell_x + 3 * (corner_idx & 1) as u8,
+                cell_y + 3 * (corner_idx >> 2 & 1) as i16 - 64,
+                cell_z + 3 * (corner_idx >> 1 & 1) as u8,
+            )
+        },
         BufferType::Flat => {
             let x = coord as u8 & 0xF;
             let z = (coord >> 4) as u8 & 0xF;
-            (x, 0, z)
+            ChunkBlockPos::new(x, 0, z)
         },
         BufferType::FlatCell => {
             let x = (coord as u8 & 0x4) * 4;
             let z = ((coord >> 2) as u8 & 0x4) * 4;
-            (x, 0, z)
+            ChunkBlockPos::new(x, 0, z)
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use temper_core::pos::ChunkPos;
     use super::*;
     use crate::cpu::buffer::{Buffer, BufferId, BufferType};
     use crate::cpu::operation::{Operation, Projection, ValueSource};
@@ -97,6 +112,7 @@ mod tests {
             flat_cell: Vec::new(),
             interpolated: Vec::new(),
             operations: &ops,
+            current_pos: ChunkPos::new(0, 0),
         };
 
         let out_buffer = workspace.execute();
