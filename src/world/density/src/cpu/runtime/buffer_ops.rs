@@ -1,6 +1,6 @@
 use crate::cpu::buffer::{Buffer, BufferType};
 use crate::cpu::{pack_buffer_coord, unpack_buffer_coord};
-use std::ops::Deref;
+use std::ops::{Add, Deref};
 use temper_core::math::lerp3_f32;
 use temper_core::pos::ChunkBlockPos;
 
@@ -18,6 +18,7 @@ use temper_core::pos::ChunkBlockPos;
 ///  * `Some(())`: the operation completed successfully.
 ///  * `None`: `dst` was greater than `src`. No data was copied.
 #[must_use]
+#[inline(always)]
 pub fn buffer_copy_to(dst: &mut Buffer, src: &Buffer) -> Option<()> {
     buffer_apply_func(dst, src, |src, _| src)
 }
@@ -36,8 +37,9 @@ pub fn buffer_copy_to(dst: &mut Buffer, src: &Buffer) -> Option<()> {
 ///  * `Some(())`: the operation completed successfully.
 ///  * `None`: `dst` was greater than `src`. No data was added.
 #[must_use]
+#[inline(always)]
 pub fn buffer_add_to(dst: &mut Buffer, src: &Buffer) -> Option<()> {
-    buffer_apply_func(dst, src, |src, dst| src + dst)
+    buffer_apply_func(dst, src, f32::add)
 }
 
 /// Expands values from `src` and uses the action function to determine the value to store in `dst`.
@@ -211,11 +213,11 @@ pub fn buffer_apply_func<F: Fn(f32, f32) -> f32>(
                     .for_each(|(i, val)| {
                         let x = (i >> 2) & 0x3;
                         let z = (i >> 6) & 0x3;
-                        
+
                         let i = (z << 2) | x;
-                        
+
                         *val = action(
-                            src[i], 
+                            src[i],
                             *val
                         );
                     })

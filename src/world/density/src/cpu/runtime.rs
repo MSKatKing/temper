@@ -3,8 +3,8 @@ mod buffer_ops;
 use crate::cpu::Workspace;
 use crate::cpu::buffer::BufferId;
 use crate::cpu::operation::{NegativeDecayType, Operation, ValueSource};
-use crate::cpu::runtime::buffer_ops::{buffer_add_to, buffer_copy_to};
-use std::ops::RangeInclusive;
+use crate::cpu::runtime::buffer_ops::{buffer_add_to, buffer_apply_func, buffer_copy_to};
+use std::ops::{Mul, RangeInclusive};
 use temper_core::math::lerp;
 
 pub fn execute_function(workspace: &mut Workspace) -> Option<()> {
@@ -21,7 +21,7 @@ pub fn execute_function(workspace: &mut Workspace) -> Option<()> {
                     *v = noise.noise(chunk_pos.chunk_block(local_pos))
                 })
             },
-            Operation::ClearBuffer { destination, source } if let ValueSource::Buffer(src, _) = source => {
+            Operation::ClearBuffer { destination, source } if let ValueSource::Buffer(src) = source => {
                 assert_ne!(destination, src, "cannot copy buffer to itself");
 
                 let Some((dst, src)) = workspace.get_dst_src(*destination, *src) else {
@@ -123,12 +123,12 @@ pub fn handle_add(
         ValueSource::Noise(n) => dest.pos_iter_mut().for_each(|(local_pos, f)| {
             *f += n.noise(chunk_pos.chunk_block(local_pos));
         }),
-        ValueSource::Buffer(source, _) if destination == source => {
+        ValueSource::Buffer(source) if destination == source => {
             dest.iter_mut().for_each(|f| *f *= 2.0)
         }
-        ValueSource::Buffer(source, _) => {
+        ValueSource::Buffer(source) => {
             let (dest, src) = workspace.get_dst_src(*destination, *source)?;
-            
+
             buffer_add_to(dest, src)?;
         }
     }
@@ -149,19 +149,11 @@ pub fn handle_sub(
         ValueSource::Noise(n) => dest.pos_iter_mut().for_each(|(local_pos, f)| {
             *f -= n.noise(chunk_pos.chunk_block(local_pos));
         }),
-        ValueSource::Buffer(source, _) if destination == source => dest.fill(0.0),
-        ValueSource::Buffer(source, projection) => {
+        ValueSource::Buffer(source) if destination == source => dest.fill(0.0),
+        ValueSource::Buffer(source) => {
             let (dest, src) = workspace.get_dst_src(*destination, *source)?;
 
-            if destination.ty == source.ty {
-                dest.iter_mut()
-                    .zip(src.iter())
-                    .for_each(|(f, src)| *f -= src)
-            } else {
-                for (i, f) in dest.iter_mut().enumerate() {
-                    *f -= src[projection.project(i)]
-                }
-            }
+            buffer_apply_func(dest, src, |src, dst| dst - src)?;
         }
     }
 
@@ -181,19 +173,11 @@ pub fn handle_div(
         ValueSource::Noise(n) => dest.pos_iter_mut().for_each(|(local_pos, f)| {
             *f /= n.noise(chunk_pos.chunk_block(local_pos));
         }),
-        ValueSource::Buffer(source, _) if destination == source => dest.fill(1.0),
-        ValueSource::Buffer(source, projection) => {
+        ValueSource::Buffer(source) if destination == source => dest.fill(1.0),
+        ValueSource::Buffer(source) => {
             let (dest, src) = workspace.get_dst_src(*destination, *source)?;
 
-            if destination.ty == source.ty {
-                dest.iter_mut()
-                    .zip(src.iter())
-                    .for_each(|(f, src)| *f /= src)
-            } else {
-                for (i, f) in dest.iter_mut().enumerate() {
-                    *f /= src[projection.project(i)]
-                }
-            }
+            buffer_apply_func(dest, src, |src, dst| dst / src)?;
         }
     }
 
@@ -213,21 +197,13 @@ pub fn handle_mul(
         ValueSource::Noise(n) => dest.pos_iter_mut().for_each(|(local_pos, f)| {
             *f *= n.noise(chunk_pos.chunk_block(local_pos));
         }),
-        ValueSource::Buffer(source, _) if destination == source => {
+        ValueSource::Buffer(source) if destination == source => {
             dest.iter_mut().for_each(|f| *f = f.powi(2))
         }
-        ValueSource::Buffer(source, projection) => {
+        ValueSource::Buffer(source) => {
             let (dest, src) = workspace.get_dst_src(*destination, *source)?;
 
-            if destination.ty == source.ty {
-                dest.iter_mut()
-                    .zip(src.iter())
-                    .for_each(|(f, src)| *f *= src)
-            } else {
-                for (i, f) in dest.iter_mut().enumerate() {
-                    *f *= src[projection.project(i)]
-                }
-            }
+            buffer_apply_func(dest, src, f32::mul)?;
         }
     }
 
@@ -247,19 +223,11 @@ pub fn handle_min(
         ValueSource::Noise(n) => dest.pos_iter_mut().for_each(|(local_pos, f)| {
             *f = f.min(n.noise(chunk_pos.chunk_block(local_pos)));
         }),
-        ValueSource::Buffer(source, _) if destination == source => {} // f.min(f) = f so we don't do anything here
-        ValueSource::Buffer(source, projection) => {
+        ValueSource::Buffer(source) if destination == source => {} // f.min(f) = f so we don't do anything here
+        ValueSource::Buffer(source) => {
             let (dest, src) = workspace.get_dst_src(*destination, *source)?;
 
-            if destination.ty == source.ty {
-                dest.iter_mut()
-                    .zip(src.iter())
-                    .for_each(|(f, src)| *f = f.min(*src))
-            } else {
-                for (i, f) in dest.iter_mut().enumerate() {
-                    *f = f.min(src[projection.project(i)])
-                }
-            }
+            buffer_apply_func(dest, src, f32::min)?;
         }
     }
 
@@ -279,19 +247,11 @@ pub fn handle_max(
         ValueSource::Noise(n) => dest.pos_iter_mut().for_each(|(local_pos, f)| {
             *f = f.max(n.noise(chunk_pos.chunk_block(local_pos)));
         }),
-        ValueSource::Buffer(source, _) if destination == source => {} // f.max(f) = f so we don't do anything here
-        ValueSource::Buffer(source, projection) => {
+        ValueSource::Buffer(source) if destination == source => {} // f.max(f) = f so we don't do anything here
+        ValueSource::Buffer(source) => {
             let (dest, src) = workspace.get_dst_src(*destination, *source)?;
 
-            if destination.ty == source.ty {
-                dest.iter_mut()
-                    .zip(src.iter())
-                    .for_each(|(f, src)| *f = f.max(*src))
-            } else {
-                for (i, f) in dest.iter_mut().enumerate() {
-                    *f = f.max(src[projection.project(i)])
-                }
-            }
+            buffer_apply_func(dest, src, f32::max)?;
         }
     }
 

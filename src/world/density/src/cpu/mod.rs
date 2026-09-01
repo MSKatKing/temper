@@ -80,7 +80,7 @@ mod tests {
     use temper_core::pos::ChunkPos;
     use super::*;
     use crate::cpu::buffer::{Buffer, BufferId, BufferType};
-    use crate::cpu::operation::{Operation, Projection, ValueSource};
+    use crate::cpu::operation::{Operation, ValueSource};
     use temper_core::random::XoroshiroRandomSource;
     use temper_noise::NormalNoise;
     use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
@@ -122,7 +122,7 @@ mod tests {
             },
             Operation::AddBuffer {
                 destination: BufferId::OUT,
-                source: ValueSource::Buffer(BufferId::flat(0), Projection::DropY),
+                source: ValueSource::Buffer(BufferId::flat(0)),
             },
         ];
 
