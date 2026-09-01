@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use crate::perlin::PerlinNoise;
 use bevy_math::DVec3;
 use temper_core::random::RandomSource;
@@ -42,6 +43,12 @@ impl NormalNoise {
     pub fn noise(&self, pos: DVec3) -> f64 {
         let pos2 = pos * 1.0181268882175227;
         (self.noises[0].noise(pos) + self.noises[1].noise(pos2)) * self.value_factor
+    }
+}
+
+impl Debug for NormalNoise {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "NormalNoise {{}}")
     }
 }
 

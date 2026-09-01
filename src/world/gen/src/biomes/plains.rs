@@ -102,7 +102,7 @@ impl BiomeGenerator for PlainsBiome {
 
         let mut workspace = Workspace::new(density_function);
         workspace.set_pos(pos);
-        workspace.execute();
+        workspace.execute().unwrap_or_else(|| panic!("failed to execute density function"));
 
         // Fill with water first
         for section_y in -4..4 {

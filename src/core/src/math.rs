@@ -23,3 +23,24 @@ pub fn lerp3(a: [f64; 3], p: [f64; 8]) -> f64 {
         ],
     )
 }
+
+#[inline(always)]
+pub fn lerp_f32(a: f32, p: [f32; 2]) -> f32 {
+    p[0] + a * (p[1] - p[0])
+}
+
+#[inline(always)]
+pub fn lerp2_f32(a: [f32; 2], p: [f32; 4]) -> f32 {
+    lerp_f32(a[1], [lerp_f32(a[0], [p[0], p[1]]), lerp_f32(a[0], [p[2], p[3]])])
+}
+
+#[inline(always)]
+pub fn lerp3_f32(a: [f32; 3], p: [f32; 8]) -> f32 {
+    lerp_f32(
+        a[2],
+        [
+            lerp2_f32([a[0], a[1]], [p[0], p[1], p[2], p[3]]),
+            lerp2_f32([a[0], a[1]], [p[4], p[5], p[6], p[7]]),
+        ],
+    )
+}

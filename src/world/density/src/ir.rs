@@ -119,10 +119,7 @@ impl DensityFunction {
                 match input.constant() {
                     Some(val) => DensityFunctionArgument::Constant(val),
                     _ if let DensityFunctionArgument::Function(f) = &input
-                        && let DensityFunction::$ty { input } = f.as_ref() =>
-                    {
-                        input.clone()
-                    }
+                        && let DensityFunction::$ty { input } = f.as_ref() => input.clone(),
                     _ => Arg::wrap_func(DensityFunction::$ty { input }),
                 }
             }};

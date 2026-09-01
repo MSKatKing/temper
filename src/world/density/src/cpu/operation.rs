@@ -6,7 +6,7 @@ use temper_data::noise::NoiseParameter;
 use crate::{DensityFunction, DensityFunctionArgument};
 
 /// Represents a specific operation to carry out on a buffer(s)
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Operation {
     /// Clears the specified buffer, setting all values to `value`
     ClearBuffer { destination: BufferId, source: ValueSource },
@@ -69,13 +69,13 @@ pub enum Operation {
     },
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum NegativeDecayType {
     Half,
     Quarter,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum PowAmount {
     Square,
     Cube,
@@ -92,7 +92,7 @@ impl PowAmount {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Projection {
     None,
     DropY,
@@ -109,7 +109,7 @@ impl Projection {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ValueSource {
     Buffer(BufferId, Projection),
     Constant(f32),
@@ -131,7 +131,7 @@ impl ValueSource {
                                 rand,
                                 noise.as_str(),
                                 NoiseAccessType::Basic {
-                                    xz_scale: * xz_scale as f32,
+                                    xz_scale: *xz_scale as f32,
                                     y_scale: *y_scale as f32
                                 }
                             )

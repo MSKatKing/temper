@@ -108,18 +108,20 @@ impl NoiseGenerator {
 
 impl WorldGenerator {
     pub fn new(seed: u64) -> Self {
-        let func = DensityFunction::Add {
-            left: DensityFunctionArgument::Function(Box::new(DensityFunction::YClampedGradient {
-                from_y: 32,
-                to_y: 96,
-                from_value: 10.0,
-                to_value: -10.0,
-            })),
-            right: DensityFunctionArgument::Function(Box::new(DensityFunction::Shift {
-                noise: "minecraft:surface".to_string()
-            })),
+        let func = DensityFunction::Interpolated {
+            input: DensityFunctionArgument::Function(Box::new(DensityFunction::Add {
+                left: DensityFunctionArgument::Function(Box::new(DensityFunction::YClampedGradient {
+                    from_y: 32,
+                    to_y: 96,
+                    from_value: 10.0,
+                    to_value: -10.0,
+                })),
+                right: DensityFunctionArgument::Function(Box::new(DensityFunction::Shift {
+                    noise: "minecraft:surface".to_string()
+                })),
+            }))
         };
-        
+
         let func = func.fold();
 
         let mut rand = XoroshiroRandomSource::new(seed);

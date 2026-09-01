@@ -10,21 +10,20 @@ use temper_core::random::{PositionalRandom, RandomSource};
 use temper_data::noise::NoiseParameter;
 
 pub struct Compiler {
-    buffers: HashMap<BufferType, VecDeque<usize>>,
-    next_buffer: HashMap<BufferType, usize>,
+    buffers: HashMap<BufferType, VecDeque<Option<usize>>>,
     ops: Vec<Operation>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CompiledDensityFunction {
     pub(crate) ops: Vec<Operation>,
-    pub(crate) buffers: HashMap<BufferType, VecDeque<usize>>,
+    pub(crate) buffers: HashMap<BufferType, VecDeque<Option<usize>>>,
 }
 
 impl Compiler {
     pub fn compile<R: RandomSource>(rand: &mut R, func: DensityFunctionArgument) -> CompiledDensityFunction {
         let mut this = Compiler::new();
-        
+
         let out = this.alloc_buffer(BufferType::Out);
         let actual = match func {
             DensityFunctionArgument::Function(func) =>
@@ -43,7 +42,7 @@ impl Compiler {
         if actual != out {
             this.push_op(Operation::ClearBuffer {
                 destination: out,
-                source: ValueSource::Buffer(out, Projection::None)
+                source: ValueSource::Buffer(actual, Projection::None)
             });
         }
 
@@ -56,31 +55,45 @@ impl Compiler {
     fn new() -> Compiler {
         Compiler {
             buffers: HashMap::with_capacity(5),
-            next_buffer: HashMap::with_capacity(5),
             ops: Vec::new(),
         }
     }
 
     fn alloc_buffer(&mut self, buffer_type: BufferType) -> BufferId {
-        let idx = if let Some(buf) = {
-            let buffers = self.buffers.entry(buffer_type).or_insert_with(VecDeque::new);
-            buffers.pop_front()
-        } {
-            buf
-        } else {
-            let next_buffer = self.next_buffer.entry(buffer_type).or_insert(0);
-            *next_buffer += 1;
-            *next_buffer - 1
-        };
+        let buffers = self.buffers.entry(buffer_type).or_insert_with(VecDeque::new);
 
+        for (i, val) in buffers.iter_mut().enumerate() {
+            if val.is_some() {
+                continue;
+            }
+
+            *val = Some(i);
+            return BufferId {
+                ty: buffer_type,
+                id: i as u8,
+            }
+        }
+
+        let i = buffers.len();
+        buffers.push_back(Some(i));
         BufferId {
             ty: buffer_type,
-            id: idx as _,
+            id: i as u8,
         }
     }
 
     fn free_buffer(&mut self, buffer: BufferId) {
-        self.buffers.entry(buffer.ty).or_insert_with(VecDeque::new).push_back(buffer.id as _)
+        let v = self.buffers
+            .entry(buffer.ty)
+            .or_insert_with(VecDeque::new)
+            .iter_mut()
+            .find(|val| val.is_some() && val.unwrap() == buffer.id as usize);
+
+        if let Some(i) = v {
+            *i = None;
+        } else {
+            panic!("{:?} never existed", buffer)
+        }
     }
 
     fn push_op(&mut self, op: Operation) {
@@ -123,6 +136,40 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compiler, ran
 
             parent_buffer
         },
+        DensityFunction::Interpolated { input } => {
+            let buffer = if parent_buffer.ty == BufferType::Interpolated {
+                parent_buffer
+            } else {
+                compiler.alloc_buffer(BufferType::Interpolated)
+            };
+
+            match input {
+                DensityFunctionArgument::Constant(val) => {
+                    compiler.push_op(Operation::ClearBuffer {
+                        destination: buffer,
+                        source: ValueSource::Constant(*val as f32),
+                    });
+
+                    buffer
+                },
+                DensityFunctionArgument::Function(func) => {
+                    let actual = compile(compiler, rand, func, buffer);
+
+                    if actual != buffer {
+                        if actual.ty > buffer.ty {
+                            panic!("internal function overrode buffer size");
+                        }
+
+                        if buffer != parent_buffer {
+                            compiler.free_buffer(buffer);
+                        }
+                    }
+
+                    actual
+                },
+                DensityFunctionArgument::External(_) => panic!("functions should be linked before being compiled"),
+            }
+        }
         DensityFunction::YClampedGradient { from_y, to_y, from_value, to_value } => {
             compiler.push_op(Operation::YClampedGradient {
                 destination: parent_buffer,
