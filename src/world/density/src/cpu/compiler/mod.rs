@@ -6,6 +6,7 @@ use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
 use crate::cpu::operation::{Operation, Projection, ValueSource};
 use crate::{DensityFunction, DensityFunctionArgument};
 use std::collections::{HashMap, VecDeque};
+use temper_core::random::{PositionalRandom, RandomSource};
 use temper_data::noise::NoiseParameter;
 
 pub struct Compiler {
@@ -21,25 +22,37 @@ pub struct CompiledDensityFunction {
 }
 
 impl Compiler {
-    pub fn compile(func: &DensityFunction) -> CompiledDensityFunction {
+    pub fn compile<R: RandomSource>(rand: &mut R, func: DensityFunctionArgument) -> CompiledDensityFunction {
         let mut this = Compiler::new();
         
         let out = this.alloc_buffer(BufferType::Out);
-        let actual = compile(&mut this, func, out);
-        
+        let actual = match func {
+            DensityFunctionArgument::Function(func) =>
+                compile(&mut this, &mut rand.fork_positional(), func.as_ref(), out),
+            DensityFunctionArgument::Constant(val) => {
+                this.push_op(Operation::ClearBuffer {
+                    destination: out,
+                    source: ValueSource::Constant(val as f32),
+                });
+
+                out
+            },
+            DensityFunctionArgument::External(_) => panic!("should be linked before being compiled"),
+        };
+
         if actual != out {
             this.push_op(Operation::ClearBuffer {
                 destination: out,
                 source: ValueSource::Buffer(out, Projection::None)
             });
         }
-        
+
         CompiledDensityFunction {
             ops: this.ops,
             buffers: this.buffers,
         }
     }
-    
+
     fn new() -> Compiler {
         Compiler {
             buffers: HashMap::with_capacity(5),
@@ -85,9 +98,9 @@ fn buffer_size_of(func: &DensityFunction, parent_size: BufferType) -> BufferType
     }
 }
 
-fn compile(compiler: &mut Compiler, func: &DensityFunction, parent_buffer: BufferId) -> BufferId {
+fn compile<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compiler, rand: &mut P, func: &DensityFunction, parent_buffer: BufferId) -> BufferId {
     match func {
-        DensityFunction::Add { left, right } => compile_add(compiler, parent_buffer, left, right),
+        DensityFunction::Add { left, right } => compile_add(compiler, rand, parent_buffer, left, right),
         DensityFunction::Shift { noise } => {
             let noise_split = noise.split(":").collect::<Vec<_>>();
             let noise = if noise_split.len() == 2 {
@@ -101,6 +114,8 @@ fn compile(compiler: &mut Compiler, func: &DensityFunction, parent_buffer: Buffe
                 source: ValueSource::Noise(
                     NoiseAccessor::new(
                         NoiseParameter::get_by_name(noise.as_str()).unwrap_or_else(|| panic!("'{}' is not a valid noise parameter", noise)),
+                        rand,
+                        noise.as_str(),
                         NoiseAccessType::Shift,
                     ),
                 ),
@@ -121,63 +136,23 @@ fn compile(compiler: &mut Compiler, func: &DensityFunction, parent_buffer: Buffe
     }
 }
 
-impl TryFrom<&DensityFunctionArgument> for ValueSource {
-    type Error = ();
-
-    fn try_from(value: &DensityFunctionArgument) -> Result<Self, Self::Error> {
-        match value {
-            DensityFunctionArgument::Function(func) => match func.as_ref() {
-                DensityFunction::Constant { value } => Ok(ValueSource::Constant(*value as _)),
-                DensityFunction::Noise { noise, xz_scale, y_scale } => {
-                    let param = NoiseParameter::get_by_name(noise.as_str()).ok_or(())?;
-
-                    Ok(
-                        ValueSource::Noise(
-                            NoiseAccessor::new(
-                                param,
-                                NoiseAccessType::Basic {
-                                    xz_scale: * xz_scale as f32,
-                                    y_scale: *y_scale as f32
-                                }
-                            )
-                        )
-                    )
-                },
-                DensityFunction::Shift { noise } => {
-                    let param = NoiseParameter::get_by_name(noise.as_str()).ok_or(())?;
-
-                    Ok(
-                        ValueSource::Noise(
-                            NoiseAccessor::new(
-                                param,
-                                NoiseAccessType::Shift,
-                            ),
-                        ),
-                    )
-                }
-                _ => Err(())
-            }
-            DensityFunctionArgument::Constant(value) => Ok(ValueSource::Constant(*value as _)),
-            DensityFunctionArgument::External(_) => panic!("functions should be linked prior to being compiled"),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use temper_core::random::XoroshiroRandomSource;
     use super::*;
     use crate::DensityFunctionArgument;
 
     #[test]
     fn test_compile_shift() {
         let mut compiler = Compiler::new();
+        let mut rand = XoroshiroRandomSource::new(0);
 
         let func = DensityFunction::Shift {
             noise: "minecraft:aquifer_barrier".to_string(),
         };
 
         let parent = BufferId { ty: BufferType::Out, id: 0 };
-        let out = compile(&mut compiler, &func, parent);
+        let out = compile(&mut compiler, &mut rand.fork_positional(), &func, parent);
 
         assert_eq!(parent, out);
         assert_eq!(compiler.ops.len(), 1);
@@ -198,6 +173,7 @@ mod tests {
     #[test]
     fn test_compile_add() {
         let mut compiler = Compiler::new();
+        let mut rand = XoroshiroRandomSource::new(0);
 
         let func = DensityFunction::Add {
             left: DensityFunctionArgument::Function(Box::new(DensityFunction::Shift { noise: "minecraft:aquifer_barrier".to_string() })),
@@ -205,10 +181,10 @@ mod tests {
         };
 
         let parent = BufferId { ty: BufferType::Out, id: 0 };
-        let out = compile(&mut compiler, &func, parent);
+        let out = compile(&mut compiler, &mut rand.fork_positional(), &func, parent);
 
         assert_eq!(parent, out);
-        assert_eq!(compiler.ops.len(), 3);
+        assert_eq!(compiler.ops.len(), 2);
         assert!(compiler.ops.last().is_some());
         assert!(matches!(compiler.ops.last().unwrap(), Operation::AddBuffer { .. }));
     }
@@ -217,6 +193,7 @@ mod tests {
     #[should_panic = "functions should be folded prior to being compiled"]
     fn test_compile_add_no_fold() {
         let mut compiler = Compiler::new();
+        let mut rand = XoroshiroRandomSource::new(0);
 
         let func = DensityFunction::Add {
             left: DensityFunctionArgument::Constant(1.0),
@@ -226,12 +203,13 @@ mod tests {
         let parent = compiler.alloc_buffer(BufferType::Out);
 
         // should panic because func should've been folded into a constant prior to compilation
-        compile(&mut compiler, &func, parent);
+        compile(&mut compiler, &mut rand.fork_positional(), &func, parent);
     }
 
     #[test]
     fn test_compile_y_clamped_gradient() {
         let mut compiler = Compiler::new();
+        let mut rand = XoroshiroRandomSource::new(0);
 
         let from_y = -16;
         let to_y = 16;
@@ -246,7 +224,7 @@ mod tests {
         };
 
         let parent = compiler.alloc_buffer(BufferType::Out);
-        let out = compile(&mut compiler, &func, parent);
+        let out = compile(&mut compiler, &mut rand.fork_positional(), &func, parent);
 
         assert_eq!(parent, out);
         assert_eq!(compiler.ops.len(), 1);

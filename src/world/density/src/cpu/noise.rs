@@ -1,5 +1,6 @@
 use bevy_math::DVec3;
-use temper_core::random::{PositionalRandom, RandomSource, XoroshiroRandomSource};
+use temper_core::pos::BlockPos;
+use temper_core::random::{PositionalRandom, RandomSource};
 use temper_data::noise::NoiseParameter;
 use temper_noise::NormalNoise;
 
@@ -19,9 +20,8 @@ pub struct NoiseAccessor {
 }
 
 impl NoiseAccessor {
-    pub fn new(noise_param: &'static NoiseParameter, access_type: NoiseAccessType) -> Self {
-        let mut rand = XoroshiroRandomSource::new(0); // TODO: replace with actual initialization for noise
-        let noise = NormalNoise::new(&mut rand.fork_positional().spawn_from_hash("test"), noise_param.first_octave, noise_param.amplitudes);
+    pub fn new<R: RandomSource, P: PositionalRandom<R>>(noise_param: &'static NoiseParameter, rand: &mut P, name: &str, access_type: NoiseAccessType) -> Self {
+        let noise = NormalNoise::new(&mut rand.spawn_from_hash(name), noise_param.first_octave, noise_param.amplitudes);
 
         Self {
             noise,
@@ -36,10 +36,10 @@ impl NoiseAccessor {
         }
     }
 
-    pub fn noise(&self, pos: DVec3) -> f32 {
+    pub fn noise(&self, pos: BlockPos) -> f32 {
         self.apply_noise(
             self.noise.noise(
-                self.apply_accessor(pos)
+                self.apply_accessor(pos.pos.as_dvec3())
             ) as f32
         )
     }

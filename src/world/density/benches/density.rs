@@ -1,5 +1,6 @@
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use std::hint::black_box;
+use temper_core::pos::ChunkPos;
 use temper_core::random::XoroshiroRandomSource;
 use temper_density::cpu::OUT_BUFFER_LEN;
 use temper_density::cpu::buffer::{Buffer, BufferId, BufferType};
@@ -53,6 +54,7 @@ fn bench_density(c: &mut Criterion) {
         flat_cell: Vec::new(),
         interpolated: Vec::new(),
         operations: &operations,
+        current_pos: ChunkPos::new(0, 0),
     };
 
     let mut group = c.benchmark_group("density execution");

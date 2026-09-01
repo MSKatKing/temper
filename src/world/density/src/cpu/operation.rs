@@ -1,6 +1,9 @@
 use crate::cpu::buffer::BufferId;
-use crate::cpu::noise::NoiseAccessor;
+use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
 use std::ops::RangeInclusive;
+use temper_core::random::{PositionalRandom, RandomSource};
+use temper_data::noise::NoiseParameter;
+use crate::{DensityFunction, DensityFunctionArgument};
 
 /// Represents a specific operation to carry out on a buffer(s)
 #[derive(Clone)]
@@ -111,4 +114,48 @@ pub enum ValueSource {
     Buffer(BufferId, Projection),
     Constant(f32),
     Noise(NoiseAccessor),
+}
+
+impl ValueSource {
+    pub fn try_from<R: RandomSource, P: PositionalRandom<R>>(func: &DensityFunctionArgument, rand: &mut P) -> Option<ValueSource> {
+        match func {
+            DensityFunctionArgument::Function(func) => match func.as_ref() {
+                DensityFunction::Constant { value } => Some(ValueSource::Constant(*value as _)),
+                DensityFunction::Noise { noise, xz_scale, y_scale } => {
+                    let param = NoiseParameter::get_by_name(noise.as_str())?;
+
+                    Some(
+                        ValueSource::Noise(
+                            NoiseAccessor::new(
+                                param,
+                                rand,
+                                noise.as_str(),
+                                NoiseAccessType::Basic {
+                                    xz_scale: * xz_scale as f32,
+                                    y_scale: *y_scale as f32
+                                }
+                            )
+                        )
+                    )
+                },
+                DensityFunction::Shift { noise } => {
+                    let param = NoiseParameter::get_by_name(noise.as_str())?;
+
+                    Some(
+                        ValueSource::Noise(
+                            NoiseAccessor::new(
+                                param,
+                                rand,
+                                noise.as_str(),
+                                NoiseAccessType::Shift,
+                            ),
+                        ),
+                    )
+                }
+                _ => None,
+            }
+            DensityFunctionArgument::Constant(value) => Some(ValueSource::Constant(*value as _)),
+            DensityFunctionArgument::External(_) => panic!("functions should be linked prior to being compiled"),
+        }
+    }
 }

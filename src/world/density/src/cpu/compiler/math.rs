@@ -1,17 +1,18 @@
+use temper_core::random::{PositionalRandom, RandomSource};
 use crate::cpu::buffer::BufferId;
 use crate::cpu::compiler::{compile, Compiler};
 use crate::cpu::operation::{Operation, Projection, ValueSource};
 use crate::DensityFunctionArgument;
 
-pub fn compile_add(compiler: &mut Compiler, parent_buffer: BufferId, left: &DensityFunctionArgument, right: &DensityFunctionArgument) -> BufferId {
-    let (left_value, left_buffer) = match ValueSource::try_from(left) {
-        Ok(v) =>  (v, None),
-        Err(_) => {
+pub fn compile_add<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compiler, rand: &mut P, parent_buffer: BufferId, left: &DensityFunctionArgument, right: &DensityFunctionArgument) -> BufferId {
+    let (left_value, left_buffer) = match ValueSource::try_from(left, rand) {
+        Some(v) =>  (v, None),
+        None => {
             let DensityFunctionArgument::Function(func) = left else {
                 unreachable!()
             };
 
-            let out = compile(compiler, func, parent_buffer);
+            let out = compile(compiler, rand, func, parent_buffer);
 
             (
                 ValueSource::Buffer(out, Projection::None),
@@ -20,9 +21,9 @@ pub fn compile_add(compiler: &mut Compiler, parent_buffer: BufferId, left: &Dens
         }
     };
 
-    let (right_value, right_buffer) = match ValueSource::try_from(right) {
-        Ok(v) => (v, None),
-        Err(_) => {
+    let (right_value, right_buffer) = match ValueSource::try_from(right, rand) {
+        Some(v) => (v, None),
+        None => {
             let DensityFunctionArgument::Function(func) = right else {
                 unreachable!()
             };
@@ -33,7 +34,7 @@ pub fn compile_add(compiler: &mut Compiler, parent_buffer: BufferId, left: &Dens
                 parent_buffer
             };
 
-            let out = compile(compiler, func, buffer);
+            let out = compile(compiler, rand, func, buffer);
 
             if out != buffer {
                 compiler.free_buffer(buffer);
