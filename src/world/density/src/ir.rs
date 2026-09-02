@@ -75,6 +75,13 @@ pub enum DensityFunctionArgument {
 }
 
 impl DensityFunctionArgument {
+    pub fn parse(data: &str) -> Result<Self, serde_json::Error> {
+        match serde_json::from_str::<DensityFunction>(data) {
+            Ok(v) => Ok(DensityFunctionArgument::Function(Box::new(v))),
+            Err(_) => serde_json::from_str(data),
+        }
+    }
+
     fn wrap_func(func: DensityFunction) -> DensityFunctionArgument {
         DensityFunctionArgument::Function(Box::new(func))
     }
@@ -100,12 +107,16 @@ impl DensityFunctionArgument {
         }
     }
 
-    fn link_arg(&mut self, externals: &HashMap<String, DensityFunctionArgument>) {
+    pub fn link_arg(&mut self, externals: &HashMap<String, DensityFunctionArgument>) {
         if let Self::External(ext) = self {
             let mut ext = externals.get(ext).cloned().unwrap();
             ext.link_arg(externals);
             *self = ext;
         }
+    }
+
+    pub fn fold(self) -> Self {
+        fold_arg(self)
     }
 }
 
