@@ -185,7 +185,7 @@ fn neighbor_snapshots(
 
             if chunk.stage < stage.raw() {
                 return Err(WorldError::WorldGenerationError(format!(
-                    "chunk {:?} is at stage {}, but stage {} requires neighbor stage {}",
+                    "chunk {} is at stage {}, but stage {} requires neighbor stage {}",
                     pos, chunk.stage, key.stage, stage
                 )));
             }

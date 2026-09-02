@@ -28,15 +28,15 @@ impl PreparedChunk {
 
 #[derive(Component)]
 pub struct ChunkReceiver {
-    pub loading: VecDeque<(i32, i32)>,
-    pub dirty: VecDeque<(i32, i32)>,
-    pub loaded: HashSet<(i32, i32)>,
-    pub in_flight: HashSet<(i32, i32)>, // dispatched, not yet harvested
-    pub unloading: VecDeque<(i32, i32)>,
+    pub loading: VecDeque<ChunkPos>,
+    pub dirty: VecDeque<ChunkPos>,
+    pub loaded: HashSet<ChunkPos>,
+    pub in_flight: HashSet<ChunkPos>, // dispatched, not yet harvested
+    pub unloading: VecDeque<ChunkPos>,
     pub chunks_per_tick: f32,
     pub ready_tx: Sender<PreparedChunk>,
     pub ready_rx: Receiver<PreparedChunk>,
-    pub retry_counts: HashMap<(i32, i32), u8>,
+    pub retry_counts: HashMap<ChunkPos, u8>,
 }
 
 impl ChunkReceiver {

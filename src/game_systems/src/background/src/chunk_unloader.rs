@@ -21,24 +21,16 @@ pub fn handle(
 
     // gather chunks players can see OR are waiting to see
     for chunk_receiver in query.iter() {
-        for &(x, z) in &chunk_receiver.loaded {
-            visible_chunks.insert(ChunkPos::new(x, z));
-        }
+        visible_chunks.extend(chunk_receiver.loaded.iter().copied());
 
         // this protects chunks currently being generated/sent
-        for &(x, z) in &chunk_receiver.loading {
-            visible_chunks.insert(ChunkPos::new(x, z));
-        }
+        visible_chunks.extend(chunk_receiver.loading.iter().copied());
 
         // this protects chunks waiting for block updates
-        for &(x, z) in &chunk_receiver.dirty {
-            visible_chunks.insert(ChunkPos::new(x, z));
-        }
+        visible_chunks.extend(chunk_receiver.dirty.iter().copied());
 
         // this protects chunks dispatched to the pool but not yet harvested
-        for &(x, z) in &chunk_receiver.in_flight {
-            visible_chunks.insert(ChunkPos::new(x, z));
-        }
+        visible_chunks.extend(chunk_receiver.in_flight.iter().copied());
     }
 
     // map all chunks currently in the cache
@@ -115,7 +107,7 @@ pub fn handle(
         state.0.thread_pool.oneshot(move || {
             for (pos, dim, chunk) in chunks_to_write {
                 if let Err(err) = state_clone.0.world.insert_chunk(pos, dim, chunk) {
-                    error!("Failed to write chunk {:?} back to storage: {:?}", pos, err);
+                    error!("Failed to write chunk {} back to storage: {:?}", pos, err);
                 }
             }
         });

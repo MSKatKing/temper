@@ -1,6 +1,5 @@
 use anyhow::Context;
 use bevy_ecs::prelude::{Entity, MessageWriter, Query, Res};
-use bevy_math::IVec2;
 use std::cmp::max;
 use std::collections::HashSet;
 use std::sync::atomic::Ordering;
@@ -54,15 +53,17 @@ pub fn handle(
 
         // Both phases need the same "is this chunk still worth working on"
         // test, so compute it once per player.
-        let player_chunk_pos = ChunkPos::from(pos.coords);
-        let player_chunk = IVec2::new(player_chunk_pos.x(), player_chunk_pos.z());
+        let player_chunk = ChunkPos::from(pos.coords);
         let view_distance = max(
             u32::from(client_info.view_distance),
             state.0.config.chunk_render_distance,
         );
         let max_distance_sq = (view_distance * view_distance) as i32;
-        let in_view =
-            |x: i32, z: i32| IVec2::new(x, z).distance_squared(player_chunk) <= max_distance_sq;
+        let in_view = |chunk_pos: ChunkPos| {
+            let dx = chunk_pos.x() - player_chunk.x();
+            let dz = chunk_pos.z() - player_chunk.z();
+            dx * dx + dz * dz <= max_distance_sq
+        };
 
         // ==========================================
         // PHASE 1: HARVEST & SEND COMPLETED CHUNKS
@@ -77,8 +78,7 @@ pub fn handle(
         // Anything harvested is no longer in flight, whatever its outcome.
         // This is what stops a failure from stranding the coordinate forever.
         for prepared in &harvested {
-            let pos = prepared.chunk_pos();
-            chunk_receiver.in_flight.remove(&(pos.x(), pos.z()));
+            chunk_receiver.in_flight.remove(&prepared.chunk_pos());
         }
 
         let mut ready_to_send: Vec<ReadyChunk> = Vec::new();
@@ -87,36 +87,32 @@ pub fn handle(
                 PreparedChunk::Ready(ready) => {
                     // Success wipes the failure history for this chunk, so a
                     // chunk that fails twice then succeeds starts clean.
-                    chunk_receiver
-                        .retry_counts
-                        .remove(&(ready.chunk_pos.x(), ready.chunk_pos.z()));
+                    chunk_receiver.retry_counts.remove(&ready.chunk_pos);
 
                     // The player may have flown past while this was generating.
                     // `in_flight` is already cleared above, so `chunk_calculator`
                     // will requeue it if they come back.
-                    if in_view(ready.chunk_pos.x(), ready.chunk_pos.z()) {
+                    if in_view(ready.chunk_pos) {
                         ready_to_send.push(ready);
                     }
                 }
                 PreparedChunk::Failed { chunk_pos } => {
-                    let key = (chunk_pos.x(), chunk_pos.z());
-
-                    if !in_view(key.0, key.1) {
-                        chunk_receiver.retry_counts.remove(&key);
+                    if !in_view(chunk_pos) {
+                        chunk_receiver.retry_counts.remove(&chunk_pos);
                         continue;
                     }
 
-                    let attempts = chunk_receiver.retry_counts.entry(key).or_insert(0);
+                    let attempts = chunk_receiver.retry_counts.entry(chunk_pos).or_insert(0);
                     *attempts += 1;
 
                     if *attempts >= MAX_CHUNK_RETRIES {
                         error!(
-                            "Chunk {:?} failed to prepare {} times; giving up for this session",
+                            "Chunk {} failed to prepare {} times; giving up for this session",
                             chunk_pos, attempts
                         );
-                        chunk_receiver.retry_counts.remove(&key);
+                        chunk_receiver.retry_counts.remove(&chunk_pos);
                     } else {
-                        chunk_receiver.loading.push_back(key);
+                        chunk_receiver.loading.push_back(chunk_pos);
                     }
                 }
             }
@@ -136,9 +132,7 @@ pub fn handle(
             let packets_len = ready_to_send.len();
 
             for chunk in ready_to_send {
-                chunk_receiver
-                    .loaded
-                    .insert((chunk.chunk_pos.x(), chunk.chunk_pos.z()));
+                chunk_receiver.loaded.insert(chunk.chunk_pos);
 
                 if chunk.is_new_load {
                     mob_load_writer.write(temper_messages::load_chunk_entities::LoadChunkEntities(
@@ -163,10 +157,10 @@ pub fn handle(
         }
 
         // tell the client to unload chunks that are no longer needed
-        while let Some(coords) = chunk_receiver.unloading.pop_front() {
+        while let Some(chunk_pos) = chunk_receiver.unloading.pop_front() {
             let packet = temper_protocol::outgoing::unload_chunk::UnloadChunk {
-                x: coords.0,
-                z: coords.1,
+                x: chunk_pos.x(),
+                z: chunk_pos.z(),
             };
             if let Err(err) = conn.send_packet(packet) {
                 error!("Failed to send UnloadChunk packet: {:?}", err);
@@ -206,7 +200,7 @@ pub fn handle(
             }
         }
 
-        let mut needed_chunks: Vec<(i32, i32)> = Vec::new();
+        let mut needed_chunks: Vec<ChunkPos> = Vec::new();
 
         if sent_chunks < chunk_receiver.chunks_per_tick as usize {
             while let Some(coords) = chunk_receiver.loading.pop_front() {
@@ -226,20 +220,15 @@ pub fn handle(
         }
 
         // dispatch to the thread pool
-        for coordinates in needed_chunks
-            .into_iter()
-            .filter(|coord| in_view(coord.0, coord.1))
-            .map(|c| ChunkPos::new(c.0, c.1))
-        {
-            let is_new_load = loading_chunks.contains(&(coordinates.x(), coordinates.z()));
+        for coordinates in needed_chunks.into_iter().filter(|c| in_view(*c)) {
+            let is_new_load = loading_chunks.contains(&coordinates);
             let is_compressed = conn.compress.load(Ordering::Relaxed);
 
             let state_clone = state.clone();
             let tx = chunk_receiver.ready_tx.clone();
 
-            chunk_receiver
-                .in_flight
-                .insert((coordinates.x(), coordinates.z())); // Mark this chunk as in-flight to prevent duplicate generation
+            // Mark this chunk as in-flight to prevent duplicate generation
+            chunk_receiver.in_flight.insert(coordinates);
 
             state.0.thread_pool.oneshot(move || {
                 // Inner closure so we can use `?` on the fallible steps instead
@@ -280,7 +269,7 @@ pub fn handle(
                 };
 
                 let message = prepare().unwrap_or_else(|err| {
-                    error!("Chunk {:?} failed to prepare: {err:#}", coordinates);
+                    error!("Chunk {} failed to prepare: {err:#}", coordinates);
                     PreparedChunk::Failed {
                         chunk_pos: coordinates,
                     }
