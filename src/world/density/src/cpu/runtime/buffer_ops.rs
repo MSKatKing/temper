@@ -379,8 +379,8 @@ pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::_
                             let src_v = lerp3_f32_simd([x, z[z_idx], y], data);
                             let dst_v = unsafe {
                                 x86_64::_mm256_set_m128(
-                                    x86_64::_mm_loadu_ps(&raw const dst[i + 0x10]),
-                                    x86_64::_mm_loadu_ps(&raw const dst[i]),
+                                    x86_64::_mm_load_ps(&raw const dst[i + 0x10]),
+                                    x86_64::_mm_load_ps(&raw const dst[i]),
                                 )
                             };
 
@@ -390,8 +390,8 @@ pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::_
                                 let lo = x86_64::_mm256_castps256_ps128(dst_v);
                                 let hi = x86_64::_mm256_extractf128_ps::<1>(dst_v);
 
-                                x86_64::_mm_storeu_ps(&raw mut dst[i], lo);
-                                x86_64::_mm_storeu_ps(&raw mut dst[i + 0x10], hi)
+                                x86_64::_mm_store_ps(&raw mut dst[i], lo);
+                                x86_64::_mm_store_ps(&raw mut dst[i + 0x10], hi)
                             }
                         }
                     });
@@ -405,20 +405,20 @@ pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::_
                         let z = (i >> 1) & 0xF;
 
                         let src_v = unsafe {
-                            x86_64::_mm256_loadu_ps(data.as_ptr())
+                            x86_64::_mm256_load_ps(data.as_ptr())
                         };
 
                         for y in 0usize..384 {
                             let idx = (y << 8) | (z << 4) | x;
 
                             let dst_v = unsafe {
-                                x86_64::_mm256_loadu_ps(&raw const dst[idx])
+                                x86_64::_mm256_load_ps(&raw const dst[idx])
                             };
 
                             let dst_v = action(src_v, dst_v);
 
                             unsafe {
-                                x86_64::_mm256_storeu_ps(&raw mut dst[idx], dst_v);
+                                x86_64::_mm256_store_ps(&raw mut dst[idx], dst_v);
                             }
                         }
                     })
@@ -446,13 +446,13 @@ pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::_
                         let src_v = x86_64::_mm256_set_m128(src_v, src_v);
 
                         let dst_v = unsafe {
-                            x86_64::_mm256_loadu_ps(val.as_ptr())
+                            x86_64::_mm256_load_ps(val.as_ptr())
                         };
 
                         let dst_v = action(src_v, dst_v);
 
                         unsafe {
-                            x86_64::_mm256_storeu_ps(val.as_mut_ptr(), dst_v);
+                            x86_64::_mm256_store_ps(val.as_mut_ptr(), dst_v);
                         }
                     })
             },
@@ -478,13 +478,13 @@ pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::_
                         );
 
                         let dst_v = unsafe {
-                            x86_64::_mm256_loadu_ps(&raw const dst[(z << 4) | x])
+                            x86_64::_mm256_load_ps(&raw const dst[(z << 4) | x])
                         };
 
                         let dst_v = action(src_v, dst_v);
 
                         unsafe {
-                            x86_64::_mm256_storeu_ps(&raw mut dst[(z << 4) | x], dst_v);
+                            x86_64::_mm256_store_ps(&raw mut dst[(z << 4) | x], dst_v);
                         }
                     })
             }
