@@ -1,13 +1,13 @@
-use temper_core::pos::ChunkBlockPos;
 use crate::cpu::buffer::BufferType;
 use crate::cpu::workspace::Workspace;
+use temper_core::pos::ChunkBlockPos;
 
 pub mod buffer;
+pub mod compiler;
+pub mod noise;
 pub mod operation;
 mod runtime;
 pub mod workspace;
-pub mod compiler;
-pub mod noise;
 
 fn unpack_coord(coord: u32) -> ChunkBlockPos {
     let x = coord as u8 & 0xF;
@@ -32,12 +32,12 @@ fn unpack_buffer_coord(coord: u32, buffer_type: BufferType) -> ChunkBlockPos {
                 cell_y + 3 * (corner_idx >> 2 & 1) as i16 - 64,
                 cell_z + 3 * (corner_idx >> 1 & 1) as u8,
             )
-        },
+        }
         BufferType::Flat => {
             let x = coord as u8 & 0xF;
             let z = (coord >> 4) as u8 & 0xF;
             ChunkBlockPos::new(x, 0, z)
-        },
+        }
         BufferType::FlatCell => {
             let x = (coord as u8 & 0x3) * 4;
             let z = ((coord >> 2) as u8 & 0x3) * 4;
@@ -54,7 +54,7 @@ fn pack_buffer_coord(local_pos: ChunkBlockPos, buffer_type: BufferType) -> u32 {
             let y = (local_pos.y() + 64) as u32;
 
             (y << 8) | (z << 4) | x
-        },
+        }
         BufferType::Interpolated => {
             let cell_x = local_pos.x() as u32 / 4;
             let cell_z = local_pos.z() as u32 / 4;
@@ -62,26 +62,26 @@ fn pack_buffer_coord(local_pos: ChunkBlockPos, buffer_type: BufferType) -> u32 {
 
             let cell_idx = (cell_x & 0x4) | ((cell_z & 0x4) << 2) | (cell_y << 4);
             cell_idx << 3
-        },
+        }
         BufferType::Flat => {
             let x = local_pos.x() as u32;
             let z = local_pos.z() as u32;
 
             (z << 4) | x
-        },
+        }
         BufferType::FlatCell => todo!(),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use temper_core::pos::ChunkPos;
     use super::*;
     use crate::cpu::buffer::{Buffer, BufferId, BufferType};
+    use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
     use crate::cpu::operation::{Operation, ValueSource};
+    use temper_core::pos::ChunkPos;
     use temper_core::random::XoroshiroRandomSource;
     use temper_noise::NormalNoise;
-    use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
 
     #[test]
     pub fn test_simple() {
@@ -94,12 +94,13 @@ mod tests {
             },
             Operation::AddBuffer {
                 destination: BufferId::OUT,
-                source: ValueSource::Noise(
-                    NoiseAccessor::new_noise(
-                        NormalNoise::new(&mut rand, 1, &[3.0, 2.0, 1.0]),
-                        NoiseAccessType::Basic { xz_scale: 1.0, y_scale: 1.0 },
-                    )
-                ),
+                source: ValueSource::Noise(NoiseAccessor::new_noise(
+                    NormalNoise::new(&mut rand, 1, &[3.0, 2.0, 1.0]),
+                    NoiseAccessType::Basic {
+                        xz_scale: 1.0,
+                        y_scale: 1.0,
+                    },
+                )),
             },
             Operation::MulBuffer {
                 destination: BufferId::OUT,
@@ -111,12 +112,13 @@ mod tests {
             },
             Operation::AddBuffer {
                 destination: BufferId::flat(0),
-                source: ValueSource::Noise(
-                    NoiseAccessor::new_noise(
-                        NormalNoise::new(&mut rand, 4, &[1.0, 2.0, 3.0]),
-                        NoiseAccessType::Basic { xz_scale: 1.0, y_scale: 1.0 }
-                    )
-                ),
+                source: ValueSource::Noise(NoiseAccessor::new_noise(
+                    NormalNoise::new(&mut rand, 4, &[1.0, 2.0, 3.0]),
+                    NoiseAccessType::Basic {
+                        xz_scale: 1.0,
+                        y_scale: 1.0,
+                    },
+                )),
             },
             Operation::AddBuffer {
                 destination: BufferId::OUT,

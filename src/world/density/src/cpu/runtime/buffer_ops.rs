@@ -1,9 +1,9 @@
 use crate::cpu::buffer::{Buffer, BufferType};
 use crate::cpu::{pack_buffer_coord, unpack_buffer_coord};
+use std::arch::x86_64;
 use std::ops::{Add, Deref, Mul};
 use temper_core::math::{lerp3_f32, lerp3_f32_simd};
 use temper_core::pos::ChunkBlockPos;
-use std::arch::x86_64;
 
 /// Copies the values from `src` into `dst`. `dst` must be a larger buffer than `src` or nothing
 /// will be copied.
@@ -23,13 +23,7 @@ use std::arch::x86_64;
 pub fn buffer_copy_to(dst: &mut Buffer, src: &Buffer) -> Option<()> {
     if is_x86_feature_detected!("avx2") {
         // SAFETY: avx2 is supported if we made it here
-        unsafe {
-            buffer_apply_func_simd(
-                dst,
-                src,
-                |src, _| src
-            )
-        }
+        unsafe { buffer_apply_func_simd(dst, src, |src, _| src) }
     } else {
         buffer_apply_func(dst, src, |src, _| src)
     }
@@ -53,13 +47,7 @@ pub fn buffer_copy_to(dst: &mut Buffer, src: &Buffer) -> Option<()> {
 pub fn buffer_add(dst: &mut Buffer, src: &Buffer) -> Option<()> {
     if is_x86_feature_detected!("avx2") {
         // SAFETY: avx2 is supported if we made it here
-        unsafe {
-            buffer_apply_func_simd(
-                dst,
-                src,
-                |src, dst| x86_64::_mm256_add_ps(src, dst)
-            )
-        }
+        unsafe { buffer_apply_func_simd(dst, src, |src, dst| x86_64::_mm256_add_ps(src, dst)) }
     } else {
         buffer_apply_func(dst, src, f32::add)
     }
@@ -83,13 +71,7 @@ pub fn buffer_add(dst: &mut Buffer, src: &Buffer) -> Option<()> {
 pub fn buffer_mul(dst: &mut Buffer, src: &Buffer) -> Option<()> {
     if is_x86_feature_detected!("avx2") {
         // SAFETY: avx2 is supported if we made it here
-        unsafe {
-            buffer_apply_func_simd(
-                dst,
-                src,
-                |src, dst| x86_64::_mm256_mul_ps(src, dst)
-            )
-        }
+        unsafe { buffer_apply_func_simd(dst, src, |src, dst| x86_64::_mm256_mul_ps(src, dst)) }
     } else {
         buffer_apply_func(dst, src, f32::mul)
     }
@@ -112,13 +94,7 @@ pub fn buffer_mul(dst: &mut Buffer, src: &Buffer) -> Option<()> {
 pub fn buffer_min(dst: &mut Buffer, src: &Buffer) -> Option<()> {
     if is_x86_feature_detected!("avx2") {
         // SAFETY: avx2 is supported if we made it here
-        unsafe {
-            buffer_apply_func_simd(
-                dst,
-                src,
-                |src, dst| x86_64::_mm256_min_ps(src, dst)
-            )
-        }
+        unsafe { buffer_apply_func_simd(dst, src, |src, dst| x86_64::_mm256_min_ps(src, dst)) }
     } else {
         buffer_apply_func(dst, src, f32::min)
     }
@@ -141,13 +117,7 @@ pub fn buffer_min(dst: &mut Buffer, src: &Buffer) -> Option<()> {
 pub fn buffer_max(dst: &mut Buffer, src: &Buffer) -> Option<()> {
     if is_x86_feature_detected!("avx2") {
         // SAFETY: avx2 is supported if we made it here
-        unsafe {
-            buffer_apply_func_simd(
-                dst,
-                src,
-                |src, dst| x86_64::_mm256_max_ps(src, dst)
-            )
-        }
+        unsafe { buffer_apply_func_simd(dst, src, |src, dst| x86_64::_mm256_max_ps(src, dst)) }
     } else {
         buffer_apply_func(dst, src, f32::max)
     }
@@ -171,13 +141,7 @@ pub fn buffer_max(dst: &mut Buffer, src: &Buffer) -> Option<()> {
 pub fn buffer_sub(dst: &mut Buffer, src: &Buffer) -> Option<()> {
     if is_x86_feature_detected!("avx2") {
         // SAFETY: avx2 is supported if we made it here
-        unsafe {
-            buffer_apply_func_simd(
-                dst,
-                src,
-                |src, dst| x86_64::_mm256_sub_ps(dst, src)
-            )
-        }
+        unsafe { buffer_apply_func_simd(dst, src, |src, dst| x86_64::_mm256_sub_ps(dst, src)) }
     } else {
         buffer_apply_func(dst, src, |src, dst| dst - src)
     }
@@ -201,13 +165,7 @@ pub fn buffer_sub(dst: &mut Buffer, src: &Buffer) -> Option<()> {
 pub fn buffer_div(dst: &mut Buffer, src: &Buffer) -> Option<()> {
     if is_x86_feature_detected!("avx2") {
         // SAFETY: avx2 is supported if we made it here
-        unsafe {
-            buffer_apply_func_simd(
-                dst,
-                src,
-                |src, dst| x86_64::_mm256_div_ps(dst, src)
-            )
-        }
+        unsafe { buffer_apply_func_simd(dst, src, |src, dst| x86_64::_mm256_div_ps(dst, src)) }
     } else {
         buffer_apply_func(dst, src, |src, dst| dst / src)
     }
@@ -223,7 +181,7 @@ pub fn buffer_div(dst: &mut Buffer, src: &Buffer) -> Option<()> {
 ///  * `dst`: the destination buffer.
 ///  * `src`: the source buffer.
 ///  * `action`: the function that takes in two f32s, one from `src` and one from `dst`, and
-/// returns the value to store into `dst`. The arguments are `fn action(src: f32, dst: f32) -> f32`.
+///    returns the value to store into `dst`. The arguments are `fn action(src: f32, dst: f32) -> f32`.
 ///
 /// # Returns
 ///  * `Some(())`: the operation completed successfully.
@@ -232,7 +190,7 @@ pub fn buffer_div(dst: &mut Buffer, src: &Buffer) -> Option<()> {
 pub fn buffer_apply_func<F: Fn(f32, f32) -> f32>(
     dst: &mut Buffer,
     src: &Buffer,
-    action: F
+    action: F,
 ) -> Option<()> {
     if dst.ty < src.ty {
         return None;
@@ -248,32 +206,25 @@ pub fn buffer_apply_func<F: Fn(f32, f32) -> f32>(
         BufferType::Out | BufferType::Full => match src.ty {
             BufferType::Out | BufferType::Full => unreachable!(),
             BufferType::Interpolated => {
-                src
-                    .chunks_exact(8)
+                src.as_chunks::<8>()
+                    .0
+                    .iter()
                     .enumerate()
                     .for_each(|(i, data)| {
                         let pos = unpack_buffer_coord((i as u32) << 3, BufferType::Interpolated);
-
-                        let Some(data): Option<[f32; 8]> = data.as_array().cloned() else {
-                            unreachable!()
-                        };
 
                         for y in 0..4 {
                             for z in 0..4 {
                                 for x in 0..4 {
                                     let i = pack_buffer_coord(
-                                        ChunkBlockPos::new(
-                                            pos.x() + x,
-                                            pos.y() + y,
-                                            pos.z() + z,
-                                        ),
+                                        ChunkBlockPos::new(pos.x() + x, pos.y() + y, pos.z() + z),
                                         BufferType::Full,
                                     ) as usize;
 
                                     dst[i] = action(
                                         lerp3_f32(
                                             [x as f32 / 4.0, z as f32 / 4.0, y as f32 / 4.0],
-                                            data
+                                            *data,
                                         ),
                                         dst[i],
                                     );
@@ -281,112 +232,66 @@ pub fn buffer_apply_func<F: Fn(f32, f32) -> f32>(
                             }
                         }
                     });
-            },
-            BufferType::Flat => {
-                src
-                    .pos_iter()
-                    .for_each(|(pos, val)| {
-                        let xz_idx = ((pos.z() as usize) << 4) | (pos.x() as usize);
-
-                        for i in (xz_idx..((384 << 8) | xz_idx)).step_by(1 << 8) {
-                            dst[i] = action(
-                                *val,
-                                dst[i],
-                            );
-                        }
-                    })
-            },
-            BufferType::FlatCell => {
-                src
-                    .pos_iter()
-                    .for_each(|(pos, val)| {
-                        for y in -64..320 {
-                            for z in 0..4 {
-                                for x in 0..4 {
-                                    let i = pack_buffer_coord(
-                                        ChunkBlockPos::new(
-                                            pos.x() + x,
-                                            y,
-                                            pos.z() + z,
-                                        ),
-                                        BufferType::Full,
-                                    ) as usize;
-
-                                    dst[i] = action(
-                                        *val,
-                                        dst[i],
-                                    );
-                                }
-                            }
-                        }
-                    })
             }
+            BufferType::Flat => src.pos_iter().for_each(|(pos, val)| {
+                let xz_idx = ((pos.z() as usize) << 4) | (pos.x() as usize);
+
+                for i in (xz_idx..((384 << 8) | xz_idx)).step_by(1 << 8) {
+                    dst[i] = action(*val, dst[i]);
+                }
+            }),
+            BufferType::FlatCell => src.pos_iter().for_each(|(pos, val)| {
+                for y in -64..320 {
+                    for z in 0..4 {
+                        for x in 0..4 {
+                            let i = pack_buffer_coord(
+                                ChunkBlockPos::new(pos.x() + x, y, pos.z() + z),
+                                BufferType::Full,
+                            ) as usize;
+
+                            dst[i] = action(*val, dst[i]);
+                        }
+                    }
+                }
+            }),
         },
         BufferType::Interpolated => match src.ty {
             BufferType::Out | BufferType::Full => unreachable!(),
             BufferType::Interpolated => unreachable!(),
-            BufferType::Flat => {
-                dst
-                    .pos_iter_mut()
-                    .for_each(|(pos, val)| {
-                        let i = pack_buffer_coord(
-                            ChunkBlockPos::new(
-                                pos.x(),
-                                0,
-                                pos.z(),
-                            ),
-                            BufferType::Flat,
-                        ) as usize;
+            BufferType::Flat => dst.pos_iter_mut().for_each(|(pos, val)| {
+                let i = pack_buffer_coord(ChunkBlockPos::new(pos.x(), 0, pos.z()), BufferType::Flat)
+                    as usize;
 
-                        *val = action(
-                            src[i],
-                            *val,
-                        );
-                    })
-            },
+                *val = action(src[i], *val);
+            }),
             BufferType::FlatCell => {
-                dst
-                    .chunks_exact_mut(8)
+                dst.as_chunks_mut::<8>()
+                    .0
+                    .iter_mut()
                     .enumerate()
                     .for_each(|(i, val)| {
-                        let pos = unpack_buffer_coord(
-                            (i as u32) << 3,
-                            BufferType::Interpolated
-                        );
+                        let pos = unpack_buffer_coord((i as u32) << 3, BufferType::Interpolated);
                         let i = pack_buffer_coord(pos, BufferType::FlatCell) as usize;
 
-                        val
-                            .iter_mut()
-                            .for_each(|v| {
-                                *v = action(
-                                    src[i],
-                                    *v,
-                                );
-                            })
+                        val.iter_mut().for_each(|v| {
+                            *v = action(src[i], *v);
+                        })
                     })
-            },
+            }
         },
         BufferType::Flat => match src.ty {
             BufferType::Out | BufferType::Full => unreachable!(),
             BufferType::Interpolated => unreachable!(),
             BufferType::Flat => unreachable!(),
-            BufferType::FlatCell => {
-                dst
-                    .iter_mut()
-                    .enumerate()
-                    .for_each(|(i, val)| {
-                        let x = (i >> 2) & 0x3;
-                        let z = (i >> 6) & 0x3;
+            BufferType::FlatCell => dst.iter_mut().enumerate().for_each(|(i, val)| {
+                let x = (i >> 2) & 0x3;
+                let z = (i >> 6) & 0x3;
 
-                        let i = (z << 2) | x;
+                let i = (z << 2) | x;
 
-                        *val = action(
-                            src[i],
-                            *val
-                        );
-                    })
-            }
-        }
+                *val = action(src[i], *val);
+            }),
+        },
         BufferType::FlatCell => unreachable!(),
     }
 
@@ -408,7 +313,7 @@ pub fn buffer_apply_func<F: Fn(f32, f32) -> f32>(
 ///  * `dst`: the destination buffer.
 ///  * `src`: the source buffer.
 ///  * `action`: the function that takes in two f32s, one from `src` and one from `dst`, and
-/// returns the value to store into `dst`. The arguments are `fn action(src: f32, dst: f32) -> f32`.
+///    returns the value to store into `dst`. The arguments are `fn action(src: f32, dst: f32) -> f32`.
 ///
 /// # Returns
 ///  * `Some(())`: the operation completed successfully.
@@ -418,7 +323,7 @@ pub fn buffer_apply_func<F: Fn(f32, f32) -> f32>(
 pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::__m256>(
     dst: &mut Buffer,
     src: &Buffer,
-    action: F
+    action: F,
 ) -> Option<()> {
     if dst.ty < src.ty {
         return None;
@@ -434,49 +339,19 @@ pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::_
         BufferType::Out | BufferType::Full => match src.ty {
             BufferType::Out | BufferType::Full => unreachable!(),
             BufferType::Interpolated => {
-                let x = x86_64::_mm256_setr_ps(
-                    0.0,
-                    0.25,
-                    0.5,
-                    0.75,
-                    0.0,
-                    0.25,
-                    0.5,
-                    0.75
-                );
+                let x = x86_64::_mm256_setr_ps(0.0, 0.25, 0.5, 0.75, 0.0, 0.25, 0.5, 0.75);
 
                 let z = [
-                    x86_64::_mm256_setr_ps(
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.25,
-                        0.25,
-                        0.25,
-                        0.25,
-                    ),
-                    x86_64::_mm256_setr_ps(
-                        0.5,
-                        0.5,
-                        0.5,
-                        0.5,
-                        0.75,
-                        0.75,
-                        0.75,
-                        0.75,
-                    ),
+                    x86_64::_mm256_setr_ps(0.0, 0.0, 0.0, 0.0, 0.25, 0.25, 0.25, 0.25),
+                    x86_64::_mm256_setr_ps(0.5, 0.5, 0.5, 0.5, 0.75, 0.75, 0.75, 0.75),
                 ];
 
-                src
-                    .chunks_exact(8)
+                src.as_chunks::<8>()
+                    .0
+                    .iter()
                     .enumerate()
                     .for_each(|(i, data)| {
                         let pos = unpack_buffer_coord((i as u32) << 3, BufferType::Interpolated);
-
-                        let Some(data): Option<[f32; 8]> = data.as_array().cloned() else {
-                            unreachable!()
-                        };
 
                         // run 8 times because there's 64 values in the cell
                         for i in 0..8 {
@@ -486,15 +361,11 @@ pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::_
                             let z_idx = (i & 1) as usize;
 
                             let i = pack_buffer_coord(
-                                ChunkBlockPos::new(
-                                    pos.x(),
-                                    pos.y() + y_idx,
-                                    pos.z() + 2 * (i & 1),
-                                ),
+                                ChunkBlockPos::new(pos.x(), pos.y() + y_idx, pos.z() + 2 * (i & 1)),
                                 BufferType::Full,
                             ) as usize;
 
-                            let src_v = lerp3_f32_simd([x, z[z_idx], y], data);
+                            let src_v = lerp3_f32_simd([x, z[z_idx], y], *data);
                             let dst_v = unsafe {
                                 x86_64::_mm256_set_m128(
                                     x86_64::_mm_load_ps(&raw const dst[i + 0x10]),
@@ -513,34 +384,30 @@ pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::_
                             }
                         }
                     });
-            },
-            BufferType::Flat => {
-                src
-                    .chunks_exact(8)
-                    .enumerate()
-                    .for_each(|(i, data)| {
-                        let x = (i & 1) * 8;
-                        let z = (i >> 1) & 0xF;
+            }
+            BufferType::Flat => src
+                .as_chunks::<8>()
+                .0
+                .iter()
+                .enumerate()
+                .for_each(|(i, data)| {
+                    let x = (i & 1) * 8;
+                    let z = (i >> 1) & 0xF;
 
-                        let src_v = unsafe {
-                            x86_64::_mm256_load_ps(data.as_ptr())
-                        };
+                    let src_v = unsafe { x86_64::_mm256_load_ps(data.as_ptr()) };
 
-                        for y in 0usize..384 {
-                            let idx = (y << 8) | (z << 4) | x;
+                    for y in 0usize..384 {
+                        let idx = (y << 8) | (z << 4) | x;
 
-                            let dst_v = unsafe {
-                                x86_64::_mm256_load_ps(&raw const dst[idx])
-                            };
+                        let dst_v = unsafe { x86_64::_mm256_load_ps(&raw const dst[idx]) };
 
-                            let dst_v = action(src_v, dst_v);
+                        let dst_v = action(src_v, dst_v);
 
-                            unsafe {
-                                x86_64::_mm256_store_ps(&raw mut dst[idx], dst_v);
-                            }
+                        unsafe {
+                            x86_64::_mm256_store_ps(&raw mut dst[idx], dst_v);
                         }
-                    })
-            },
+                    }
+                }),
             BufferType::FlatCell => {
                 todo!()
             }
@@ -549,8 +416,9 @@ pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::_
             BufferType::Out | BufferType::Full => unreachable!(),
             BufferType::Interpolated => unreachable!(),
             BufferType::Flat => {
-                dst
-                    .chunks_exact_mut(8)
+                dst.as_chunks_mut::<8>()
+                    .0
+                    .iter_mut()
                     .enumerate()
                     .for_each(|(i, val)| {
                         let pos = unpack_buffer_coord((i as u32) << 3, BufferType::Interpolated);
@@ -563,9 +431,7 @@ pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::_
                         );
                         let src_v = x86_64::_mm256_set_m128(src_v, src_v);
 
-                        let dst_v = unsafe {
-                            x86_64::_mm256_load_ps(val.as_ptr())
-                        };
+                        let dst_v = unsafe { x86_64::_mm256_load_ps(val.as_ptr()) };
 
                         let dst_v = action(src_v, dst_v);
 
@@ -573,18 +439,19 @@ pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::_
                             x86_64::_mm256_store_ps(val.as_mut_ptr(), dst_v);
                         }
                     })
-            },
+            }
             BufferType::FlatCell => {
                 todo!()
-            },
+            }
         },
         BufferType::Flat => match src.ty {
             BufferType::Out | BufferType::Full => unreachable!(),
             BufferType::Interpolated => unreachable!(),
             BufferType::Flat => unreachable!(),
             BufferType::FlatCell => {
-                src
-                    .chunks_exact(2)
+                src.as_chunks::<2>()
+                    .0
+                    .iter()
                     .enumerate()
                     .for_each(|(i, val)| {
                         let x = (i & 1) * 8;
@@ -595,9 +462,7 @@ pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::_
                             x86_64::_mm_set1_ps(val[0]),
                         );
 
-                        let dst_v = unsafe {
-                            x86_64::_mm256_load_ps(&raw const dst[(z << 4) | x])
-                        };
+                        let dst_v = unsafe { x86_64::_mm256_load_ps(&raw const dst[(z << 4) | x]) };
 
                         let dst_v = action(src_v, dst_v);
 
@@ -606,7 +471,7 @@ pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::_
                         }
                     })
             }
-        }
+        },
         BufferType::FlatCell => unreachable!(),
     }
 

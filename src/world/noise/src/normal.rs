@@ -1,6 +1,6 @@
-use std::fmt::{Debug, Formatter};
 use crate::perlin::PerlinNoise;
 use bevy_math::DVec3;
+use std::fmt::{Debug, Formatter};
 use temper_core::random::RandomSource;
 
 #[derive(Clone)]

@@ -1,8 +1,8 @@
-use temper_core::pos::{BlockPos, ChunkBlockPos, ChunkPos};
 use crate::cpu::buffer::{Buffer, BufferId, BufferType};
 use crate::cpu::compiler::CompiledDensityFunction;
 use crate::cpu::operation::Operation;
 use crate::cpu::runtime::execute_function;
+use temper_core::pos::{BlockPos, ChunkBlockPos, ChunkPos};
 
 pub struct Workspace<'func> {
     pub out: Buffer,
@@ -18,14 +18,10 @@ pub struct Workspace<'func> {
 impl Workspace<'_> {
     pub fn new(density_function: &CompiledDensityFunction) -> Workspace<'_> {
         fn instantiate_buffers(function: &CompiledDensityFunction, ty: BufferType) -> Vec<Buffer> {
-            function.buffers
+            function
+                .buffers
                 .get(&ty)
-                .map(|buffers| {
-                    buffers
-                        .iter()
-                        .map(|_| Buffer::new(ty))
-                        .collect::<Vec<_>>()
-                })
+                .map(|buffers| buffers.iter().map(|_| Buffer::new(ty)).collect::<Vec<_>>())
                 .unwrap_or_else(|| Vec::with_capacity(0))
         }
 

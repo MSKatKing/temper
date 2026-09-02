@@ -1,6 +1,6 @@
+use crate::cpu::unpack_buffer_coord;
 use std::alloc::Layout;
 use std::num::NonZeroUsize;
-use crate::cpu::unpack_buffer_coord;
 use std::ops::{Deref, DerefMut};
 use temper_core::pos::ChunkBlockPos;
 
@@ -27,10 +27,14 @@ pub struct Buffer {
 impl BufferType {
     pub fn size(&self) -> NonZeroUsize {
         match self {
-            BufferType::Out | BufferType::Full => NonZeroUsize::new(16 * 16 * 384).expect("non-zero"),
+            BufferType::Out | BufferType::Full => {
+                NonZeroUsize::new(16 * 16 * 384).expect("non-zero")
+            }
             BufferType::Flat => NonZeroUsize::new(16 * 16).expect("non-zero"),
             BufferType::FlatCell => NonZeroUsize::new(4 * 4).expect("non-zero"),
-            BufferType::Interpolated => NonZeroUsize::new(8 * (4 * 4 * (384 / 4))).expect("non-zero"),
+            BufferType::Interpolated => {
+                NonZeroUsize::new(8 * (4 * 4 * (384 / 4))).expect("non-zero")
+            }
         }
     }
 }
@@ -71,10 +75,8 @@ impl Buffer {
             // loaded is aligned to 32 bytes, so this block ensures that all buffer's internal data
             // is aligned to 32 bytes on the heap.
             data: unsafe {
-                let layout = Layout::from_size_align(
-                    size_of::<f32>() * ty.size().get(),
-                    32
-                ).expect("error creating buffer layout");
+                let layout = Layout::from_size_align(size_of::<f32>() * ty.size().get(), 32)
+                    .expect("error creating buffer layout");
 
                 // SAFETY: the layout size is not zero (see BufferType::size)
                 let alloc = std::alloc::alloc_zeroed(layout);
@@ -109,13 +111,13 @@ impl Deref for Buffer {
     type Target = [f32];
 
     fn deref(&self) -> &Self::Target {
-        &self.data
+        self.data
     }
 }
 
 impl DerefMut for Buffer {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.data
+        self.data
     }
 }
 
@@ -126,10 +128,8 @@ impl Drop for Buffer {
         // SAFETY: self.data is guaranteed to be allocated on the heap (see Buffer::new) and layout
         // is the same
         unsafe {
-            let layout = Layout::from_size_align(
-                size_of::<f32>() * self.data.len(),
-                32,
-            ).expect("error creating buffer layout");
+            let layout = Layout::from_size_align(size_of_val(self.data), 32)
+                .expect("error creating buffer layout");
 
             std::alloc::dealloc(self.data.as_mut_ptr().cast(), layout);
         }
