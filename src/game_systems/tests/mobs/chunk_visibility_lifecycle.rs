@@ -1,3 +1,4 @@
+use crate::wait_for_saved_chunk;
 use background::{chunk_unloader, entity_unloader};
 use bevy_ecs::prelude::*;
 use mobs::spawn::{
@@ -19,23 +20,7 @@ use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
 use temper_entities::{FoxBundle, PigBundle};
 use temper_messages::chunk_calc::ChunkCalc;
 use temper_messages::load_chunk_entities::LoadChunkEntities;
-use temper_state::{GlobalStateResource, create_test_state};
-
-/// `chunk_unloader` dispatches storage writes to the thread pool, so a chunk
-/// evicted from the cache is not immediately readable from storage. Poll until
-/// the write lands rather than assuming it already has.
-pub fn wait_for_saved_chunk(
-    state: &GlobalStateResource,
-    pos: ChunkPos,
-) -> temper_world::RefChunk<'_> {
-    for _ in 0..200 {
-        if let Ok(chunk) = state.0.world.get_chunk(pos, Dimension::Overworld) {
-            return chunk;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(5));
-    }
-    panic!("chunk {pos:?} never reached storage after unload");
-}
+use temper_state::create_test_state;
 
 fn emit_chunk_calc_for(entity: Entity) -> impl FnMut(MessageWriter<ChunkCalc>) {
     move |mut writer: MessageWriter<ChunkCalc>| {

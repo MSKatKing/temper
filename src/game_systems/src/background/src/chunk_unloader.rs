@@ -68,12 +68,14 @@ pub fn handle(
     }
 
     let mut unloaded_entries = 0;
+    let mut generation_skipped = 0;
     let mut chunks_to_write = Vec::new();
 
     // unload anything not in the visible/pending set
     // if 0 players are online, visible_chunks is empty, so this should gracefully unload the entire server.
     for chunk_pos in all_chunks.difference(&visible_chunks) {
         if generation_locked.contains(chunk_pos) {
+            generation_skipped += 1;
             continue;
         }
 
@@ -119,11 +121,12 @@ pub fn handle(
         });
     }
 
-    if unloaded_entries > 0 {
+    if unloaded_entries > 0 || generation_skipped > 0 {
         trace!(
-            "Unloaded {} chunks ({} queued for write to disk). {} chunks remain in cache.",
+            "Unloaded {} chunks ({} queued for write, {} kept for in-progress generation). {} chunks remain in cache.",
             unloaded_entries,
             written_chunks,
+            generation_skipped,
             state.0.world.get_cache().len()
         );
     }

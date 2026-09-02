@@ -67,7 +67,7 @@ pub fn handle(
         // ==========================================
         // PHASE 1: HARVEST & SEND COMPLETED CHUNKS
         // ==========================================
-        let mut harvested = Vec::new();
+        let mut harvested = Vec::with_capacity(chunk_receiver.ready_rx.len());
 
         // Pull everything the pool has finished with — successes and failures
         while let Ok(prepared) = chunk_receiver.ready_rx.try_recv() {
@@ -255,7 +255,7 @@ pub fn handle(
                         (*chunk_ref).clone_without_transient_noise()
                     };
 
-                    let mut entities = Vec::new();
+                    let mut entities = Vec::with_capacity(chunk_data.entities.len());
                     for kv in chunk_data.entities.iter() {
                         entities.push((*kv.key(), kv.value().0.to_entity_type().id));
                     }
