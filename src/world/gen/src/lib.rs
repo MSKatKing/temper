@@ -3,6 +3,8 @@ mod caves;
 pub mod errors;
 mod interp;
 
+use std::collections::HashMap;
+use include_dir::{include_dir, Dir, DirEntry};
 use crate::errors::WorldGenError;
 use crate::interp::smoothstep;
 use noise::{Fbm, MultiFractal, NoiseFn, Perlin, RidgedMulti};
@@ -117,42 +119,33 @@ impl NoiseGenerator {
 
 impl WorldGenerator {
     pub fn new(seed: u64) -> Self {
-        let func = DensityFunction::Interpolated {
-            input: DensityFunctionArgument::Function(Box::new(DensityFunction::Add {
-                left: DensityFunctionArgument::Function(Box::new(
-                    DensityFunction::YClampedGradient {
-                        from_y: 32,
-                        to_y: 96,
-                        from_value: 10.0,
-                        to_value: -10.0,
-                    },
-                )),
-                right: DensityFunctionArgument::Function(Box::new(DensityFunction::Add {
-                    left: DensityFunctionArgument::Function(Box::new(DensityFunction::FlatCache {
-                        input: DensityFunctionArgument::Function(Box::new(
-                            DensityFunction::Mul {
-                                left: DensityFunctionArgument::Constant(0.05),
-                                right: DensityFunctionArgument::Function(Box::new(
-                                    DensityFunction::Noise {
-                                        noise: "minecraft:surface".to_string(),
-                                        xz_scale: 0.25,
-                                        y_scale: 1.0,
-                                    },
-                                )),
-                            }
-                        )),
-                    })),
-                    right: DensityFunctionArgument::Function(Box::new(DensityFunction::Cache2d {
-                        input: DensityFunctionArgument::Function(Box::new(
-                            DensityFunction::Shift {
-                                noise: "minecraft:surface".to_string(),
-                            },
-                        )),
-                    })),
-                })),
-            })),
-        };
+        const BASE: &str = include_str!("density/base.json");
+        const EXTERNAL: Dir = include_dir!(".\\assets\\generated\\generated\\data\\minecraft\\worldgen\\density_function");
 
+        let mut func = DensityFunctionArgument::parse(BASE).unwrap();
+
+        let mut external = HashMap::new();
+        fn gather(external: &mut HashMap<String, DensityFunctionArgument>, root: &Dir) {
+            for entry in root.entries() {
+                if let Some(dir) = entry.as_dir() {
+                    gather(external, dir);
+                    continue;
+                }
+
+                if let Some(file) = entry.as_file() {
+                    let path = file.path().display().to_string();
+                    let name = format!("minecraft:{}", path.strip_suffix(".json").unwrap_or(path.as_str()));
+
+                    let func = DensityFunctionArgument::parse(file.contents_utf8().unwrap()).unwrap_or_else(|e| panic!("{}: {}", name, e));
+
+                    external.insert(name, func);
+                }
+            }
+        }
+
+        gather(&mut external, &EXTERNAL);
+
+        func.link_arg(&external);
         let func = func.fold();
 
         let mut rand = XoroshiroRandomSource::new(seed);

@@ -11,6 +11,7 @@ temper-core = { workspace = true }
 temper-macros = { workspace = true }
 thiserror = { workspace = true }
 rand = { workspace = true }
+include_dir = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
