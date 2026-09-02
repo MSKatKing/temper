@@ -1,11 +1,13 @@
 mod improved;
 mod normal;
 mod perlin;
+mod blended;
 
 use bevy_math::DVec3;
 pub use improved::ImprovedNoise;
 pub use normal::NormalNoise;
 pub use perlin::PerlinNoise;
+pub use blended::BlendedNoise;
 
 const GRADIENT: [DVec3; 16] = [
     DVec3::new(1.0, 1.0, 0.0),
