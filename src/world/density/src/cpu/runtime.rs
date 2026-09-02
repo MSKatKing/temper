@@ -3,9 +3,7 @@ mod buffer_ops;
 use crate::cpu::Workspace;
 use crate::cpu::buffer::BufferId;
 use crate::cpu::operation::{NegativeDecayType, Operation, ValueSource};
-use crate::cpu::runtime::buffer_ops::{
-    buffer_add, buffer_copy_to, buffer_div, buffer_max, buffer_min, buffer_mul, buffer_sub,
-};
+use crate::cpu::runtime::buffer_ops::{buffer_add, buffer_apply_func, buffer_copy_to, buffer_div, buffer_max, buffer_min, buffer_mul, buffer_sub};
 use std::ops::RangeInclusive;
 use temper_core::math::lerp;
 
@@ -93,6 +91,40 @@ pub fn execute_function(workspace: &mut Workspace) -> Option<()> {
                 .get_buffer_mut(*buffer)?
                 .iter_mut()
                 .for_each(|v| *v = v.clamp(*min, *max)),
+            Operation::SqueezeBuffer { buffer } => workspace
+                .get_buffer_mut(*buffer)?
+                .iter_mut()
+                .for_each(|v| {
+                    let x = v.clamp(-1.0, 1.0);
+                    *v = (x / 2.0) - x * x * x / 24.0;
+                }),
+            Operation::RangeChoiceBuffer {
+                input,
+                in_range,
+                out_of_range,
+                range,
+            } => {
+                todo!("range_choice");
+                // let (dst, src) = workspace.get_dst_src(*input, *in_range)?;
+                // 
+                // buffer_apply_func(dst, src, |src, dst| {
+                //     if range.contains(&dst) {
+                //         src
+                //     } else {
+                //         f32::NAN
+                //     }
+                // })?;
+                // 
+                // let (dst, src) = workspace.get_dst_src(*input, *out_of_range)?;
+                // 
+                // buffer_apply_func(dst, src, |src, dst| {
+                //     if dst.is_nan() {
+                //         src
+                //     } else {
+                //         dst
+                //     }
+                // })?;
+            }
         }
     }
 

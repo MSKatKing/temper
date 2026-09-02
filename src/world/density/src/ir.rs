@@ -62,9 +62,29 @@ density_function!(
     ShiftedNoise ("minecraft:shifted_noise") { noise: String, xz_scale: f64, y_scale: f64, shift_x: DensityFunctionArgument, shift_y: DensityFunctionArgument, shift_z: DensityFunctionArgument };
     Truncate ("minecraft:truncate") { input: DensityFunctionArgument, multiple: i32 };
     YClampedGradient ("minecraft:y_clamped_gradient") { from_y: i32, to_y: i32, from_value: f64, to_value: f64 };
-    // TODO: splines
+    Spline ("minecraft:spline") { spline: DensitySpline };
     WeirdScaledSampler ("minecraft:weird_scaled_sampler") { rarity_value_mapper: String, noise: String, input: DensityFunctionArgument };
 );
+
+#[derive(Deserialize, PartialEq, Debug, Clone)]
+pub struct DensitySpline {
+    coordinate: DensityFunctionArgument,
+    points: Vec<DensitySplinePoint>
+}
+
+#[derive(Deserialize, PartialEq, Debug, Clone)]
+pub struct DensitySplinePoint {
+    location: f64,
+    value: ValueOrSpline,
+    derivative: f64,
+}
+
+#[derive(Deserialize, PartialEq, Debug, Clone)]
+#[serde(untagged)]
+pub enum ValueOrSpline {
+    Value(f64),
+    Spline(DensitySpline),
+}
 
 #[derive(Deserialize, PartialEq, Debug, Clone)]
 #[serde(untagged)]
@@ -108,10 +128,14 @@ impl DensityFunctionArgument {
     }
 
     pub fn link_arg(&mut self, externals: &HashMap<String, DensityFunctionArgument>) {
-        if let Self::External(ext) = self {
-            let mut ext = externals.get(ext).cloned().unwrap();
-            ext.link_arg(externals);
-            *self = ext;
+        match self {
+            Self::Function(func) => func.link(externals),
+            Self::Constant(_) => {},
+            Self::External(ext) => {
+                let mut ext = externals.get(ext).cloned().unwrap();
+                ext.link_arg(externals);
+                *self = ext;
+            }
         }
     }
 
@@ -467,6 +491,7 @@ impl DensityFunction {
                     })
                 }
             }
+            DensityFunction::Spline { .. } => Arg::wrap_const(0.0), // TODO: correct impl
             DensityFunction::WeirdScaledSampler {
                 rarity_value_mapper,
                 noise,
@@ -551,6 +576,7 @@ impl DensityFunction {
                 shift_y.link_arg(externals);
                 shift_z.link_arg(externals);
             }
+            DensityFunction::Spline { .. } => {} // TODO: correct impl
             DensityFunction::Beardifier
             | DensityFunction::BlendAlpha
             | DensityFunction::BlendOffset
@@ -576,7 +602,7 @@ fn fold_arg(arg: DensityFunctionArgument) -> DensityFunctionArgument {
             }
         }
         DensityFunctionArgument::Constant(c) => DensityFunctionArgument::Constant(c),
-        DensityFunctionArgument::External(_) => panic!("linking should happen before folding"),
+        DensityFunctionArgument::External(name) => panic!("linking should happen before folding: {} not found", name),
     }
 }
 
