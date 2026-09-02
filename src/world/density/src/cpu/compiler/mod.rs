@@ -21,13 +21,17 @@ pub struct CompiledDensityFunction {
 }
 
 impl Compiler {
-    pub fn compile<R: RandomSource>(rand: &mut R, func: DensityFunctionArgument) -> CompiledDensityFunction {
+    pub fn compile<R: RandomSource>(
+        rand: &mut R,
+        func: DensityFunctionArgument,
+    ) -> CompiledDensityFunction {
         let mut this = Compiler::new();
 
         let out = this.alloc_buffer(BufferType::Out);
         let actual = match func {
-            DensityFunctionArgument::Function(func) =>
-                compile(&mut this, &mut rand.fork_positional(), func.as_ref(), out),
+            DensityFunctionArgument::Function(func) => {
+                compile(&mut this, &mut rand.fork_positional(), func.as_ref(), out)
+            }
             DensityFunctionArgument::Constant(val) => {
                 this.push_op(Operation::ClearBuffer {
                     destination: out,
@@ -35,14 +39,16 @@ impl Compiler {
                 });
 
                 out
-            },
-            DensityFunctionArgument::External(_) => panic!("should be linked before being compiled"),
+            }
+            DensityFunctionArgument::External(_) => {
+                panic!("should be linked before being compiled")
+            }
         };
 
         if actual != out {
             this.push_op(Operation::ClearBuffer {
                 destination: out,
-                source: ValueSource::Buffer(actual)
+                source: ValueSource::Buffer(actual),
             });
         }
 
@@ -60,7 +66,7 @@ impl Compiler {
     }
 
     fn alloc_buffer(&mut self, buffer_type: BufferType) -> BufferId {
-        let buffers = self.buffers.entry(buffer_type).or_insert_with(VecDeque::new);
+        let buffers = self.buffers.entry(buffer_type).or_default();
 
         for (i, val) in buffers.iter_mut().enumerate() {
             if val.is_some() {
@@ -71,7 +77,7 @@ impl Compiler {
             return BufferId {
                 ty: buffer_type,
                 id: i as u8,
-            }
+            };
         }
 
         let i = buffers.len();
@@ -83,9 +89,10 @@ impl Compiler {
     }
 
     fn free_buffer(&mut self, buffer: BufferId) {
-        let v = self.buffers
+        let v = self
+            .buffers
             .entry(buffer.ty)
-            .or_insert_with(VecDeque::new)
+            .or_default()
             .iter_mut()
             .find(|val| val.is_some() && val.unwrap() == buffer.id as usize);
 
@@ -101,20 +108,14 @@ impl Compiler {
     }
 }
 
-fn buffer_size_of(func: &DensityFunction, parent_size: BufferType) -> BufferType {
-    match func {
-        DensityFunction::CacheOnce { .. } | DensityFunction::CacheAllInCell { .. } => BufferType::Full,
-        DensityFunction::Cache2d { .. } => BufferType::Flat,
-        DensityFunction::FlatCache { .. } => BufferType::FlatCell,
-        DensityFunction::Interpolated { .. } => BufferType::Interpolated,
-        _ => parent_size
-    }
-}
-
-fn compile<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compiler, rand: &mut P, func: &DensityFunction, parent_buffer: BufferId) -> BufferId {
+fn compile<R: RandomSource, P: PositionalRandom<R>>(
+    compiler: &mut Compiler,
+    rand: &mut P,
+    func: &DensityFunction,
+    parent_buffer: BufferId,
+) -> BufferId {
     macro_rules! marker_compile {
-        ($buffer_type:ident, $input:expr) => {
-            {
+        ($buffer_type:ident, $input:expr) => {{
             let buffer = if parent_buffer.ty == BufferType::$buffer_type {
                 parent_buffer
             } else {
@@ -129,7 +130,7 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compiler, ran
                     });
 
                     buffer
-                },
+                }
                 DensityFunctionArgument::Function(func) => {
                     let actual = compile(compiler, rand, func, buffer);
 
@@ -144,19 +145,30 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compiler, ran
                     }
 
                     actual
-                },
-                DensityFunctionArgument::External(_) => panic!("functions should be linked before being compiled"),
+                }
+                DensityFunctionArgument::External(_) => {
+                    panic!("functions should be linked before being compiled")
+                }
             }
-        }
-        };
+        }};
     }
 
     match func {
-        DensityFunction::Add { left, right } => compile_add(compiler, rand, parent_buffer, left, right),
-        DensityFunction::Sub { left, right } => compile_sub(compiler, rand, parent_buffer, left, right),
-        DensityFunction::Mul { left, right } => compile_mul(compiler, rand, parent_buffer, left, right),
-        DensityFunction::Min { left, right } => compile_min(compiler, rand, parent_buffer, left, right),
-        DensityFunction::Max { left, right } => compile_max(compiler, rand, parent_buffer, left, right),
+        DensityFunction::Add { left, right } => {
+            compile_add(compiler, rand, parent_buffer, left, right)
+        }
+        DensityFunction::Sub { left, right } => {
+            compile_sub(compiler, rand, parent_buffer, left, right)
+        }
+        DensityFunction::Mul { left, right } => {
+            compile_mul(compiler, rand, parent_buffer, left, right)
+        }
+        DensityFunction::Min { left, right } => {
+            compile_min(compiler, rand, parent_buffer, left, right)
+        }
+        DensityFunction::Max { left, right } => {
+            compile_max(compiler, rand, parent_buffer, left, right)
+        }
         DensityFunction::Shift { noise } => {
             let noise_split = noise.split(":").collect::<Vec<_>>();
             let noise = if noise_split.len() == 2 {
@@ -167,19 +179,22 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compiler, ran
 
             compiler.push_op(Operation::ClearBuffer {
                 destination: parent_buffer,
-                source: ValueSource::Noise(
-                    NoiseAccessor::new(
-                        NoiseParameter::get_by_name(noise.as_str()).unwrap_or_else(|| panic!("'{}' is not a valid noise parameter", noise)),
-                        rand,
-                        noise.as_str(),
-                        NoiseAccessType::Shift,
-                    ),
-                ),
+                source: ValueSource::Noise(NoiseAccessor::new(
+                    NoiseParameter::get_by_name(noise.as_str())
+                        .unwrap_or_else(|| panic!("'{}' is not a valid noise parameter", noise)),
+                    rand,
+                    noise.as_str(),
+                    NoiseAccessType::Shift,
+                )),
             });
 
             parent_buffer
-        },
-        DensityFunction::Noise { noise, xz_scale, y_scale } => {
+        }
+        DensityFunction::Noise {
+            noise,
+            xz_scale,
+            y_scale,
+        } => {
             let noise_split = noise.split(":").collect::<Vec<_>>();
             let noise = if noise_split.len() == 2 {
                 noise.clone()
@@ -189,25 +204,29 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compiler, ran
 
             compiler.push_op(Operation::ClearBuffer {
                 destination: parent_buffer,
-                source: ValueSource::Noise(
-                    NoiseAccessor::new(
-                        NoiseParameter::get_by_name(noise.as_str()).unwrap_or_else(|| panic!("'{}' is not a valid noise parameter", noise)),
-                        rand,
-                        noise.as_str(),
-                        NoiseAccessType::Basic { xz_scale: *xz_scale as f32, y_scale: *y_scale as f32 },
-                    )
-                )
+                source: ValueSource::Noise(NoiseAccessor::new(
+                    NoiseParameter::get_by_name(noise.as_str())
+                        .unwrap_or_else(|| panic!("'{}' is not a valid noise parameter", noise)),
+                    rand,
+                    noise.as_str(),
+                    NoiseAccessType::Basic {
+                        xz_scale: *xz_scale as f32,
+                        y_scale: *y_scale as f32,
+                    },
+                )),
             });
 
             parent_buffer
         }
-        DensityFunction::Interpolated { input } =>
-            marker_compile!(Interpolated, input),
-        DensityFunction::Cache2d { input } =>
-            marker_compile!(Flat, input),
-        DensityFunction::FlatCache { input } =>
-            marker_compile!(FlatCell, input),
-        DensityFunction::YClampedGradient { from_y, to_y, from_value, to_value } => {
+        DensityFunction::Interpolated { input } => marker_compile!(Interpolated, input),
+        DensityFunction::Cache2d { input } => marker_compile!(Flat, input),
+        DensityFunction::FlatCache { input } => marker_compile!(FlatCell, input),
+        DensityFunction::YClampedGradient {
+            from_y,
+            to_y,
+            from_value,
+            to_value,
+        } => {
             compiler.push_op(Operation::YClampedGradient {
                 destination: parent_buffer,
                 y_range: (*from_y as i16)..=(*to_y as i16),
@@ -222,9 +241,9 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compiler, ran
 
 #[cfg(test)]
 mod tests {
-    use temper_core::random::XoroshiroRandomSource;
     use super::*;
     use crate::DensityFunctionArgument;
+    use temper_core::random::XoroshiroRandomSource;
 
     #[test]
     fn test_compile_shift() {
@@ -235,21 +254,28 @@ mod tests {
             noise: "minecraft:aquifer_barrier".to_string(),
         };
 
-        let parent = BufferId { ty: BufferType::Out, id: 0 };
+        let parent = BufferId {
+            ty: BufferType::Out,
+            id: 0,
+        };
         let out = compile(&mut compiler, &mut rand.fork_positional(), &func, parent);
 
         assert_eq!(parent, out);
         assert_eq!(compiler.ops.len(), 1);
         assert!(compiler.ops.last().is_some());
 
-        let Some(Operation::ClearBuffer { destination, source }) = compiler.ops.last() else {
+        let Some(Operation::ClearBuffer {
+            destination,
+            source,
+        }) = compiler.ops.last()
+        else {
             panic!("last operation was not a clear buffer operation")
         };
 
         let ValueSource::Noise(accessor) = source else {
             panic!("clear buffer operation's source was not a noise source")
         };
-        
+
         assert_eq!(*destination, parent);
         assert_eq!(accessor.access_type, NoiseAccessType::Shift);
     }
@@ -260,17 +286,27 @@ mod tests {
         let mut rand = XoroshiroRandomSource::new(0);
 
         let func = DensityFunction::Add {
-            left: DensityFunctionArgument::Function(Box::new(DensityFunction::Shift { noise: "minecraft:aquifer_barrier".to_string() })),
-            right: DensityFunctionArgument::Function(Box::new(DensityFunction::Shift { noise: "aquifer_barrier".to_string() })),
+            left: DensityFunctionArgument::Function(Box::new(DensityFunction::Shift {
+                noise: "minecraft:aquifer_barrier".to_string(),
+            })),
+            right: DensityFunctionArgument::Function(Box::new(DensityFunction::Shift {
+                noise: "aquifer_barrier".to_string(),
+            })),
         };
 
-        let parent = BufferId { ty: BufferType::Out, id: 0 };
+        let parent = BufferId {
+            ty: BufferType::Out,
+            id: 0,
+        };
         let out = compile(&mut compiler, &mut rand.fork_positional(), &func, parent);
 
         assert_eq!(parent, out);
         assert_eq!(compiler.ops.len(), 2);
         assert!(compiler.ops.last().is_some());
-        assert!(matches!(compiler.ops.last().unwrap(), Operation::AddBuffer { .. }));
+        assert!(matches!(
+            compiler.ops.last().unwrap(),
+            Operation::AddBuffer { .. }
+        ));
     }
 
     #[test]
@@ -314,7 +350,12 @@ mod tests {
         assert_eq!(compiler.ops.len(), 1);
         assert!(compiler.ops.last().is_some());
 
-        let Some(Operation::YClampedGradient { destination, y_range, value_range }) = compiler.ops.last() else {
+        let Some(Operation::YClampedGradient {
+            destination,
+            y_range,
+            value_range,
+        }) = compiler.ops.last()
+        else {
             panic!("last operation was not a y-clamped gradient")
         };
 

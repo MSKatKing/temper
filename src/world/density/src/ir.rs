@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::Deserialize;
+use std::collections::HashMap;
 use temper_core::math::lerp;
 
 macro_rules! density_function {
@@ -119,7 +119,10 @@ impl DensityFunction {
                 match input.constant() {
                     Some(val) => DensityFunctionArgument::Constant(val),
                     _ if let DensityFunctionArgument::Function(f) = &input
-                        && let DensityFunction::$ty { input } = f.as_ref() => input.clone(),
+                        && let DensityFunction::$ty { input } = f.as_ref() =>
+                    {
+                        input.clone()
+                    }
                     _ => Arg::wrap_func(DensityFunction::$ty { input }),
                 }
             }};
@@ -471,65 +474,83 @@ impl DensityFunction {
     pub fn link(&mut self, externals: &HashMap<String, DensityFunctionArgument>) {
         match self {
             DensityFunction::Cache2d { input }
-                | DensityFunction::CacheAllInCell { input }
-                | DensityFunction::CacheOnce { input }
-                | DensityFunction::FlatCache { input }
-                | DensityFunction::Interpolated { input }
-                | DensityFunction::Abs { input }
-                | DensityFunction::Cube { input }
-                | DensityFunction::HalfNegative { input }
-                | DensityFunction::Invert { input }
-                | DensityFunction::QuarterNegative { input }
-                | DensityFunction::Square { input }
-                | DensityFunction::Squeeze { input }
-                | DensityFunction::BlendDensity { input }
-                | DensityFunction::IntervalSelect { input, .. }
-                | DensityFunction::Ceil { input, .. }
-                | DensityFunction::Clamp { input, .. }
-                | DensityFunction::Floor { input, .. }
-                | DensityFunction::Round { input, .. }
-                | DensityFunction::Truncate { input, .. }
-                | DensityFunction::WeirdScaledSampler { input, .. }
-                | DensityFunction::Negate { input } => input.link_arg(externals),
+            | DensityFunction::CacheAllInCell { input }
+            | DensityFunction::CacheOnce { input }
+            | DensityFunction::FlatCache { input }
+            | DensityFunction::Interpolated { input }
+            | DensityFunction::Abs { input }
+            | DensityFunction::Cube { input }
+            | DensityFunction::HalfNegative { input }
+            | DensityFunction::Invert { input }
+            | DensityFunction::QuarterNegative { input }
+            | DensityFunction::Square { input }
+            | DensityFunction::Squeeze { input }
+            | DensityFunction::BlendDensity { input }
+            | DensityFunction::IntervalSelect { input, .. }
+            | DensityFunction::Ceil { input, .. }
+            | DensityFunction::Clamp { input, .. }
+            | DensityFunction::Floor { input, .. }
+            | DensityFunction::Round { input, .. }
+            | DensityFunction::Truncate { input, .. }
+            | DensityFunction::WeirdScaledSampler { input, .. }
+            | DensityFunction::Negate { input } => input.link_arg(externals),
             DensityFunction::Add { left, right }
-                | DensityFunction::Div { left, right }
-                | DensityFunction::Mul { left, right }
-                | DensityFunction::Sub { left, right }
-                | DensityFunction::Min { left, right }
-                | DensityFunction::Max { left, right } => {
+            | DensityFunction::Div { left, right }
+            | DensityFunction::Mul { left, right }
+            | DensityFunction::Sub { left, right }
+            | DensityFunction::Min { left, right }
+            | DensityFunction::Max { left, right } => {
                 left.link_arg(externals);
                 right.link_arg(externals);
-            },
-            DensityFunction::Lerp { alpha, first, second } => {
+            }
+            DensityFunction::Lerp {
+                alpha,
+                first,
+                second,
+            } => {
                 alpha.link_arg(externals);
                 first.link_arg(externals);
                 second.link_arg(externals);
             }
-            DensityFunction::FindTopSurface { density, upper_bound, .. } => {
+            DensityFunction::FindTopSurface {
+                density,
+                upper_bound,
+                ..
+            } => {
                 density.link_arg(externals);
                 upper_bound.link_arg(externals);
             }
-            DensityFunction::RangeChoice { input, when_in_range, when_out_of_range, .. } => {
+            DensityFunction::RangeChoice {
+                input,
+                when_in_range,
+                when_out_of_range,
+                ..
+            } => {
                 input.link_arg(externals);
                 when_in_range.link_arg(externals);
                 when_out_of_range.link_arg(externals);
             }
-            DensityFunction::ShiftedNoise { shift_x, shift_y, shift_z, .. } => {
+            DensityFunction::ShiftedNoise {
+                shift_x,
+                shift_y,
+                shift_z,
+                ..
+            } => {
                 shift_x.link_arg(externals);
                 shift_y.link_arg(externals);
                 shift_z.link_arg(externals);
             }
             DensityFunction::Beardifier
-                | DensityFunction::BlendAlpha
-                | DensityFunction::BlendOffset
-                | DensityFunction::Constant { .. }
-                | DensityFunction::Noise { .. }
-                | DensityFunction::Shift { .. }
-                | DensityFunction::ShiftA { .. }
-                | DensityFunction::ShiftB { .. }
-                | DensityFunction::OldBlendedNoise { .. }
-                | DensityFunction::YClampedGradient { .. }
-                | DensityFunction::EndIslands => {}
+            | DensityFunction::BlendAlpha
+            | DensityFunction::BlendOffset
+            | DensityFunction::Constant { .. }
+            | DensityFunction::Noise { .. }
+            | DensityFunction::Shift { .. }
+            | DensityFunction::ShiftA { .. }
+            | DensityFunction::ShiftB { .. }
+            | DensityFunction::OldBlendedNoise { .. }
+            | DensityFunction::YClampedGradient { .. }
+            | DensityFunction::EndIslands => {}
         }
     }
 }

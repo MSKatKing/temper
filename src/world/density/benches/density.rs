@@ -27,12 +27,13 @@ fn bench_density(c: &mut Criterion) {
         },
         Operation::AddBuffer {
             destination: BufferId::flat(0),
-            source: ValueSource::Noise(
-                NoiseAccessor::new_noise(
-                    NormalNoise::new(&mut rand, 4, &[1.0, 2.0, 3.0]),
-                    NoiseAccessType::Basic { xz_scale: 1.0, y_scale: 1.0, },
-                ),
-            ),
+            source: ValueSource::Noise(NoiseAccessor::new_noise(
+                NormalNoise::new(&mut rand, 4, &[1.0, 2.0, 3.0]),
+                NoiseAccessType::Basic {
+                    xz_scale: 1.0,
+                    y_scale: 1.0,
+                },
+            )),
         },
         Operation::AddBuffer {
             destination: BufferId::OUT,

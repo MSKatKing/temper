@@ -14,14 +14,21 @@ struct NoiseParameter {
 pub fn build() -> TokenStream {
     println!("cargo:rerun-if-changed=../../assets/extracted/noise_parameters.json");
 
-    let params: BTreeMap<String, NoiseParameter> = serde_json::from_str(include_str!("../../../assets/extracted/noise_parameters.json"))
-        .expect("failed to parse noise_parameters.json");
+    let params: BTreeMap<String, NoiseParameter> = serde_json::from_str(include_str!(
+        "../../../assets/extracted/noise_parameters.json"
+    ))
+    .expect("failed to parse noise_parameters.json");
 
     let mut constants = Vec::new();
     let mut match_arms = Vec::new();
 
     for (name, param) in params.into_iter() {
-        let ident = format_ident!("{}", name.strip_prefix("minecraft:").unwrap_or(&name).to_shouty_snake_case());
+        let ident = format_ident!(
+            "{}",
+            name.strip_prefix("minecraft:")
+                .unwrap_or(&name)
+                .to_shouty_snake_case()
+        );
 
         let first_octave = param.first_octave;
         let amplitudes = param.amplitudes;

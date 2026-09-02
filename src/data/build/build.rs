@@ -11,12 +11,12 @@ mod enchantments;
 mod entities;
 mod fluids;
 mod items;
+mod noise;
 mod particles;
 mod potions;
 mod recipes;
 mod sounds;
 mod tags;
-mod noise;
 
 pub const OUT_DIR: &str = "src/generated";
 

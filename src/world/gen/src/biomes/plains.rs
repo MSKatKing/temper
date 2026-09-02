@@ -91,10 +91,10 @@ impl BiomeGenerator for PlainsBiome {
         "plains".to_string()
     }
 
-    fn generate_chunk(
+    fn generate_chunk_new(
         &self,
         pos: ChunkPos,
-        noise: &NoiseGenerator,
+        _noise: &NoiseGenerator,
         density_function: &CompiledDensityFunction,
     ) -> Result<Chunk, WorldGenError> {
         let mut chunk = Chunk::new_empty_with_height(ChunkHeight::new(-64, 384));
@@ -102,7 +102,9 @@ impl BiomeGenerator for PlainsBiome {
 
         let mut workspace = Workspace::new(density_function);
         workspace.set_pos(pos);
-        workspace.execute().unwrap_or_else(|| panic!("failed to execute density function"));
+        workspace
+            .execute()
+            .unwrap_or_else(|| panic!("failed to execute density function"));
 
         // Fill with water first
         for section_y in -4..4 {
@@ -121,7 +123,21 @@ impl BiomeGenerator for PlainsBiome {
             }
         }
 
-        return Ok(chunk);
+        Ok(chunk)
+    }
+
+    fn generate_chunk(
+        &self,
+        pos: ChunkPos,
+        noise: &NoiseGenerator,
+    ) -> Result<Chunk, WorldGenError> {
+        let mut chunk = Chunk::new_empty_with_height(ChunkHeight::new(-64, 384));
+        let stone = block!("stone");
+
+        // Fill with water first
+        for section_y in -4..4 {
+            chunk.fill_section(section_y as i8, block!("water", {level: 0}));
+        }
 
         // Build heightmap
         let heights = build_heightmap_interpolated(pos, noise);

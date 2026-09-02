@@ -18,7 +18,16 @@ use temper_world_format::Chunk;
 pub(crate) trait BiomeGenerator {
     fn _biome_id(&self) -> u8;
     fn _biome_name(&self) -> String;
-    fn generate_chunk(&self, pos: ChunkPos, noise: &NoiseGenerator, density_function: &CompiledDensityFunction)
+    fn generate_chunk_new(
+        &self,
+        pos: ChunkPos,
+        noise: &NoiseGenerator,
+        density_function: &CompiledDensityFunction,
+    ) -> Result<Chunk, WorldGenError>;
+
+    // TODO: remove in the future, this only exists to allow old tests to run
+    #[allow(dead_code)]
+    fn generate_chunk(&self, pos: ChunkPos, noise: &NoiseGenerator)
     -> Result<Chunk, WorldGenError>;
 }
 
@@ -110,27 +119,33 @@ impl WorldGenerator {
     pub fn new(seed: u64) -> Self {
         let func = DensityFunction::Interpolated {
             input: DensityFunctionArgument::Function(Box::new(DensityFunction::Add {
-                left: DensityFunctionArgument::Function(Box::new(DensityFunction::YClampedGradient {
-                    from_y: 32,
-                    to_y: 96,
-                    from_value: 10.0,
-                    to_value: -10.0,
-                })),
+                left: DensityFunctionArgument::Function(Box::new(
+                    DensityFunction::YClampedGradient {
+                        from_y: 32,
+                        to_y: 96,
+                        from_value: 10.0,
+                        to_value: -10.0,
+                    },
+                )),
                 right: DensityFunctionArgument::Function(Box::new(DensityFunction::Add {
                     left: DensityFunctionArgument::Function(Box::new(DensityFunction::FlatCache {
-                        input: DensityFunctionArgument::Function(Box::new(DensityFunction::Noise {
-                            noise: "minecraft:surface".to_string(),
-                            xz_scale: 0.25,
-                            y_scale: 1.0,
-                        })),
+                        input: DensityFunctionArgument::Function(Box::new(
+                            DensityFunction::Noise {
+                                noise: "minecraft:surface".to_string(),
+                                xz_scale: 0.25,
+                                y_scale: 1.0,
+                            },
+                        )),
                     })),
                     right: DensityFunctionArgument::Function(Box::new(DensityFunction::Cache2d {
-                        input: DensityFunctionArgument::Function(Box::new(DensityFunction::Shift {
-                            noise: "minecraft:surface".to_string()
-                        }))
-                    }))
+                        input: DensityFunctionArgument::Function(Box::new(
+                            DensityFunction::Shift {
+                                noise: "minecraft:surface".to_string(),
+                            },
+                        )),
+                    })),
                 })),
-            }))
+            })),
         };
 
         let func = func.fold();
@@ -152,7 +167,8 @@ impl WorldGenerator {
 
     pub fn generate_chunk(&self, pos: ChunkPos) -> Result<Chunk, WorldGenError> {
         let biome = self.get_biome(pos);
-        let mut chunk = biome.generate_chunk(pos, &self.noise_generator, &self.final_density)?;
+        let mut chunk =
+            biome.generate_chunk_new(pos, &self.noise_generator, &self.final_density)?;
         caves::generate_caves(&mut chunk, pos, &self.noise_generator);
         Ok(chunk)
     }

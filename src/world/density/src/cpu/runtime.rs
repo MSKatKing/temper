@@ -3,25 +3,36 @@ mod buffer_ops;
 use crate::cpu::Workspace;
 use crate::cpu::buffer::BufferId;
 use crate::cpu::operation::{NegativeDecayType, Operation, ValueSource};
-use crate::cpu::runtime::buffer_ops::{buffer_add, buffer_apply_func, buffer_copy_to, buffer_div, buffer_max, buffer_min, buffer_mul, buffer_sub};
-use std::ops::{Mul, RangeInclusive};
+use crate::cpu::runtime::buffer_ops::{
+    buffer_add, buffer_copy_to, buffer_div, buffer_max, buffer_min, buffer_mul, buffer_sub,
+};
+use std::ops::RangeInclusive;
 use temper_core::math::lerp;
 
 pub fn execute_function(workspace: &mut Workspace) -> Option<()> {
     for operation in workspace.operations {
         match operation {
-            Operation::ClearBuffer { destination, source } if let ValueSource::Constant(value) = source => {
+            Operation::ClearBuffer {
+                destination,
+                source: ValueSource::Constant(value),
+            } => {
                 workspace.get_buffer_mut(*destination)?.fill(*value);
             }
-            Operation::ClearBuffer { destination, source } if let ValueSource::Noise(noise) = source => {
+            Operation::ClearBuffer {
+                destination,
+                source: ValueSource::Noise(noise),
+            } => {
                 let chunk_pos = workspace.current_pos;
                 let buffer = workspace.get_buffer_mut(*destination)?;
 
-                buffer.pos_iter_mut().for_each(|(local_pos, v)| {
-                    *v = noise.noise(chunk_pos.chunk_block(local_pos))
-                })
-            },
-            Operation::ClearBuffer { destination, source } if let ValueSource::Buffer(src) = source => {
+                buffer
+                    .pos_iter_mut()
+                    .for_each(|(local_pos, v)| *v = noise.noise(chunk_pos.chunk_block(local_pos)))
+            }
+            Operation::ClearBuffer {
+                destination,
+                source: ValueSource::Buffer(src),
+            } => {
                 assert_ne!(destination, src, "cannot copy buffer to itself");
 
                 let Some((dst, src)) = workspace.get_dst_src(*destination, *src) else {
@@ -30,12 +41,16 @@ pub fn execute_function(workspace: &mut Workspace) -> Option<()> {
 
                 buffer_copy_to(dst, src)?;
             }
-            Operation::ClearBuffer { .. } => unreachable!(),
             Operation::YClampedGradient {
                 destination,
                 y_range,
                 value_range,
-            } => handle_y_clamped_gradient(*destination, y_range.clone(), value_range.clone(), workspace)?,
+            } => handle_y_clamped_gradient(
+                *destination,
+                y_range.clone(),
+                value_range.clone(),
+                workspace,
+            )?,
             Operation::AddBuffer {
                 destination,
                 source,
@@ -94,16 +109,17 @@ pub fn handle_y_clamped_gradient(
 
     dest.fill(*value_range.start());
 
-    dest
-        .pos_iter_mut()
-        .filter(|(local_pos, _)| {
-            local_pos.y() > *y_range.start()
-        })
+    dest.pos_iter_mut()
+        .filter(|(local_pos, _)| local_pos.y() > *y_range.start())
         .for_each(|(local_pos, v)| {
             if local_pos.y() > *y_range.end() {
                 *v = *value_range.end()
             } else {
-                *v = lerp((local_pos.y() as f64 - *y_range.start() as f64) / (y_range.end() - y_range.start()) as f64, [*value_range.start() as f64, *value_range.end() as f64]) as f32;
+                *v = lerp(
+                    (local_pos.y() as f64 - *y_range.start() as f64)
+                        / (y_range.end() - y_range.start()) as f64,
+                    [*value_range.start() as f64, *value_range.end() as f64],
+                ) as f32;
             }
         });
 
