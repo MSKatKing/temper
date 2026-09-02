@@ -335,6 +335,9 @@ pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::_
         return Some(());
     }
 
+    let z_stride = 0x10; // x width
+    let y_stride = z_stride * 0x10; // x width * z width
+
     match dst.ty {
         BufferType::Out | BufferType::Full => match src.ty {
             BufferType::Out | BufferType::Full => unreachable!(),
@@ -346,68 +349,87 @@ pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::_
                     x86_64::_mm256_setr_ps(0.5, 0.5, 0.5, 0.5, 0.75, 0.75, 0.75, 0.75),
                 ];
 
-                src.as_chunks::<8>()
-                    .0
-                    .iter()
-                    .enumerate()
-                    .for_each(|(i, data)| {
-                        let pos = unpack_buffer_coord((i as u32) << 3, BufferType::Interpolated);
+                let mut src_cell_idx = 0;
+                for cell_y in 0..(384 / 4) {
+                    let dst_base_y = cell_y * 4 * y_stride;
 
-                        // run 8 times because there's 64 values in the cell
-                        for i in 0..8 {
-                            let y_idx = (i >> 1) as i16;
-                            let y = x86_64::_mm256_set1_ps(y_idx as f32 / 4.0);
+                    for cell_z in 0..(16 / 4) {
+                        let dst_base_z = dst_base_y + cell_z * 4 * z_stride;
 
-                            let z_idx = (i & 1) as usize;
+                        for cell_x in 0..(16 / 4) {
+                            let dst_base_x = dst_base_z + cell_x * 4;
 
-                            let i = pack_buffer_coord(
-                                ChunkBlockPos::new(pos.x(), pos.y() + y_idx, pos.z() + 2 * (i & 1)),
-                                BufferType::Full,
-                            ) as usize;
-
-                            let src_v = lerp3_f32_simd([x, z[z_idx], y], *data);
-                            let dst_v = unsafe {
-                                x86_64::_mm256_set_m128(
-                                    x86_64::_mm_load_ps(&raw const dst[i + 0x10]),
-                                    x86_64::_mm_load_ps(&raw const dst[i]),
-                                )
+                            let src_data = unsafe {
+                                x86_64::_mm256_load_ps(&raw const src[src_cell_idx * 8])
                             };
+                            src_cell_idx += 1;
 
-                            let dst_v = action(src_v, dst_v);
+                            for i in 0..8usize {
+                                let z_idx = i & 1;
+                                let y_idx = i >> 1;
+                                let y = x86_64::_mm256_set1_ps(y_idx as f32 / 4.0);
 
-                            unsafe {
-                                let lo = x86_64::_mm256_castps256_ps128(dst_v);
-                                let hi = x86_64::_mm256_extractf128_ps::<1>(dst_v);
+                                let z_offset = z_idx * 2 * z_stride;
+                                let y_offset = y_idx * y_stride;
+                                let dst_offset = dst_base_x + z_offset + y_offset;
 
-                                x86_64::_mm_store_ps(&raw mut dst[i], lo);
-                                x86_64::_mm_store_ps(&raw mut dst[i + 0x10], hi)
+                                unsafe {
+                                    let interpolated = lerp3_f32_simd(
+                                        [x, z[z_idx], y],
+                                        src_data
+                                    );
+
+                                    let dst_data = x86_64::_mm256_set_m128(
+                                        x86_64::_mm_load_ps(&raw const dst[dst_offset + z_stride]),
+                                        x86_64::_mm_load_ps(&raw const dst[dst_offset]),
+                                    );
+
+                                    let dst_data = action(interpolated, dst_data);
+
+                                    let lo = x86_64::_mm256_castps256_ps128(dst_data);
+                                    let hi = x86_64::_mm256_extractf128_ps::<1>(dst_data);
+
+                                    x86_64::_mm_store_ps(&raw mut dst[dst_offset], lo);
+                                    x86_64::_mm_store_ps(&raw mut dst[dst_offset + z_stride], hi)
+                                }
                             }
                         }
-                    });
+                    }
+                }
             }
-            BufferType::Flat => src
-                .as_chunks::<8>()
-                .0
-                .iter()
-                .enumerate()
-                .for_each(|(i, data)| {
-                    let x = (i & 1) * 8;
-                    let z = (i >> 1) & 0xF;
+            BufferType::Flat => {
+                for z in 0..16 {
+                    let base_z = z * z_stride;
 
-                    let src_v = unsafe { x86_64::_mm256_load_ps(data.as_ptr()) };
+                    for x in 0..16 {
+                        let base_x = base_z + x;
 
-                    for y in 0usize..384 {
-                        let idx = (y << 8) | (z << 4) | x;
+                        let src_data0 = unsafe {
+                            x86_64::_mm256_load_ps(&raw const src[base_x])
+                        };
 
-                        let dst_v = unsafe { x86_64::_mm256_load_ps(&raw const dst[idx]) };
+                        // x stride is 16, only 8 values fit into a __m256
+                        let src_data1 = unsafe {
+                            x86_64::_mm256_load_ps(&raw const src[base_x + 0x8])
+                        };
 
-                        let dst_v = action(src_v, dst_v);
+                        for y in 0..384 {
+                            let dst_base_y = base_x + y * y_stride;
 
-                        unsafe {
-                            x86_64::_mm256_store_ps(&raw mut dst[idx], dst_v);
+                            unsafe {
+                                let dst_data0 = x86_64::_mm256_load_ps(&raw const dst[dst_base_y]);
+                                let dst_data1 = x86_64::_mm256_load_ps(&raw const dst[dst_base_y + 0x8]);
+
+                                let dst_data0 = action(src_data0, dst_data0);
+                                let dst_data1 = action(src_data1, dst_data1);
+
+                                x86_64::_mm256_store_ps(&raw mut dst[dst_base_y], dst_data0);
+                                x86_64::_mm256_store_ps(&raw mut dst[dst_base_y + 0x8], dst_data1);
+                            }
                         }
                     }
-                }),
+                }
+            },
             BufferType::FlatCell => {
                 todo!()
             }
@@ -416,32 +438,67 @@ pub fn buffer_apply_func_simd<F: Fn(x86_64::__m256, x86_64::__m256) -> x86_64::_
             BufferType::Out | BufferType::Full => unreachable!(),
             BufferType::Interpolated => unreachable!(),
             BufferType::Flat => {
-                dst.as_chunks_mut::<8>()
-                    .0
-                    .iter_mut()
-                    .enumerate()
-                    .for_each(|(i, val)| {
-                        let pos = unpack_buffer_coord((i as u32) << 3, BufferType::Interpolated);
+                let src_offsets = x86_64::_mm256_setr_epi32(
+                    0,
+                    0x3,
+                    0x3 * z_stride as i32,
+                    0x3 * z_stride as i32 + 0x3,
+                    0,
+                    0x3,
+                    0x3 * z_stride as i32,
+                    0x3 * z_stride as i32 + 0x3,
+                );
 
-                        let src_v = x86_64::_mm_setr_ps(
-                            src[(pos.x() as usize) | ((pos.z() as usize) << 4)],
-                            src[(pos.x() as usize + 3) | ((pos.z() as usize) << 4)],
-                            src[(pos.x() as usize) | ((pos.z() as usize + 3) << 4)],
-                            src[(pos.x() as usize + 3) | ((pos.z() as usize + 3) << 4)],
-                        );
-                        let src_v = x86_64::_mm256_set_m128(src_v, src_v);
+                for z in 0..4 {
+                    let src_base_z = z * 4 * z_stride;
+                    let dst_base_z = z * 4;
 
-                        let dst_v = unsafe { x86_64::_mm256_load_ps(val.as_ptr()) };
+                    for x in 0..4 {
+                        let src_base_x = src_base_z + x * 4;
+                        let dst_base_x = dst_base_z + x;
 
-                        let dst_v = action(src_v, dst_v);
+                        let src_data = unsafe {
+                            x86_64::_mm256_i32gather_ps::<4>(&raw const src[src_base_x], src_offsets)
+                        };
 
-                        unsafe {
-                            x86_64::_mm256_store_ps(val.as_mut_ptr(), dst_v);
+                        for y in 0..(384 / 4) {
+                            let dst_base_y = dst_base_x + y * 16;
+
+                            let dst_data = unsafe {
+                                x86_64::_mm256_load_ps(&raw const dst[dst_base_y << 3])
+                            };
+
+                            let dst_data = action(src_data, dst_data);
+
+                            unsafe {
+                                x86_64::_mm256_store_ps(&raw mut dst[dst_base_y << 3], dst_data);
+                            }
                         }
-                    })
+                    }
+                }
             }
             BufferType::FlatCell => {
-                todo!()
+                for z in 0..4 {
+                    let cell_base_z = z * 4;
+
+                    for x in 0..4 {
+                        let cell_base_x = cell_base_z + x;
+
+                        let val = x86_64::_mm256_set1_ps(src[cell_base_x]);
+
+                        for y in 0..(384 / 4) {
+                            let dst_base_y = cell_base_x + y * 16;
+
+                            unsafe {
+                                let dst_data = x86_64::_mm256_load_ps(&raw const dst[dst_base_y << 3]);
+
+                                let dst_data = action(val, dst_data);
+
+                                x86_64::_mm256_store_ps(&raw mut dst[dst_base_y << 3], dst_data);
+                            }
+                        }
+                    }
+                }
             }
         },
         BufferType::Flat => match src.ty {

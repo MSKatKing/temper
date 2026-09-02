@@ -66,19 +66,24 @@ fn _mm256_fmadd_ps_fallback(
 
 #[target_feature(enable = "avx2")]
 #[allow(clippy::missing_safety_doc)]
-pub fn lerp_f32_simd(a: x86_64::__m256, p: [f32; 2]) -> x86_64::__m256 {
-    let p = [x86_64::_mm256_set1_ps(p[0]), x86_64::_mm256_set1_ps(p[1])];
+pub fn lerp_f32_simd(a: x86_64::__m256, p: x86_64::__m256) -> x86_64::__m256 {
+    let low_a = x86_64::_mm256_permute_ps::<0x00>(p);
+    let low_b = x86_64::_mm256_permute_ps::<0x55>(p);
 
-    _mm256_fmadd_ps_fallback(a, x86_64::_mm256_sub_ps(p[1], p[0]), p[0])
+    let p0 = x86_64::_mm256_permute2f128_ps::<0x00>(low_a, low_a);
+    let p1 = x86_64::_mm256_permute2f128_ps::<0x00>(low_b, low_b);
+
+    _mm256_fmadd_ps_fallback(a, x86_64::_mm256_sub_ps(p1, p0), p0)
 }
 
 #[target_feature(enable = "avx2")]
 #[allow(clippy::missing_safety_doc)]
-pub fn lerp3_f32_simd(a: [x86_64::__m256; 3], p: [f32; 8]) -> x86_64::__m256 {
-    let x00 = lerp_f32_simd(a[0], [p[0], p[1]]);
-    let x10 = lerp_f32_simd(a[0], [p[2], p[3]]);
-    let x01 = lerp_f32_simd(a[0], [p[4], p[5]]);
-    let x11 = lerp_f32_simd(a[0], [p[6], p[7]]);
+pub fn lerp3_f32_simd(a: [x86_64::__m256; 3], p: x86_64::__m256) -> x86_64::__m256 {
+    let x00 = lerp_f32_simd(a[0], p);
+    let x10 = lerp_f32_simd(a[0], x86_64::_mm256_shuffle_ps::<0x4E>(p, p));
+    let p = x86_64::_mm256_permute2f128_ps::<0x01>(p, p);
+    let x01 = lerp_f32_simd(a[0], p);
+    let x11 = lerp_f32_simd(a[0], x86_64::_mm256_shuffle_ps::<0x4E>(p, p));
 
     let y0 = _mm256_fmadd_ps_fallback(a[1], x86_64::_mm256_sub_ps(x10, x00), x00);
     let y1 = _mm256_fmadd_ps_fallback(a[1], x86_64::_mm256_sub_ps(x11, x01), x01);
