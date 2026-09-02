@@ -3,7 +3,7 @@ mod buffer_ops;
 use crate::cpu::Workspace;
 use crate::cpu::buffer::BufferId;
 use crate::cpu::operation::{NegativeDecayType, Operation, ValueSource};
-use crate::cpu::runtime::buffer_ops::{buffer_add_to, buffer_apply_func, buffer_copy_to};
+use crate::cpu::runtime::buffer_ops::{buffer_add, buffer_apply_func, buffer_copy_to, buffer_div, buffer_max, buffer_min, buffer_mul, buffer_sub};
 use std::ops::{Mul, RangeInclusive};
 use temper_core::math::lerp;
 
@@ -129,7 +129,7 @@ pub fn handle_add(
         ValueSource::Buffer(source) => {
             let (dest, src) = workspace.get_dst_src(*destination, *source)?;
 
-            buffer_add_to(dest, src)?;
+            buffer_add(dest, src)?;
         }
     }
 
@@ -153,7 +153,7 @@ pub fn handle_sub(
         ValueSource::Buffer(source) => {
             let (dest, src) = workspace.get_dst_src(*destination, *source)?;
 
-            buffer_apply_func(dest, src, |src, dst| dst - src)?;
+            buffer_sub(dest, src)?;
         }
     }
 
@@ -177,7 +177,7 @@ pub fn handle_div(
         ValueSource::Buffer(source) => {
             let (dest, src) = workspace.get_dst_src(*destination, *source)?;
 
-            buffer_apply_func(dest, src, |src, dst| dst / src)?;
+            buffer_div(dest, src)?;
         }
     }
 
@@ -203,7 +203,7 @@ pub fn handle_mul(
         ValueSource::Buffer(source) => {
             let (dest, src) = workspace.get_dst_src(*destination, *source)?;
 
-            buffer_apply_func(dest, src, f32::mul)?;
+            buffer_mul(dest, src)?;
         }
     }
 
@@ -227,7 +227,7 @@ pub fn handle_min(
         ValueSource::Buffer(source) => {
             let (dest, src) = workspace.get_dst_src(*destination, *source)?;
 
-            buffer_apply_func(dest, src, f32::min)?;
+            buffer_min(dest, src)?;
         }
     }
 
@@ -251,7 +251,7 @@ pub fn handle_max(
         ValueSource::Buffer(source) => {
             let (dest, src) = workspace.get_dst_src(*destination, *source)?;
 
-            buffer_apply_func(dest, src, f32::max)?;
+            buffer_max(dest, src)?;
         }
     }
 
