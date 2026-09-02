@@ -1,6 +1,6 @@
 use crate::cpu::buffer::{Buffer, BufferType};
 use crate::cpu::{pack_buffer_coord, unpack_buffer_coord};
-use std::ops::{Add, Deref};
+use std::ops::{Add, Deref, Mul};
 use temper_core::math::{lerp3_f32, lerp3_f32_simd};
 use temper_core::pos::ChunkBlockPos;
 use std::arch::x86_64;
@@ -17,7 +17,7 @@ use std::arch::x86_64;
 ///
 /// # Returns
 ///  * `Some(())`: the operation completed successfully.
-///  * `None`: `dst` was greater than `src`. No data was copied.
+///  * `None`: `dst` was greater than `src`. No data was stored.
 #[must_use]
 #[inline(always)]
 pub fn buffer_copy_to(dst: &mut Buffer, src: &Buffer) -> Option<()> {
@@ -47,10 +47,10 @@ pub fn buffer_copy_to(dst: &mut Buffer, src: &Buffer) -> Option<()> {
 ///
 /// # Returns
 ///  * `Some(())`: the operation completed successfully.
-///  * `None`: `dst` was greater than `src`. No data was added.
+///  * `None`: `dst` was greater than `src`. No data was stored.
 #[must_use]
 #[inline(always)]
-pub fn buffer_add_to(dst: &mut Buffer, src: &Buffer) -> Option<()> {
+pub fn buffer_add(dst: &mut Buffer, src: &Buffer) -> Option<()> {
     if is_x86_feature_detected!("avx2") {
         // SAFETY: avx2 is supported if we made it here
         unsafe {
@@ -65,8 +65,8 @@ pub fn buffer_add_to(dst: &mut Buffer, src: &Buffer) -> Option<()> {
     }
 }
 
-/// Subtracts the values from `dst` by `src`, storing the result in `dst`. `dst` must be a larger
-/// buffer than `src` or nothing will be added.
+/// Multiplies the values from `src` and `dst`, storing the result in `dst`. `dst` must be a larger
+/// buffer than `src` or nothing will be multiplied.
 ///
 /// # Notes
 /// This function will perform the interpolation for [`BufferType::Interpolated`].
@@ -77,10 +77,98 @@ pub fn buffer_add_to(dst: &mut Buffer, src: &Buffer) -> Option<()> {
 ///
 /// # Returns
 ///  * `Some(())`: the operation completed successfully.
-///  * `None`: `dst` was greater than `src`. No data was subtracted.
+///  * `None`: `dst` was greater than `src`. No data was stored.
 #[must_use]
 #[inline(always)]
-pub fn buffer_sub_from(dst: &mut Buffer, src: &Buffer) -> Option<()> {
+pub fn buffer_mul(dst: &mut Buffer, src: &Buffer) -> Option<()> {
+    if is_x86_feature_detected!("avx2") {
+        // SAFETY: avx2 is supported if we made it here
+        unsafe {
+            buffer_apply_func_simd(
+                dst,
+                src,
+                |src, dst| x86_64::_mm256_mul_ps(src, dst)
+            )
+        }
+    } else {
+        buffer_apply_func(dst, src, f32::mul)
+    }
+}
+
+/// Finds the minimum value between `dst` and `src` and stores the value into `dst`.
+///
+/// # Notes
+/// This function will perform the interpolation for [`BufferType::Interpolated`].
+///
+/// # Arguments
+///  * `dst`: the destination buffer.
+///  * `src`: the source buffer.
+///
+/// # Returns
+///  * `Some(())`: the operation completed successfully.
+///  * `None`: `dst` was greater than `src`. No data was stored.
+#[must_use]
+#[inline(always)]
+pub fn buffer_min(dst: &mut Buffer, src: &Buffer) -> Option<()> {
+    if is_x86_feature_detected!("avx2") {
+        // SAFETY: avx2 is supported if we made it here
+        unsafe {
+            buffer_apply_func_simd(
+                dst,
+                src,
+                |src, dst| x86_64::_mm256_min_ps(src, dst)
+            )
+        }
+    } else {
+        buffer_apply_func(dst, src, f32::min)
+    }
+}
+
+/// Finds the maximum value between `dst` and `src` and stores the value into `dst`.
+///
+/// # Notes
+/// This function will perform the interpolation for [`BufferType::Interpolated`].
+///
+/// # Arguments
+///  * `dst`: the destination buffer.
+///  * `src`: the source buffer.
+///
+/// # Returns
+///  * `Some(())`: the operation completed successfully.
+///  * `None`: `dst` was greater than `src`. No data was stored.
+#[must_use]
+#[inline(always)]
+pub fn buffer_max(dst: &mut Buffer, src: &Buffer) -> Option<()> {
+    if is_x86_feature_detected!("avx2") {
+        // SAFETY: avx2 is supported if we made it here
+        unsafe {
+            buffer_apply_func_simd(
+                dst,
+                src,
+                |src, dst| x86_64::_mm256_max_ps(src, dst)
+            )
+        }
+    } else {
+        buffer_apply_func(dst, src, f32::max)
+    }
+}
+
+/// Subtracts the values from `dst` by `src`, storing the result in `dst`. `dst` must be a larger
+/// buffer than `src` or nothing will be subtracted.
+///
+/// # Notes
+/// This function will perform the interpolation for [`BufferType::Interpolated`].
+///
+/// # Arguments
+///  * `dst`: the destination buffer.
+///  * `src`: the source buffer.
+///
+/// # Returns
+///  * `Some(())`: the operation completed successfully.
+///  * `None`: `dst` was greater than `src`. No data was stored.
+#[must_use]
+#[inline(always)]
+pub fn buffer_sub(dst: &mut Buffer, src: &Buffer) -> Option<()> {
     if is_x86_feature_detected!("avx2") {
         // SAFETY: avx2 is supported if we made it here
         unsafe {
@@ -92,6 +180,36 @@ pub fn buffer_sub_from(dst: &mut Buffer, src: &Buffer) -> Option<()> {
         }
     } else {
         buffer_apply_func(dst, src, |src, dst| dst - src)
+    }
+}
+
+/// Divides the values from `dst` by `src`, storing the result in `dst`. `dst` must be a larger
+/// buffer than `src` or nothing will be divided.
+///
+/// # Notes
+/// This function will perform the interpolation for [`BufferType::Interpolated`].
+///
+/// # Arguments
+///  * `dst`: the destination buffer.
+///  * `src`: the source buffer.
+///
+/// # Returns
+///  * `Some(())`: the operation completed successfully.
+///  * `None`: `dst` was greater than `src`. No data was stored.
+#[must_use]
+#[inline(always)]
+pub fn buffer_div(dst: &mut Buffer, src: &Buffer) -> Option<()> {
+    if is_x86_feature_detected!("avx2") {
+        // SAFETY: avx2 is supported if we made it here
+        unsafe {
+            buffer_apply_func_simd(
+                dst,
+                src,
+                |src, dst| x86_64::_mm256_div_ps(dst, src)
+            )
+        }
+    } else {
+        buffer_apply_func(dst, src, |src, dst| dst / src)
     }
 }
 

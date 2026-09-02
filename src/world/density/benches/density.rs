@@ -52,7 +52,7 @@ fn bench_density(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("density execution");
     group.throughput(Throughput::Bytes(
-        (BufferType::Out.size() * size_of::<f32>()) as u64,
+        (BufferType::Out.size().get() * size_of::<f32>()) as u64,
     ));
     group.bench_function("density execution", |b| {
         b.iter(|| black_box(workspace.execute()))
