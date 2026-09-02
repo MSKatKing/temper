@@ -1,7 +1,7 @@
 use crate::cpu::buffer::BufferId;
 use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
 use crate::{DensityFunction, DensityFunctionArgument};
-use std::ops::RangeInclusive;
+use std::ops::{Range, RangeInclusive};
 use temper_core::random::{PositionalRandom, RandomSource};
 use temper_data::noise::NoiseParameter;
 
@@ -74,6 +74,18 @@ pub enum Operation {
         min: f32,
         max: f32,
     },
+
+    /// Squeezes the value in buffer
+    SqueezeBuffer {
+        buffer: BufferId,
+    },
+
+    RangeChoiceBuffer {
+        input: BufferId,
+        in_range: ValueSource,
+        out_of_range: ValueSource,
+        range: Range<f32>,
+    }
 }
 
 #[derive(Clone, Debug)]

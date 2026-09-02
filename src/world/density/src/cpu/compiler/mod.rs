@@ -12,6 +12,7 @@ use temper_data::noise::NoiseParameter;
 pub struct Compiler {
     buffers: HashMap<BufferType, VecDeque<Option<usize>>>,
     ops: Vec<Operation>,
+    constants: Vec<Operation>,
 }
 
 #[derive(Clone, Debug)]
@@ -62,6 +63,7 @@ impl Compiler {
         Compiler {
             buffers: HashMap::with_capacity(5),
             ops: Vec::new(),
+            constants: Vec::new(),
         }
     }
 
@@ -105,6 +107,10 @@ impl Compiler {
 
     fn push_op(&mut self, op: Operation) {
         self.ops.push(op);
+    }
+
+    fn push_constant_op(&mut self, op: Operation) {
+        self.constants.push(op);
     }
 }
 
@@ -221,6 +227,18 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
         DensityFunction::Interpolated { input } => marker_compile!(Interpolated, input),
         DensityFunction::Cache2d { input } => marker_compile!(Flat, input),
         DensityFunction::FlatCache { input } => marker_compile!(FlatCell, input),
+        DensityFunction::CacheOnce { input } => {
+            let buffer = compile(
+                compiler,
+                rand,
+                input.function().expect("should be folded"),
+                parent_buffer,
+            );
+
+            // TODO: use push_constant_op
+
+            buffer
+        }
         DensityFunction::YClampedGradient {
             from_y,
             to_y,
@@ -234,6 +252,55 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             });
 
             parent_buffer
+        }
+        DensityFunction::Squeeze { input } => {
+            let inner = compile(compiler, rand, input.function().expect("should be folded"), parent_buffer);
+
+            compiler.push_op(Operation::SqueezeBuffer {
+                buffer: inner,
+            });
+
+            inner
+        },
+        DensityFunction::RangeChoice { input, min_inclusive, max_exclusive, when_in_range, when_out_of_range } => {
+            let input = compile(compiler, rand, input.function().expect("should be folded"), parent_buffer);
+
+            let in_range_src = match ValueSource::try_from(when_in_range, rand) {
+                Some(val) => val,
+                None => {
+                    let buf = compiler.alloc_buffer(parent_buffer.ty);
+                    let actual = compile(compiler, rand, when_in_range.function().expect("should be linked"), buf);
+
+                    if buf != actual {
+                        compiler.free_buffer(buf)
+                    }
+
+                    ValueSource::Buffer(actual)
+                }
+            };
+
+            let out_of_range_src = match ValueSource::try_from(when_out_of_range, rand) {
+                Some(val) => val,
+                None => {
+                    let buf = compiler.alloc_buffer(parent_buffer.ty);
+                    let actual = compile(compiler, rand, when_out_of_range.function().expect("should be linked"), buf);
+
+                    if buf != actual {
+                        compiler.free_buffer(buf)
+                    }
+
+                    ValueSource::Buffer(actual)
+                }
+            };
+
+            compiler.push_op(Operation::RangeChoiceBuffer {
+                input,
+                in_range: in_range_src,
+                out_of_range: out_of_range_src,
+                range: (*min_inclusive as f32)..(*max_exclusive as f32),
+            });
+
+            input
         }
         _ => todo!("{:?}", func),
     }
