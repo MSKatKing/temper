@@ -89,11 +89,11 @@ impl<'section> From<&'section PalettedSection> for PalettedContainer<'section> {
 }
 
 impl<'section> From<&'section DirectSection> for PalettedContainer<'section> {
-    fn from(_section: &'section DirectSection) -> Self {
+    fn from(section: &'section DirectSection) -> Self {
         PalettedContainer {
             bits_per_entry: 16,
             palette: NetworkPalette::Direct {},
-            data_array: NetworkArray::new_owned(vec![]), // TODO: fix this to use the data from the section; bytemuck::cast_slice(&section.0)
+            data_array: NetworkArray::new_borrowed(bytemuck::cast_slice(&section.0)),
         }
     }
 }

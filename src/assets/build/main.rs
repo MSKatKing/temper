@@ -33,7 +33,7 @@ fn main() {
     );
     let java_path = match which::which("java") {
         Err(_) => {
-            println!("cargo:error={}", NO_JAVA_MESSAGE);
+            println!("cargo::error={}", NO_JAVA_MESSAGE);
             return;
         }
         Ok(path) => path,
@@ -42,7 +42,7 @@ fn main() {
     if let Some(is_higher) = check_version(java_path) {
         if !is_higher {
             println!(
-                "cargo:error=Java version is lower than the minimum required version of {}. Please update your Java installation.",
+                "cargo::error=Java version is lower than the minimum required version of {}. Please update your Java installation.",
                 MIN_JAVA_VERSION
             );
         }
