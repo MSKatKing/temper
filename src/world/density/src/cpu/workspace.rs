@@ -89,7 +89,7 @@ pub struct Workspace<'func> {
     flat: Vec<Buffer<Flat>>,
     flat_cell: Vec<Buffer<FlatCell>>,
     interpolated: Vec<Buffer<Interpolated>>,
-    operations: &'func [Box<dyn Operation>],
+    pub operations: &'func [Box<dyn Operation>],
 
     pub current_pos: ChunkPos,
 }
@@ -97,7 +97,7 @@ pub struct Workspace<'func> {
 impl Workspace<'_> {
     pub fn new(density_function: &CompiledDensityFunction) -> Workspace<'_> {
         Workspace {
-            full: (0..density_function.flat_buffer_count).map(|_| Buffer::new()).collect(),
+            full: (0..density_function.full_buffer_count).map(|_| Buffer::new()).collect(),
             interpolated: (0..density_function.interpolated_buffer_count).map(|_| Buffer::new()).collect(),
             flat: (0..density_function.flat_buffer_count).map(|_| Buffer::new()).collect(),
             flat_cell: (0..density_function.flat_cell_buffer_count).map(|_| Buffer::new()).collect(),

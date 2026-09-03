@@ -2,7 +2,7 @@ use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use std::collections::HashMap;
 use std::hint::black_box;
 use temper_core::random::XoroshiroRandomSource;
-use temper_density::cpu::buffer::{BufferType, Flat};
+use temper_density::cpu::buffer::{BufferType, Flat, Full};
 use temper_density::cpu::compiler::Compiler;
 use temper_density::cpu::workspace::Workspace;
 use temper_density::{DensityFunction, DensityFunctionArgument};
@@ -35,10 +35,11 @@ fn bench_density(c: &mut Criterion) {
     let func = Compiler::compile(&mut rand, func);
     
     let mut workspace = Workspace::new(&func);
+    println!("{:?}", workspace.operations);
 
     let mut group = c.benchmark_group("density execution");
     group.throughput(Throughput::Bytes(
-        (<Flat as BufferType>::SIZE * size_of::<f32>()) as u64,
+        (<Full as BufferType>::SIZE * size_of::<f32>()) as u64,
     ));
     group.bench_function("density execution", |b| {
         b.iter(|| black_box(workspace.execute()))

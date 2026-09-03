@@ -1,5 +1,6 @@
-use std::marker::PhantomData;
 use crate::cpu::buffer::ty::{BufferType, Full};
+use std::fmt::Debug;
+use std::marker::PhantomData;
 
 #[derive(Debug)]
 pub struct BufferId<Type: BufferType> {

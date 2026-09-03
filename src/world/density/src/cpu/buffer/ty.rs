@@ -1,9 +1,10 @@
 use temper_core::pos::ChunkBlockPos;
 use crate::cpu::buffer::Buffer;
 use std::arch::x86_64;
+use std::fmt::Debug;
 use crate::cpu::buffer::op::BufferOperation;
 
-pub trait BufferType: Sized {
+pub trait BufferType: Sized + Debug {
     const SIZE: usize;
     const LEVEL: usize;
     const Z_STRIDE: usize;
@@ -129,28 +130,17 @@ impl<Dst: BufferType> BufferApplyTo<Dst> for Dst {
     }
 }
 
-/// A placeholder for places where a BufferType is required but no buffer is used. DO NOT USE IN
-/// AN ACTUAL BUFFER STRUCT.
-pub struct Constant;
+#[derive(Debug)]
 pub struct Full;
+
+#[derive(Debug)]
 pub struct Interpolated;
+
+#[derive(Debug)]
 pub struct Flat;
+
+#[derive(Debug)]
 pub struct FlatCell;
-
-impl BufferType for Constant {
-    const SIZE: usize = 1;
-    const LEVEL: usize = 0;
-    const Z_STRIDE: usize = 1;
-    const Y_STRIDE: usize = 1;
-
-    fn unpack_coord(_: usize) -> ChunkBlockPos {
-        ChunkBlockPos::new(0, 0, 0)
-    }
-
-    fn pack_coord(_: ChunkBlockPos) -> usize {
-        0
-    }
-}
 
 impl BufferType for Full {
     const SIZE: usize = 16 * 16 * 384;

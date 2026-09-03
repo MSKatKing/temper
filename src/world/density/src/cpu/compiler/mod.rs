@@ -18,6 +18,7 @@ pub struct Compiler {
     constants: Vec<Box<dyn Operation>>,
 }
 
+#[derive(Debug)]
 pub struct CompiledDensityFunction {
     pub(crate) ops: Vec<Box<dyn Operation>>,
     pub(crate) full_buffer_count: usize,

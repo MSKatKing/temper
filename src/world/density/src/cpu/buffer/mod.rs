@@ -11,6 +11,7 @@ pub use id::BufferId;
 pub use ty::*;
 pub use op::*;
 
+#[derive(Debug)]
 pub struct Buffer<Type: BufferType> {
     data: &'static mut [f32],
     layout: Layout,
@@ -59,7 +60,7 @@ impl<Type: BufferType> Buffer<Type> {
             }
 
             // ptr returned from alloc is guaranteed to be valid
-            std::slice::from_raw_parts_mut(ptr.cast::<f32>(), layout.size())
+            std::slice::from_raw_parts_mut(ptr.cast::<f32>(), Type::SIZE)
         };
 
         Self {
