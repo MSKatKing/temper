@@ -1,41 +1,49 @@
 use crate::cpu::buffer::{Add, BufferApplyTo, BufferId, BufferType, Replace};
 use crate::cpu::noise::NoiseAccessor;
+use crate::cpu::runtime::Operation;
 use crate::cpu::workspace::{GetDstSrc, Workspace, WorkspaceStorable};
+use std::fmt::Debug;
 use std::ops::RangeInclusive;
 use temper_core::math::lerp;
-use crate::cpu::runtime::Operation;
 
+#[derive(Debug)]
 pub struct FillBuffer<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> {
     pub dst: BufferId<Dst>,
     pub src: BufferId<Src>,
 }
 
+#[derive(Debug)]
 pub struct FillConstant<Dst: WorkspaceStorable> {
     pub dst: BufferId<Dst>,
     pub src: f32,
 }
 
+#[derive(Debug)]
 pub struct FillNoise<Dst: WorkspaceStorable> {
     pub dst: BufferId<Dst>,
     pub noise: NoiseAccessor,
 }
 
+#[derive(Debug)]
 pub struct YClampedGradient<Dst: WorkspaceStorable> {
     pub dst: BufferId<Dst>,
     pub y_range: RangeInclusive<i16>,
     pub value_range: RangeInclusive<f32>,
 }
 
+#[derive(Debug)]
 pub struct BufferAdd<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> {
     pub dst: BufferId<Dst>,
     pub src: BufferId<Src>,
 }
 
+#[derive(Debug)]
 pub struct ConstantAdd<Dst: WorkspaceStorable> {
     pub dst: BufferId<Dst>,
     pub src: f32,
 }
 
+#[derive(Debug)]
 pub struct NoiseAdd<Dst: WorkspaceStorable> {
     pub dst: BufferId<Dst>,
     pub src: NoiseAccessor,
