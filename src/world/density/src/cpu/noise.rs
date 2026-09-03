@@ -3,6 +3,7 @@ use temper_core::pos::BlockPos;
 use temper_core::random::{PositionalRandom, RandomSource};
 use temper_data::noise::NoiseParameter;
 use temper_noise::{BlendedNoise, NormalNoise};
+use crate::DensityFunction;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum NoiseAccessType {
@@ -99,5 +100,13 @@ impl NoiseType {
                 pos.z as i32,
             )),
         }
+    }
+}
+
+impl TryFrom<&DensityFunction> for NoiseAccessor {
+    type Error = ();
+    
+    fn try_from(value: &DensityFunction) -> Result<Self, Self::Error> {
+        todo!()
     }
 }
