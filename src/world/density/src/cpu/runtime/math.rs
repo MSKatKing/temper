@@ -1,4 +1,4 @@
-use crate::cpu::buffer::{Add, BufferApplyTo, BufferId, BufferType, Replace};
+use crate::cpu::buffer::{Add, BufferApplyTo, BufferId, BufferType, Mul, Replace};
 use crate::cpu::noise::NoiseAccessor;
 use crate::cpu::runtime::Operation;
 use crate::cpu::workspace::{GetDstSrc, Workspace, WorkspaceStorable};
@@ -46,6 +46,24 @@ pub struct ConstantAdd<Dst: WorkspaceStorable> {
 
 #[derive(Debug)]
 pub struct NoiseAdd<Dst: WorkspaceStorable> {
+    pub dst: BufferId<Dst>,
+    pub src: NoiseAccessor,
+}
+
+#[derive(Debug)]
+pub struct BufferMul<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> {
+    pub dst: BufferId<Dst>,
+    pub src: BufferId<Src>,
+}
+
+#[derive(Debug)]
+pub struct ConstantMul<Dst: WorkspaceStorable> {
+    pub dst: BufferId<Dst>,
+    pub src: f32,
+}
+
+#[derive(Debug)]
+pub struct NoiseMul<Dst: WorkspaceStorable> {
     pub dst: BufferId<Dst>,
     pub src: NoiseAccessor,
 }
@@ -142,6 +160,44 @@ impl<Dst: WorkspaceStorable> Operation for NoiseAdd<Dst> {
         let dst = workspace.get_buffer_mut(self.dst)?;
         dst.pos_iter_mut()
             .for_each(|(pos, v)| *v += self.src.noise(chunk_pos.chunk_block(pos)));
+        Some(())
+    }
+}
+
+impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for BufferMul<Dst, Src> {
+    fn execute(&self, workspace: &mut Workspace) -> Option<()> {
+        let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
+        Src::apply_to::<Mul>(src, dst);
+        Some(())
+    }
+
+    unsafe fn execute_simd(&self, workspace: &mut Workspace) -> Option<()> {
+        let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
+
+        // SAFETY: requirements passed to caller
+        unsafe {
+            Src::apply_to_simd::<Mul>(src, dst);
+        }
+
+        Some(())
+    }
+}
+
+impl<Dst: WorkspaceStorable> Operation for ConstantMul<Dst> {
+    fn execute(&self, workspace: &mut Workspace) -> Option<()> {
+        let dst = workspace.get_buffer_mut(self.dst)?;
+        dst.iter_mut().for_each(|v| *v *= self.src);
+        Some(())
+    }
+}
+
+impl<Dst: WorkspaceStorable> Operation for NoiseMul<Dst> {
+    fn execute(&self, workspace: &mut Workspace) -> Option<()> {
+        let chunk_pos = workspace.current_pos;
+        let dst = workspace.get_buffer_mut(self.dst)?;
+        dst.pos_iter_mut().for_each(|(pos, v)| {
+            *v *= self.src.noise(chunk_pos.chunk_block(pos));
+        });
         Some(())
     }
 }
