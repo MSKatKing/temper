@@ -142,6 +142,21 @@ impl ValueSource {
                             y_scale: *y_scale as f32,
                         },
                     )))
+                },
+                DensityFunction::OldBlendedNoise {
+                    xz_scale,
+                    y_scale,
+                    xz_factor,
+                    y_factor,
+                    smear_scale_multiplier,
+                } => {
+                    Some(ValueSource::Noise(NoiseAccessor::new_blended(
+                        *xz_scale,
+                        *y_scale,
+                        *xz_factor,
+                        *y_factor,
+                        *smear_scale_multiplier,
+                    )))
                 }
                 DensityFunction::Shift { noise } => {
                     let param = NoiseParameter::get_by_name(noise.as_str())?;

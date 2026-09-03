@@ -2,7 +2,7 @@ use bevy_math::DVec3;
 use temper_core::pos::BlockPos;
 use temper_core::random::{PositionalRandom, RandomSource};
 use temper_data::noise::NoiseParameter;
-use temper_noise::NormalNoise;
+use temper_noise::{BlendedNoise, NormalNoise};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum NoiseAccessType {
@@ -10,9 +10,15 @@ pub enum NoiseAccessType {
     Shift,
 }
 
+#[derive(Debug, Clone)]
+pub enum NoiseType {
+    Normal(NormalNoise),
+    Blended(BlendedNoise),
+}
+
 #[derive(Clone, Debug)]
 pub struct NoiseAccessor {
-    noise: NormalNoise,
+    noise: NoiseType,
     pub access_type: NoiseAccessType,
 }
 
@@ -29,11 +35,35 @@ impl NoiseAccessor {
             noise_param.amplitudes,
         );
 
-        Self { noise, access_type }
+        Self { noise: NoiseType::Normal(noise), access_type }
+    }
+
+    pub fn new_blended(
+        xz_scale: f64,
+        y_scale: f64,
+        xz_factor: f64,
+        y_factor: f64,
+        smear_scale_multiplier: f64,
+    ) -> Self {
+        let noise = BlendedNoise::new_unseeded(
+            xz_scale,
+            y_scale,
+            xz_factor,
+            y_factor,
+            smear_scale_multiplier,
+        );
+
+        Self {
+            noise: NoiseType::Blended(noise),
+            access_type: NoiseAccessType::Basic {
+                xz_scale: 1.0,
+                y_scale: 1.0,
+            }
+        }
     }
 
     pub fn new_noise(noise: NormalNoise, access_type: NoiseAccessType) -> Self {
-        Self { noise, access_type }
+        Self { noise: NoiseType::Normal(noise), access_type }
     }
 
     pub fn noise(&self, pos: BlockPos) -> f32 {
@@ -55,6 +85,19 @@ impl NoiseAccessor {
         match self.access_type {
             NoiseAccessType::Shift => val * 4.0,
             _ => val,
+        }
+    }
+}
+
+impl NoiseType {
+    pub fn noise(&self, pos: DVec3) -> f64 {
+        match self {
+            NoiseType::Normal(noise) => noise.noise(pos),
+            NoiseType::Blended(noise) => noise.noise(BlockPos::of(
+                pos.x as i32,
+                pos.y as i32,
+                pos.z as i32,
+            )),
         }
     }
 }
