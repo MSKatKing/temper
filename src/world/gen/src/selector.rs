@@ -3,12 +3,12 @@ use std::sync::Arc;
 use gen_core::ChunkGenerator;
 
 pub fn generator_from_name(name: &str, seed: u64) -> Option<Arc<dyn ChunkGenerator>> {
-    match name.trim().to_ascii_lowercase().as_str() {
+    match (name.trim().to_ascii_lowercase().as_str(), seed) {
         // Easter egg: this seed forces skyblock regardless of configured name.
-        _ if seed == 0x43f6c73858579990 => Some(Arc::new(skyblock::SkyblockGenerator::new(seed))),
-        "normal" => Some(Arc::new(normal::NormalGenerator::new(seed))),
-        "skyblock" => Some(Arc::new(skyblock::SkyblockGenerator::new(seed))),
-        "superflat" => Some(Arc::new(superflat::SuperflatGenerator::new(seed))),
+        // Note: rustrover seems to complain that these arms are unreachable, but they aren't
+        (_, 0x43f6c73858579990) | ("skyblock", _) => Some(Arc::new(skyblock::SkyblockGenerator::new(seed))),
+        ("normal", _) => Some(Arc::new(normal::NormalGenerator::new(seed))),
+        ("superflat", _) => Some(Arc::new(superflat::SuperflatGenerator::new(seed))),
         _ => None,
     }
 }
