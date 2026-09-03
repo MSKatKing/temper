@@ -4,6 +4,7 @@ pub mod errors;
 mod interp;
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use include_dir::{include_dir, Dir, DirEntry};
 use crate::errors::WorldGenError;
 use crate::interp::smoothstep;
@@ -37,7 +38,7 @@ pub(crate) trait BiomeGenerator {
 pub struct WorldGenerator {
     _seed: u64,
     noise_generator: NoiseGenerator,
-    final_density: CompiledDensityFunction,
+    final_density: Arc<CompiledDensityFunction>,
 }
 #[derive(Clone)]
 pub(crate) struct NoiseGenerator {
@@ -119,33 +120,53 @@ impl NoiseGenerator {
 
 impl WorldGenerator {
     pub fn new(seed: u64) -> Self {
-        const BASE: &str = include_str!("density/base.json");
-        const EXTERNAL: Dir = include_dir!(".\\assets\\generated\\generated\\data\\minecraft\\worldgen\\density_function");
-
-        let mut func = DensityFunctionArgument::parse(BASE).unwrap();
-
-        let mut external = HashMap::new();
-        fn gather(external: &mut HashMap<String, DensityFunctionArgument>, root: &Dir) {
-            for entry in root.entries() {
-                if let Some(dir) = entry.as_dir() {
-                    gather(external, dir);
-                    continue;
-                }
-
-                if let Some(file) = entry.as_file() {
-                    let path = file.path().display().to_string();
-                    let name = format!("minecraft:{}", path.strip_suffix(".json").unwrap_or(path.as_str()));
-
-                    let func = DensityFunctionArgument::parse(file.contents_utf8().unwrap()).unwrap_or_else(|e| panic!("{}: {}", name, e));
-
-                    external.insert(name, func);
-                }
+        // const BASE: &str = include_str!("density/base.json");
+        // const EXTERNAL: Dir = include_dir!(".\\assets\\generated\\generated\\data\\minecraft\\worldgen\\density_function");
+        // 
+        // let mut func = DensityFunctionArgument::parse(BASE).unwrap();
+        // 
+        // let mut external = HashMap::new();
+        // fn gather(external: &mut HashMap<String, DensityFunctionArgument>, root: &Dir) {
+        //     for entry in root.entries() {
+        //         if let Some(dir) = entry.as_dir() {
+        //             gather(external, dir);
+        //             continue;
+        //         }
+        // 
+        //         if let Some(file) = entry.as_file() {
+        //             let path = file.path().display().to_string();
+        //             let name = format!("minecraft:{}", path.strip_suffix(".json").unwrap_or(path.as_str()));
+        // 
+        //             let func = DensityFunctionArgument::parse(file.contents_utf8().unwrap()).unwrap_or_else(|e| panic!("{}: {}", name, e));
+        // 
+        //             external.insert(name, func);
+        //         }
+        //     }
+        // }
+        // 
+        // gather(&mut external, &EXTERNAL);
+        
+        let mut func = DensityFunctionArgument::Function(Box::new(
+            DensityFunction::Add {
+                left: DensityFunctionArgument::Function(Box::new(
+                    DensityFunction::Noise {
+                        noise: "minecraft:surface".to_string(),
+                        xz_scale: 1.0,
+                        y_scale: 1.0,
+                    }
+                )),
+                right: DensityFunctionArgument::Function(Box::new(
+                    DensityFunction::YClampedGradient {
+                        from_y: 32,
+                        to_y: 96,
+                        from_value: 1.0,
+                        to_value: -1.0,
+                    }
+                ))
             }
-        }
+        ));
 
-        gather(&mut external, &EXTERNAL);
-
-        func.link_arg(&external);
+        func.link_arg(&HashMap::new());
         let func = func.fold();
 
         let mut rand = XoroshiroRandomSource::new(seed);
@@ -154,7 +175,7 @@ impl WorldGenerator {
         Self {
             _seed: seed,
             noise_generator: NoiseGenerator::new(seed),
-            final_density: compiled,
+            final_density: Arc::new(compiled),
         }
     }
 

@@ -111,12 +111,13 @@ impl BiomeGenerator for PlainsBiome {
             chunk.fill_section(section_y as i8, block!("water", {level: 0}));
         }
 
+        let out = workspace.out();
         for y in 0..384usize {
             for z in 0..16usize {
                 for x in 0..16usize {
                     let idx = (y << 8) | (z << 4) | x;
 
-                    if workspace.out[idx] >= 0.0 {
+                    if out[idx] >= 0.0 {
                         chunk.set_block(ChunkBlockPos::new(x as _, y as i16 - 64, z as _), stone);
                     }
                 }
