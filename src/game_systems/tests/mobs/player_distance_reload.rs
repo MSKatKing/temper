@@ -20,7 +20,24 @@ use temper_entities::markers::entity_types::Fox;
 use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
 use temper_messages::chunk_calc::ChunkCalc;
 use temper_messages::load_chunk_entities::LoadChunkEntities;
+use temper_state::GlobalStateResource;
 use temper_state::create_test_state;
+
+/// `chunk_unloader` dispatches storage writes to the thread pool, so a chunk
+/// evicted from the cache is not immediately readable from storage. Poll until
+/// the write lands rather than assuming it already has.
+pub fn wait_for_saved_chunk(
+    state: &GlobalStateResource,
+    pos: ChunkPos,
+) -> temper_world::RefChunk<'_> {
+    for _ in 0..200 {
+        if let Ok(chunk) = state.0.world.get_chunk(pos, Dimension::Overworld) {
+            return chunk;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    panic!("chunk {pos:?} never reached storage after unload");
+}
 
 fn emit_chunk_calc_for(entity: Entity) -> impl FnMut(MessageWriter<ChunkCalc>) {
     move |mut writer: MessageWriter<ChunkCalc>| {
@@ -132,34 +149,16 @@ fn player_can_unload_entities_by_moving_away_and_reload_them_after_returning() {
         live_foxes, 0,
         "fox should despawn when its chunk is unloaded"
     );
-    let cached_chunk = state
-        .0
-        .world
-        .get_cache()
-        .get(&(fox_chunk, Dimension::Overworld))
-        .expect("dirty fox chunk should stay cached until world sync");
     assert!(
-        cached_chunk.is_dirty(),
-        "unloaded dirty chunks should wait for the background sync pass"
-    );
-    assert_eq!(
-        cached_chunk.entities.len(),
-        1,
-        "only the test fox should be retained in the chunk"
-    );
-    drop(cached_chunk);
-
-    state
-        .0
-        .world
-        .sync()
-        .expect("dirty fox chunk should sync before restart-style reload");
-    {
-        let saved_chunk = state
+        !state
             .0
             .world
-            .get_chunk(fox_chunk, Dimension::Overworld)
-            .expect("saved fox chunk should be readable from storage");
+            .get_cache()
+            .contains_key(&(fox_chunk, Dimension::Overworld)),
+        "fox chunk should be removed from cache after unload"
+    );
+    {
+        let saved_chunk = wait_for_saved_chunk(&state, fox_chunk);
         assert_eq!(
             saved_chunk.entities.len(),
             1,

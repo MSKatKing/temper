@@ -1,12 +1,10 @@
 use bevy_ecs::prelude::{Entity, MessageWriter, Query, Res};
 use bevy_math::{IVec2, IVec3};
-use crossbeam_queue::SegQueue;
 use std::cmp::max;
 use std::collections::HashSet;
-use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use temper_codec::encode::NetEncodeOpts;
-use temper_components::player::chunk_receiver::ChunkReceiver;
+use temper_components::player::chunk_receiver::{ChunkReceiver, PreparedChunk};
 use temper_components::player::client_information::ClientInformationComponent;
 use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::position::Position;
@@ -21,8 +19,9 @@ use temper_protocol::outgoing::set_center_chunk::SetCenterChunk;
 use temper_state::GlobalStateResource;
 use tracing::error;
 
-// Just take the needed chunks from the ChunkReceiver and send them
-// calculating which chunks are required is figured out elsewhere
+/// How many times a chunk may fail to prepare before we stop retrying it.
+const MAX_CHUNK_RETRIES: u8 = 3;
+
 pub fn handle(
     mut query: Query<(
         Entity,
@@ -37,9 +36,118 @@ pub fn handle(
 ) {
     for (eid, conn, mut chunk_receiver, pos, client_info, entity_tracker) in query.iter_mut() {
         if !state.0.players.is_connected(eid) {
-            continue; // Skip if the player is not connected
+            continue;
         }
 
+        let chunk_receiver = &mut *chunk_receiver;
+
+        // ==========================================
+        // PHASE 1: HARVEST & SEND COMPLETED CHUNKS
+        // ==========================================
+        let mut harvested = Vec::new();
+
+        // Pull everything the pool has finished with — successes and failures
+        while let Ok(prepared) = chunk_receiver.ready_rx.try_recv() {
+            harvested.push(prepared);
+        }
+
+        // Anything harvested is no longer in flight, whatever its outcome.
+        // This is what stops a failure from stranding the coordinate forever.
+        for prepared in &harvested {
+            let pos = prepared.pos();
+            chunk_receiver.in_flight.remove(&(pos.x(), pos.z()));
+        }
+
+        let mut ready_to_send = Vec::new();
+        for prepared in harvested {
+            match prepared {
+                PreparedChunk::Ready { pos, .. } => {
+                    // Success wipes the failure history for this chunk, so a
+                    // chunk that fails twice then succeeds starts clean.
+                    chunk_receiver.retry_counts.remove(&(pos.x(), pos.z()));
+                    ready_to_send.push(prepared);
+                }
+                PreparedChunk::Failed { pos } => {
+                    let key = (pos.x(), pos.z());
+                    let attempts = chunk_receiver.retry_counts.entry(key).or_insert(0);
+                    *attempts += 1;
+
+                    if *attempts >= MAX_CHUNK_RETRIES {
+                        error!(
+                            "Chunk {:?} failed to prepare {} times; giving up for this session",
+                            pos, attempts
+                        );
+                        chunk_receiver.retry_counts.remove(&key);
+                    } else {
+                        // Put it back in the queue for another attempt next tick.
+                        chunk_receiver.loading.push_back(key);
+                    }
+                }
+            }
+        }
+
+        if !ready_to_send.is_empty() {
+            conn.send_packet(ChunkBatchStart {})
+                .expect("Failed to send ChunkBatchStart");
+
+            let center_chunk: IVec3 = pos.coords.floor().as_ivec3() >> 4;
+            conn.send_packet(SetCenterChunk {
+                x: center_chunk.x.into(),
+                z: center_chunk.z.into(),
+            })
+            .expect("Failed to send SetCenterChunk");
+
+            let packets_len = ready_to_send.len();
+
+            for chunk in ready_to_send {
+                let PreparedChunk::Ready {
+                    pos: chunk_pos,
+                    packet_data,
+                    entities,
+                    is_new_load,
+                } = chunk
+                else {
+                    unreachable!();
+                };
+
+                chunk_receiver.loaded.insert((chunk_pos.x(), chunk_pos.z()));
+
+                if is_new_load {
+                    mob_load_writer.write(temper_messages::load_chunk_entities::LoadChunkEntities(
+                        chunk_pos,
+                    ));
+                }
+
+                if let Err(err) = conn.send_raw_packet(packet_data) {
+                    error!("Failed to send chunk packet: {:?}", err);
+                }
+
+                for entity_tuple in entities {
+                    entity_tracker.to_track.push(entity_tuple);
+                }
+            }
+
+            if let Err(err) = conn.send_packet(ChunkBatchFinish {
+                batch_size: packets_len.into(),
+            }) {
+                error!("Failed to send ChunkBatchFinish packet: {:?}", err);
+            }
+        }
+
+        // tell the client to unload chunks that are no longer needed
+        while let Some(coords) = chunk_receiver.unloading.pop_front() {
+            let packet = temper_protocol::outgoing::unload_chunk::UnloadChunk {
+                x: coords.0,
+                z: coords.1,
+            };
+            if let Err(err) = conn.send_packet(packet) {
+                error!("Failed to send UnloadChunk packet: {:?}", err);
+            }
+        }
+
+        // ==========================================
+        // PHASE 2: DISPATCH NEW CHUNKS (NON-BLOCKING)
+        // ==========================================
         let chunk_per_tick = match state.0.config.performance.chunks_per_tick {
             0 => max(
                 chunk_receiver.loading.len() / 3,
@@ -53,14 +161,11 @@ pub fn handle(
             continue;
         }
 
-        let chunk_receiver = &mut *chunk_receiver;
-
         let mut dirty_chunks = Vec::new();
         let mut sent_chunks = 0;
 
-        // First handle dirty chunks
-        while let Some(coords) = &chunk_receiver.dirty.pop_front() {
-            dirty_chunks.push(*coords);
+        while let Some(coords) = chunk_receiver.dirty.pop_front() {
+            dirty_chunks.push(coords);
             sent_chunks += 1;
             if sent_chunks >= chunk_per_tick {
                 break;
@@ -70,7 +175,6 @@ pub fn handle(
         let mut needed_chunks: Vec<(i32, i32)> = Vec::new();
 
         if sent_chunks < chunk_receiver.chunks_per_tick as usize {
-            // Then handle loading chunks
             while let Some(coords) = chunk_receiver.loading.pop_front() {
                 needed_chunks.push(coords);
                 sent_chunks += 1;
@@ -85,23 +189,9 @@ pub fn handle(
 
         if needed_chunks.is_empty() {
             continue;
-        };
+        }
 
-        let mut batch = state.0.thread_pool.batch();
-
-        conn.send_packet(ChunkBatchStart {})
-            .expect("Failed to send ChunkBatchStart");
-
-        let center_chunk: IVec3 = pos.coords.floor().as_ivec3() >> 4;
-
-        conn.send_packet(SetCenterChunk {
-            x: center_chunk.x.into(),
-            z: center_chunk.z.into(),
-        })
-        .expect("Failed to send SetCenterChunk");
-
-        let entity_queue = Arc::new(SegQueue::new());
-
+        // dispatch to the thread pool
         for coordinates in needed_chunks
             .into_iter()
             .filter(|coord| {
@@ -119,69 +209,61 @@ pub fn handle(
             })
             .map(|c| ChunkPos::new(c.0, c.1))
         {
-            chunk_receiver
-                .loaded
-                .insert((coordinates.x(), coordinates.z()));
-            let state = state.clone();
-            if loading_chunks.contains(&(coordinates.x(), coordinates.z())) {
-                mob_load_writer.write(temper_messages::load_chunk_entities::LoadChunkEntities(
-                    coordinates,
-                ));
-            }
+            let is_new_load = loading_chunks.contains(&(coordinates.x(), coordinates.z()));
             let is_compressed = conn.compress.load(Ordering::Relaxed);
-            batch.execute({
-                let entity_queue = entity_queue.clone();
-                move || {
-                    let chunk = state
-                        .0
-                        .world
-                        .get_or_generate_chunk(coordinates, Dimension::Overworld)
-                        .expect("Failed to load or generate chunk");
-                    for kv in chunk.entities.iter() {
-                        entity_queue.push((*kv.key(), kv.value().0.to_entity_type().id));
+
+            let state_clone = state.clone();
+            let tx = chunk_receiver.ready_tx.clone();
+
+            chunk_receiver
+                .in_flight
+                .insert((coordinates.x(), coordinates.z())); // Mark this chunk as in-flight to prevent duplicate generation
+
+            state.0.thread_pool.oneshot(move || {
+                // Inner closure so we can use `?` on the three fallible steps
+                // instead of unwinding the whole pool thread on any of them.
+                let prepare = || -> Result<PreparedChunk, String> {
+                    let chunk_data = {
+                        let chunk_ref = state_clone
+                            .0
+                            .world
+                            .get_or_generate_chunk(coordinates, Dimension::Overworld)
+                            .map_err(|err| format!("load or generate failed: {err:?}"))?;
+
+                        (*chunk_ref).clone_without_transient_noise()
+                    };
+
+                    let mut entities = Vec::new();
+                    for kv in chunk_data.entities.iter() {
+                        entities.push((*kv.key(), kv.value().0.to_entity_type().id));
                     }
 
-                    let packet = ChunkAndLightData::from_chunk(coordinates, &chunk)
-                        .expect("Failed to create ChunkAndLightData");
-                    compress_packet(
+                    let packet = ChunkAndLightData::from_chunk(coordinates, &chunk_data)
+                        .map_err(|err| format!("building ChunkAndLightData failed: {err:?}"))?;
+
+                    let packet_data = compress_packet(
                         &packet,
                         is_compressed,
                         &NetEncodeOpts::WithLength,
-                        state.0.config.network_compression_threshold as usize,
+                        state_clone.0.config.network_compression_threshold as usize,
                     )
-                    .expect("Failed to compress ChunkAndLightData packet")
-                }
+                    .map_err(|err| format!("compressing chunk packet failed: {err:?}"))?;
+
+                    Ok(PreparedChunk::Ready {
+                        pos: coordinates,
+                        packet_data,
+                        entities,
+                        is_new_load,
+                    })
+                };
+
+                let message = prepare().unwrap_or_else(|err| {
+                    error!("Chunk {:?} failed to prepare: {}", coordinates, err);
+                    PreparedChunk::Failed { pos: coordinates }
+                });
+
+                let _ = tx.send(message);
             });
-        }
-        let packets = batch.wait();
-        let packets_len = packets.len();
-        for packet in packets {
-            if let Err(err) = conn.send_raw_packet(packet) {
-                error!("Failed to send chunk packet: {:?}", err);
-            }
-        }
-
-        if let Err(err) = conn.send_packet(ChunkBatchFinish {
-            batch_size: packets_len.into(),
-        }) {
-            error!("Failed to send ChunkBatchFinish packet: {:?}", err);
-        }
-
-        // Tell the client to unload chunks that are no longer needed
-
-        while let Some(coords) = &chunk_receiver.unloading.pop_front() {
-            let packet = temper_protocol::outgoing::unload_chunk::UnloadChunk {
-                x: coords.0,
-                z: coords.1,
-            };
-            if let Err(err) = conn.send_packet(packet) {
-                error!("Failed to send UnloadChunk packet: {:?}", err);
-            }
-        }
-
-        // God, I hope the compiler can optimize this shit out
-        while let Some(entity_id) = entity_queue.pop() {
-            entity_tracker.to_track.push(entity_id);
         }
     }
 }

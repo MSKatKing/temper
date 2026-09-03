@@ -249,7 +249,7 @@ pub fn register_schedules(
     );
     mobs::register_save_systems(shutdown_schedule);
     shutdown_schedule
-        .add_systems(background::world_sync::sync_world.in_set(ShutdownPhase::FlushWorld));
+        .add_systems(background::world_sync::flush_world.in_set(ShutdownPhase::FlushWorld));
     shutdown_schedule
         .add_systems(shutdown::send_shutdown_packet::handle.in_set(ShutdownPhase::ShutdownPackets));
 
