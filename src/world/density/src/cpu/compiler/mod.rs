@@ -1,10 +1,11 @@
-mod generic;
+mod math;
+mod visitor;
 
 use crate::cpu::buffer::{BufferId, BufferType, Flat, FlatCell, Full, Interpolated};
-use crate::cpu::compiler::generic::{
-    BufferAddVisitor, BufferFillVisitor, BufferOperationResult, BufferOperationVisitor,
-    ConstantAddVisitor, ConstantFillVisitor, NoiseAddVisitor, NoiseFillVisitor,
-    YClampedGradientVisitor,
+use crate::cpu::compiler::math::{compile_add, compile_mul};
+use crate::cpu::compiler::visitor::{
+    BufferOperationResult, BufferOperationVisitor, FillBufferVisitor, FillConstantVisitor,
+    FillNoiseVisitor, YClampedGradientVisitor,
 };
 use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
 use crate::cpu::runtime::Operation;
@@ -116,7 +117,7 @@ impl Compiler {
                 compile(&mut this, &mut rand.fork_positional(), func.as_ref(), out)
             }
             DensityFunctionArgument::Constant(val) => {
-                this.push_op(out.visit(ConstantFillVisitor { src: val as f32 }))
+                this.push_visitor(FillConstantVisitor::new(out, val as f32))
             }
             DensityFunctionArgument::External(_) => {
                 panic!("should be linked before being compiled")
@@ -124,7 +125,7 @@ impl Compiler {
         };
 
         if actual != out {
-            this.push_op(out.visit(BufferFillVisitor { src: actual }));
+            this.push_visitor(FillBufferVisitor::new(out, actual));
         }
 
         CompiledDensityFunction {
@@ -176,7 +177,7 @@ impl Compiler {
         })[buffer.idx()] = false;
     }
 
-    fn push_op(&mut self, op: BufferOperationResult) -> AnyBufferId {
+    fn push_visitor(&mut self, op: BufferOperationResult) -> AnyBufferId {
         self.ops.push(op.op);
         op.output_buf
     }
@@ -215,67 +216,6 @@ fn compile_arg<R: RandomSource, P: PositionalRandom<R>>(
     }
 }
 
-fn compile_add<R: RandomSource, P: PositionalRandom<R>>(
-    compiler: &mut Compiler,
-    rand: &mut P,
-    left: &DensityFunctionArgument,
-    right: &DensityFunctionArgument,
-    parent_buffer: AnyBufferId,
-) -> AnyBufferId {
-    let left_source = compile_arg(compiler, rand, left, parent_buffer);
-
-    let right_buffer = if let ReturnValue::Buffer(left) = &left_source
-        && *left == parent_buffer
-    {
-        compiler.alloc_buffer(parent_buffer)
-    } else {
-        parent_buffer
-    };
-    let right_source = compile_arg(compiler, rand, right, right_buffer);
-
-    if let ReturnValue::Buffer(left) = &left_source
-        && *left != parent_buffer
-    {
-        compiler.free_buffer(*left);
-    }
-
-    if let ReturnValue::Buffer(right) = &right_source
-        && *right != parent_buffer
-    {
-        compiler.free_buffer(*right);
-    }
-
-    match (left_source, right_source) {
-        (ReturnValue::Constant(left), ReturnValue::Constant(right)) => {
-            let left = compiler.push_op(parent_buffer.visit(ConstantFillVisitor { src: left }));
-
-            compiler.push_op(left.visit(ConstantAddVisitor { src: right }))
-        }
-        (ReturnValue::Constant(val), ReturnValue::Noise(noise))
-        | (ReturnValue::Noise(noise), ReturnValue::Constant(val)) => {
-            let noise = compiler.push_op(parent_buffer.visit(NoiseFillVisitor { src: noise }));
-
-            compiler.push_op(noise.visit(ConstantAddVisitor { src: val }))
-        }
-        (ReturnValue::Noise(noise_a), ReturnValue::Noise(noise_b)) => {
-            let noise_a = compiler.push_op(parent_buffer.visit(NoiseFillVisitor { src: noise_a }));
-
-            compiler.push_op(noise_a.visit(NoiseAddVisitor { src: noise_b }))
-        }
-        (ReturnValue::Noise(noise), ReturnValue::Buffer(buffer))
-        | (ReturnValue::Buffer(buffer), ReturnValue::Noise(noise)) => {
-            compiler.push_op(buffer.visit(NoiseAddVisitor { src: noise }))
-        }
-        (ReturnValue::Constant(val), ReturnValue::Buffer(buffer))
-        | (ReturnValue::Buffer(buffer), ReturnValue::Constant(val)) => {
-            compiler.push_op(buffer.visit(ConstantAddVisitor { src: val }))
-        }
-        (ReturnValue::Buffer(left), ReturnValue::Buffer(right)) => {
-            compiler.push_op(left.visit(BufferAddVisitor { src: right }))
-        }
-    }
-}
-
 fn compile<R: RandomSource, P: PositionalRandom<R>>(
     compiler: &mut Compiler,
     rand: &mut P,
@@ -286,25 +226,29 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
         DensityFunction::Add { left, right } => {
             compile_add(compiler, rand, left, right, parent_buffer)
         }
+        DensityFunction::Mul { left, right } => {
+            compile_mul(compiler, rand, left, right, parent_buffer)
+        }
         DensityFunction::YClampedGradient {
             from_y,
             to_y,
             from_value,
             to_value,
-        } => compiler.push_op(parent_buffer.visit(YClampedGradientVisitor {
-            y_range: (*from_y as i16)..=(*to_y as i16),
-            value_range: (*from_value as f32)..=(*to_value as f32),
-        })),
+        } => compiler.push_visitor(YClampedGradientVisitor::new(
+            parent_buffer,
+            (*from_y as i16)..=(*to_y as i16),
+            (*from_value as f32)..=(*to_value as f32),
+        )),
         DensityFunction::Cache2d { input } => {
             let buffer = compiler.alloc_buffer(AnyBufferId::Flat(BufferId::<Flat>::new(0)));
             let input_source = compile_arg(compiler, rand, input, buffer);
 
             match input_source {
                 ReturnValue::Constant(val) => {
-                    compiler.push_op(buffer.visit(ConstantFillVisitor { src: val }))
+                    compiler.push_visitor(FillConstantVisitor::new(buffer, val))
                 }
                 ReturnValue::Noise(noise) => {
-                    compiler.push_op(buffer.visit(NoiseFillVisitor { src: noise }))
+                    compiler.push_visitor(FillNoiseVisitor::new(buffer, noise))
                 }
                 ReturnValue::Buffer(actual) => {
                     if actual != buffer {
