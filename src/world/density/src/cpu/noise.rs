@@ -3,7 +3,6 @@ use temper_core::pos::BlockPos;
 use temper_core::random::{PositionalRandom, RandomSource};
 use temper_data::noise::NoiseParameter;
 use temper_noise::{BlendedNoise, NormalNoise};
-use crate::DensityFunction;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum NoiseAccessType {
@@ -36,7 +35,10 @@ impl NoiseAccessor {
             noise_param.amplitudes,
         );
 
-        Self { noise: NoiseType::Normal(noise), access_type }
+        Self {
+            noise: NoiseType::Normal(noise),
+            access_type,
+        }
     }
 
     pub fn new_blended(
@@ -59,12 +61,15 @@ impl NoiseAccessor {
             access_type: NoiseAccessType::Basic {
                 xz_scale: 1.0,
                 y_scale: 1.0,
-            }
+            },
         }
     }
 
     pub fn new_noise(noise: NormalNoise, access_type: NoiseAccessType) -> Self {
-        Self { noise: NoiseType::Normal(noise), access_type }
+        Self {
+            noise: NoiseType::Normal(noise),
+            access_type,
+        }
     }
 
     pub fn noise(&self, pos: BlockPos) -> f32 {
@@ -94,19 +99,9 @@ impl NoiseType {
     pub fn noise(&self, pos: DVec3) -> f64 {
         match self {
             NoiseType::Normal(noise) => noise.noise(pos),
-            NoiseType::Blended(noise) => noise.noise(BlockPos::of(
-                pos.x as i32,
-                pos.y as i32,
-                pos.z as i32,
-            )),
+            NoiseType::Blended(noise) => {
+                noise.noise(BlockPos::of(pos.x as i32, pos.y as i32, pos.z as i32))
+            }
         }
-    }
-}
-
-impl TryFrom<&DensityFunction> for NoiseAccessor {
-    type Error = ();
-    
-    fn try_from(value: &DensityFunction) -> Result<Self, Self::Error> {
-        todo!()
     }
 }

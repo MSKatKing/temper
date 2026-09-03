@@ -7,6 +7,7 @@ use std::ops::RangeInclusive;
 use temper_core::math::lerp;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct FillBuffer<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> {
     pub dst: BufferId<Dst>,
     pub src: BufferId<Src>,
@@ -52,7 +53,18 @@ pub struct NoiseAdd<Dst: WorkspaceStorable> {
 impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for FillBuffer<Dst, Src> {
     fn execute(&self, workspace: &mut Workspace) -> Option<()> {
         let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
-        src.apply_to::<Dst, Replace>(dst);
+        Src::apply_to::<Replace>(src, dst);
+        Some(())
+    }
+
+    unsafe fn execute_simd(&self, workspace: &mut Workspace) -> Option<()> {
+        let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
+
+        // SAFETY: requirements passed to caller
+        unsafe {
+            Src::apply_to_simd::<Replace>(src, dst);
+        }
+
         Some(())
     }
 }
@@ -86,7 +98,10 @@ impl<Dst: WorkspaceStorable> Operation for YClampedGradient<Dst> {
                 *v = lerp(
                     (pos.y() as f64 - *self.y_range.start() as f64)
                         / (self.y_range.end() - self.y_range.start()) as f64,
-                    [*self.value_range.start() as f64, *self.value_range.end() as f64],
+                    [
+                        *self.value_range.start() as f64,
+                        *self.value_range.end() as f64,
+                    ],
                 ) as f32;
             }
         });
@@ -97,7 +112,18 @@ impl<Dst: WorkspaceStorable> Operation for YClampedGradient<Dst> {
 impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for BufferAdd<Dst, Src> {
     fn execute(&self, workspace: &mut Workspace) -> Option<()> {
         let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
-        src.apply_to::<Dst, Add>(dst);
+        Src::apply_to::<Add>(src, dst);
+        Some(())
+    }
+
+    unsafe fn execute_simd(&self, workspace: &mut Workspace) -> Option<()> {
+        let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
+
+        // SAFETY: requirements passed to caller
+        unsafe {
+            Src::apply_to_simd::<Add>(src, dst);
+        }
+
         Some(())
     }
 }
@@ -114,9 +140,8 @@ impl<Dst: WorkspaceStorable> Operation for NoiseAdd<Dst> {
     fn execute(&self, workspace: &mut Workspace) -> Option<()> {
         let chunk_pos = workspace.current_pos;
         let dst = workspace.get_buffer_mut(self.dst)?;
-        dst.pos_iter_mut().for_each(|(pos, v)| {
-            *v += self.src.noise(chunk_pos.chunk_block(pos))
-        });
+        dst.pos_iter_mut()
+            .for_each(|(pos, v)| *v += self.src.noise(chunk_pos.chunk_block(pos)));
         Some(())
     }
 }

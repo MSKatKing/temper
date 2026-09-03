@@ -3,12 +3,11 @@ mod caves;
 pub mod errors;
 mod interp;
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use include_dir::{include_dir, Dir, DirEntry};
 use crate::errors::WorldGenError;
 use crate::interp::smoothstep;
 use noise::{Fbm, MultiFractal, NoiseFn, Perlin, RidgedMulti};
+use std::collections::HashMap;
+use std::sync::Arc;
 use temper_core::pos::ChunkPos;
 use temper_core::random::XoroshiroRandomSource;
 use temper_density::cpu::compiler::{CompiledDensityFunction, Compiler};
@@ -122,9 +121,9 @@ impl WorldGenerator {
     pub fn new(seed: u64) -> Self {
         // const BASE: &str = include_str!("density/base.json");
         // const EXTERNAL: Dir = include_dir!(".\\assets\\generated\\generated\\data\\minecraft\\worldgen\\density_function");
-        // 
+        //
         // let mut func = DensityFunctionArgument::parse(BASE).unwrap();
-        // 
+        //
         // let mut external = HashMap::new();
         // fn gather(external: &mut HashMap<String, DensityFunctionArgument>, root: &Dir) {
         //     for entry in root.entries() {
@@ -132,39 +131,33 @@ impl WorldGenerator {
         //             gather(external, dir);
         //             continue;
         //         }
-        // 
+        //
         //         if let Some(file) = entry.as_file() {
         //             let path = file.path().display().to_string();
         //             let name = format!("minecraft:{}", path.strip_suffix(".json").unwrap_or(path.as_str()));
-        // 
+        //
         //             let func = DensityFunctionArgument::parse(file.contents_utf8().unwrap()).unwrap_or_else(|e| panic!("{}: {}", name, e));
-        // 
+        //
         //             external.insert(name, func);
         //         }
         //     }
         // }
-        // 
+        //
         // gather(&mut external, &EXTERNAL);
-        
-        let mut func = DensityFunctionArgument::Function(Box::new(
-            DensityFunction::Add {
-                left: DensityFunctionArgument::Function(Box::new(
-                    DensityFunction::Noise {
-                        noise: "minecraft:surface".to_string(),
-                        xz_scale: 1.0,
-                        y_scale: 1.0,
-                    }
-                )),
-                right: DensityFunctionArgument::Function(Box::new(
-                    DensityFunction::YClampedGradient {
-                        from_y: 32,
-                        to_y: 96,
-                        from_value: 1.0,
-                        to_value: -1.0,
-                    }
-                ))
-            }
-        ));
+
+        let mut func = DensityFunctionArgument::Function(Box::new(DensityFunction::Add {
+            left: DensityFunctionArgument::Function(Box::new(DensityFunction::Noise {
+                noise: "minecraft:surface".to_string(),
+                xz_scale: 1.0,
+                y_scale: 1.0,
+            })),
+            right: DensityFunctionArgument::Function(Box::new(DensityFunction::YClampedGradient {
+                from_y: 32,
+                to_y: 96,
+                from_value: 1.0,
+                to_value: -1.0,
+            })),
+        }));
 
         func.link_arg(&HashMap::new());
         let func = func.fold();

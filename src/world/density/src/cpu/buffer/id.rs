@@ -10,10 +10,7 @@ pub struct BufferId<Type: BufferType> {
 
 impl<Type: BufferType> Clone for BufferId<Type> {
     fn clone(&self) -> Self {
-        Self {
-            idx: self.idx,
-            __type: PhantomData,
-        }
+        *self
     }
 }
 

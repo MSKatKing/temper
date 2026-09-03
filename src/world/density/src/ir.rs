@@ -69,7 +69,7 @@ density_function!(
 #[derive(Deserialize, PartialEq, Debug, Clone)]
 pub struct DensitySpline {
     coordinate: DensityFunctionArgument,
-    points: Vec<DensitySplinePoint>
+    points: Vec<DensitySplinePoint>,
 }
 
 #[derive(Deserialize, PartialEq, Debug, Clone)]
@@ -130,7 +130,7 @@ impl DensityFunctionArgument {
     pub fn link_arg(&mut self, externals: &HashMap<String, DensityFunctionArgument>) {
         match self {
             Self::Function(func) => func.link(externals),
-            Self::Constant(_) => {},
+            Self::Constant(_) => {}
             Self::External(ext) => {
                 let mut ext = externals.get(ext).cloned().unwrap();
                 ext.link_arg(externals);
@@ -602,7 +602,9 @@ fn fold_arg(arg: DensityFunctionArgument) -> DensityFunctionArgument {
             }
         }
         DensityFunctionArgument::Constant(c) => DensityFunctionArgument::Constant(c),
-        DensityFunctionArgument::External(name) => panic!("linking should happen before folding: {} not found", name),
+        DensityFunctionArgument::External(name) => {
+            panic!("linking should happen before folding: {} not found", name)
+        }
     }
 }
 

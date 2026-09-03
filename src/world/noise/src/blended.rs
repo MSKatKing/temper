@@ -1,9 +1,9 @@
-use std::fmt::{Debug, Formatter};
+use crate::PerlinNoise;
 use bevy_math::DVec3;
+use std::fmt::{Debug, Formatter};
 use temper_core::math::lerp;
 use temper_core::pos::BlockPos;
 use temper_core::random::XoroshiroRandomSource;
-use crate::PerlinNoise;
 
 #[derive(Clone)]
 pub struct BlendedNoise {
@@ -28,9 +28,18 @@ impl BlendedNoise {
         let mut rand = XoroshiroRandomSource::new(0);
 
         Self {
-            min_limit_noise: PerlinNoise::new_legacy(&mut rand, &(-15..=0).into_iter().collect::<Vec<_>>()),
-            max_limit_noise: PerlinNoise::new_legacy(&mut rand, &(-15..=0).into_iter().collect::<Vec<_>>()),
-            main_noise: PerlinNoise::new_legacy(&mut rand, &(-7..=0).into_iter().collect::<Vec<_>>()),
+            min_limit_noise: PerlinNoise::new_legacy(
+                &mut rand,
+                &(-15..=0).into_iter().collect::<Vec<_>>(),
+            ),
+            max_limit_noise: PerlinNoise::new_legacy(
+                &mut rand,
+                &(-15..=0).into_iter().collect::<Vec<_>>(),
+            ),
+            main_noise: PerlinNoise::new_legacy(
+                &mut rand,
+                &(-7..=0).into_iter().collect::<Vec<_>>(),
+            ),
             xz_factor,
             y_factor,
             smear_scale_multiplier,
@@ -78,22 +87,21 @@ impl BlendedNoise {
             let w = limit.map(|v| PerlinNoise::wrap(v * pow));
             let y_scale_pow = limit_smear * pow;
 
-            if !is_max {
-                if let Some((noise, _)) = self.min_limit_noise.get_octave_noise(i) {
-                    blend_min += noise.noise_advanced(w, y_scale_pow, limit_y * pow) / pow;
-                }
+            if !is_max && let Some((noise, _)) = self.min_limit_noise.get_octave_noise(i) {
+                blend_min += noise.noise_advanced(w, y_scale_pow, limit_y * pow) / pow;
             }
 
-            if !is_min {
-                if let Some((noise, _)) = self.max_limit_noise.get_octave_noise(i) {
-                    blend_max += noise.noise_advanced(w, y_scale_pow, limit_y * pow) / pow;
-                }
+            if !is_min && let Some((noise, _)) = self.max_limit_noise.get_octave_noise(i) {
+                blend_max += noise.noise_advanced(w, y_scale_pow, limit_y * pow) / pow;
             }
 
             pow /= 2.0;
         }
 
-        lerp(factor.clamp(0.0, 1.0), [blend_min / 512.0, blend_max / 512.0]) / 128.0
+        lerp(
+            factor.clamp(0.0, 1.0),
+            [blend_min / 512.0, blend_max / 512.0],
+        ) / 128.0
     }
 }
 
