@@ -1,8 +1,8 @@
 pub mod buffer;
 pub mod compiler;
 pub mod noise;
-pub mod workspace;
 mod runtime;
+pub mod workspace;
 
 // #[cfg(test)]
 // mod tests {
@@ -13,11 +13,11 @@ mod runtime;
 //     use temper_core::pos::ChunkPos;
 //     use temper_core::random::XoroshiroRandomSource;
 //     use temper_noise::NormalNoise;
-// 
+//
 //     #[test]
 //     pub fn test_simple() {
 //         let mut rand = XoroshiroRandomSource::new(10);
-// 
+//
 //         let ops = [
 //             Operation::ClearBuffer {
 //                 destination: BufferId::OUT,
@@ -56,7 +56,7 @@ mod runtime;
 //                 source: ValueSource::Buffer(BufferId::<Flat>::new(1)),
 //             },
 //         ];
-// 
+//
 //         let mut workspace = Workspace {
 //             out: Buffer::new(BufferType::Out),
 //             full: Vec::new(),
@@ -66,7 +66,7 @@ mod runtime;
 //             operations: &ops,
 //             current_pos: ChunkPos::new(0, 0),
 //         };
-// 
+//
 //         let out_buffer = workspace.execute();
 //         assert!(out_buffer.is_some());
 //     }

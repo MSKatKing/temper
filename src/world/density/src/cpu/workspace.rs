@@ -1,15 +1,22 @@
 use crate::cpu::buffer::{Buffer, BufferId, BufferType, Flat, FlatCell, Full, Interpolated};
 use crate::cpu::compiler::CompiledDensityFunction;
-use temper_core::pos::{BlockPos, ChunkBlockPos, ChunkPos};
 use crate::cpu::runtime::Operation;
+use temper_core::pos::{BlockPos, ChunkBlockPos, ChunkPos};
 
 pub trait WorkspaceStorable: BufferType {
     fn get_buffer<'a>(workspace: &'a Workspace, id: BufferId<Self>) -> Option<&'a Buffer<Self>>;
-    fn get_buffer_mut<'a>(workspace: &'a mut Workspace, id: BufferId<Self>) -> Option<&'a mut Buffer<Self>>;
+    fn get_buffer_mut<'a>(
+        workspace: &'a mut Workspace,
+        id: BufferId<Self>,
+    ) -> Option<&'a mut Buffer<Self>>;
 }
 
 pub trait GetDstSrc<Dst: BufferType>: BufferType {
-    fn get_dst_src<'a>(workspace: &'a mut Workspace, dst: BufferId<Dst>, src: BufferId<Self>) -> Option<(&'a mut Buffer<Dst>, &'a Buffer<Self>)>;
+    fn get_dst_src<'a>(
+        workspace: &'a mut Workspace,
+        dst: BufferId<Dst>,
+        src: BufferId<Self>,
+    ) -> Option<(&'a mut Buffer<Dst>, &'a Buffer<Self>)>;
 }
 
 macro_rules! impl_workspace_field {
@@ -97,10 +104,18 @@ pub struct Workspace<'func> {
 impl Workspace<'_> {
     pub fn new(density_function: &CompiledDensityFunction) -> Workspace<'_> {
         Workspace {
-            full: (0..density_function.full_buffer_count).map(|_| Buffer::new()).collect(),
-            interpolated: (0..density_function.interpolated_buffer_count).map(|_| Buffer::new()).collect(),
-            flat: (0..density_function.flat_buffer_count).map(|_| Buffer::new()).collect(),
-            flat_cell: (0..density_function.flat_cell_buffer_count).map(|_| Buffer::new()).collect(),
+            full: (0..density_function.full_buffer_count)
+                .map(|_| Buffer::new())
+                .collect(),
+            interpolated: (0..density_function.interpolated_buffer_count)
+                .map(|_| Buffer::new())
+                .collect(),
+            flat: (0..density_function.flat_buffer_count)
+                .map(|_| Buffer::new())
+                .collect(),
+            flat_cell: (0..density_function.flat_cell_buffer_count)
+                .map(|_| Buffer::new())
+                .collect(),
             operations: &density_function.ops,
             current_pos: ChunkPos::new(0, 0),
         }
@@ -109,7 +124,7 @@ impl Workspace<'_> {
     pub fn set_pos(&mut self, pos: ChunkPos) {
         self.current_pos = pos;
     }
-    
+
     pub fn out(&self) -> &Buffer<Full> {
         &self.full[0]
     }
@@ -118,11 +133,18 @@ impl Workspace<'_> {
         T::get_buffer(self, id)
     }
 
-    pub fn get_buffer_mut<T: WorkspaceStorable>(&mut self, id: BufferId<T>) -> Option<&mut Buffer<T>> {
+    pub fn get_buffer_mut<T: WorkspaceStorable>(
+        &mut self,
+        id: BufferId<T>,
+    ) -> Option<&mut Buffer<T>> {
         T::get_buffer_mut(self, id)
     }
 
-    pub fn get_dst_src<Dst: BufferType, Src: BufferType + GetDstSrc<Dst>>(&mut self, dst: BufferId<Dst>, src: BufferId<Src>) -> Option<(&mut Buffer<Dst>, &Buffer<Src>)> {
+    pub fn get_dst_src<Dst: BufferType, Src: BufferType + GetDstSrc<Dst>>(
+        &mut self,
+        dst: BufferId<Dst>,
+        src: BufferId<Src>,
+    ) -> Option<(&mut Buffer<Dst>, &Buffer<Src>)> {
         Src::get_dst_src(self, dst, src)
     }
 
@@ -132,10 +154,19 @@ impl Workspace<'_> {
 
     #[must_use]
     pub fn execute(&mut self) -> Option<()> {
-        for operation in self.operations {
-            operation.execute(self)?;
+        if is_x86_feature_detected!("avx2") {
+            for operation in self.operations {
+                // SAFETY: avx2 is enabled if we are here
+                unsafe {
+                    operation.execute_simd(self)?;
+                }
+            }
+        } else {
+            for operation in self.operations {
+                operation.execute(self)?;
+            }
         }
-        
+
         Some(())
     }
 }

@@ -1,10 +1,11 @@
-use temper_core::pos::ChunkBlockPos;
 use crate::cpu::buffer::Buffer;
+use crate::cpu::buffer::op::BufferOperation;
 use std::arch::x86_64;
 use std::fmt::Debug;
-use crate::cpu::buffer::op::BufferOperation;
+use temper_core::math::{lerp3_f32, lerp3_f32_simd};
+use temper_core::pos::ChunkBlockPos;
 
-pub trait BufferType: Sized + Debug {
+pub trait BufferType: Sized + Debug + Send + Sync {
     const SIZE: usize;
     const LEVEL: usize;
     const Z_STRIDE: usize;
@@ -12,28 +13,22 @@ pub trait BufferType: Sized + Debug {
 
     fn unpack_coord(idx: usize) -> ChunkBlockPos;
     fn pack_coord(pos: ChunkBlockPos) -> usize;
-    
+
     /// Performs the BufferOperation on self (`src` and `dst` are both values from self).
     fn apply_to_self<T: BufferOperation>(this: &mut Buffer<Self>) {
-        this
-            .iter_mut()
-            .for_each(|v| *v = T::scalar(*v, *v))
+        this.iter_mut().for_each(|v| *v = T::scalar(*v, *v))
     }
 
     /// Performs the BufferOperation on self (`src` and `dst` are both values from self).
-    /// 
+    ///
     /// # Safety
     /// The caller must ensure that the system supports the avx2 feature set.
     #[target_feature(enable = "avx2")]
     unsafe fn apply_to_self_simd<T: BufferOperation>(this: &mut Buffer<Self>) {
-        this
-            .as_chunks_mut::<8>()
-            .0
-            .iter_mut()
-            .for_each(|v| unsafe {
-                let src = x86_64::_mm256_load_ps(v.as_ptr());
-                x86_64::_mm256_store_ps(v.as_mut_ptr(), T::simd(src, src))
-            })
+        this.as_chunks_mut::<8>().0.iter_mut().for_each(|v| unsafe {
+            let src = x86_64::_mm256_load_ps(v.as_ptr());
+            x86_64::_mm256_store_ps(v.as_mut_ptr(), T::simd(src, src))
+        })
     }
 }
 
@@ -53,10 +48,7 @@ pub trait BufferApplyTo<Dst: BufferType>: BufferType {
     /// `src`: the source buffer
     /// `dst`: the destination buffer
     /// `apply`: the function to transform the values from `src` and `dst` before writing.
-    fn apply_to<F: BufferOperation>(
-        src: &Buffer<Self>,
-        dst: &mut Buffer<Dst>,
-    );
+    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Dst>);
 
     /// Moves bytes from `src` into `dst`, first applying the `apply` function. The `apply` function
     /// should be in this format:
@@ -87,31 +79,18 @@ pub trait BufferApplyTo<Dst: BufferType>: BufferType {
     /// `dst`: the destination buffer
     /// `apply`: the function to transform the values from `src` and `dst` before writing.
     #[cfg(target_arch = "x86_64")]
-    unsafe fn apply_to_simd<F: BufferOperation>(
-        src: &Buffer<Self>,
-        dst: &mut Buffer<Dst>,
-    );
+    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Dst>);
 }
 
 impl<Dst: BufferType> BufferApplyTo<Dst> for Dst {
-    fn apply_to<F: BufferOperation>(
-        src: &Buffer<Self>,
-        dst: &mut Buffer<Dst>,
-    ) {
-        dst
-            .iter_mut()
+    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Dst>) {
+        dst.iter_mut()
             .zip(src.iter())
-            .for_each(|(dst, src)| {
-                *dst = F::scalar(*src, if F::READS_DST { *dst } else { 0.0 })
-            });
+            .for_each(|(dst, src)| *dst = F::scalar(*src, if F::READS_DST { *dst } else { 0.0 }));
     }
 
-    unsafe fn apply_to_simd<F: BufferOperation>(
-        src: &Buffer<Self>,
-        dst: &mut Buffer<Dst>,
-    ) {
-        dst
-            .as_chunks_mut::<8>()
+    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Dst>) {
+        dst.as_chunks_mut::<8>()
             .0
             .iter_mut()
             .zip(src.as_chunks::<8>().0.iter())
@@ -185,7 +164,6 @@ impl BufferType for Interpolated {
         )
     }
 
-    // TODO: pack cell block offset as well
     fn pack_coord(pos: ChunkBlockPos) -> usize {
         let cell_x = pos.x() as usize / 4;
         let cell_z = pos.z() as usize / 4;
@@ -198,11 +176,105 @@ impl BufferType for Interpolated {
 
 impl BufferApplyTo<Full> for Interpolated {
     fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>) {
-        todo!()
+        for cell_y in 0..(386 / 4) {
+            let cell_base_y = cell_y * Self::Y_STRIDE;
+
+            for cell_z in 0..4 {
+                let cell_base_z = cell_base_y + cell_z * Self::Z_STRIDE;
+
+                for cell_x in 0..4 {
+                    let cell_base_x = cell_base_z + cell_x;
+
+                    let Some(data): Option<[f32; 8]> = src
+                        [(cell_base_x << 3)..((cell_base_x << 3) + 8)]
+                        .as_array()
+                        .copied()
+                    else {
+                        unreachable!()
+                    };
+
+                    for y in 0..4 {
+                        let base_y = (y + cell_y * 4) * Full::Y_STRIDE;
+
+                        for z in 0..4 {
+                            let base_z = (z + cell_z * 4) * Full::Z_STRIDE + base_y;
+
+                            for x in 0..4 {
+                                let base_x = (x + cell_x * 4) + base_z;
+
+                                let src = lerp3_f32(
+                                    [x as f32 / 4.0, z as f32 / 4.0, y as f32 / 4.0],
+                                    data,
+                                );
+
+                                dst[base_x] =
+                                    F::scalar(src, if F::READS_DST { dst[base_x] } else { 0.0 });
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>) {
-        todo!()
+        // SAFETY: requirements passed to caller
+        unsafe {
+            let x = x86_64::_mm256_setr_ps(0.0, 0.25, 0.5, 0.75, 0.0, 0.25, 0.5, 0.75);
+
+            let z = [
+                x86_64::_mm256_setr_ps(0.0, 0.0, 0.0, 0.0, 0.25, 0.25, 0.25, 0.25),
+                x86_64::_mm256_setr_ps(0.5, 0.5, 0.5, 0.5, 0.75, 0.75, 0.75, 0.75),
+            ];
+
+            let mut src_cell_idx = 0;
+            for cell_y in 0..(384 / 4) {
+                let dst_base_y = cell_y * 4 * Full::Y_STRIDE;
+
+                for cell_z in 0..(16 / 4) {
+                    let dst_base_z = dst_base_y + cell_z * 4 * Full::Z_STRIDE;
+
+                    for cell_x in 0..(16 / 4) {
+                        let dst_base_x = dst_base_z + cell_x * 4;
+
+                        let src_data = x86_64::_mm256_load_ps(&raw const src[src_cell_idx * 8]);
+                        src_cell_idx += 1;
+
+                        for i in 0..8usize {
+                            let z_idx = i & 1;
+                            let y_idx = i >> 1;
+                            let y = x86_64::_mm256_set1_ps(y_idx as f32 / 4.0);
+
+                            let z_offset = z_idx * 2 * Full::Z_STRIDE;
+                            let y_offset = y_idx * Full::Y_STRIDE;
+                            let dst_offset = dst_base_x + z_offset + y_offset;
+
+                            let interpolated = lerp3_f32_simd([x, z[z_idx], y], src_data);
+
+                            let dst_data = F::simd(
+                                interpolated,
+                                if F::READS_DST {
+                                    x86_64::_mm256_set_m128(
+                                        x86_64::_mm_load_ps(
+                                            &raw const dst[dst_offset + Full::Z_STRIDE],
+                                        ),
+                                        x86_64::_mm_load_ps(&raw const dst[dst_offset]),
+                                    )
+                                } else {
+                                    x86_64::_mm256_setzero_ps()
+                                },
+                            );
+
+                            let lo = x86_64::_mm256_castps256_ps128(dst_data);
+                            let hi = x86_64::_mm256_extractf128_ps::<1>(dst_data);
+
+                            x86_64::_mm_store_ps(&raw mut dst[dst_offset], lo);
+                            x86_64::_mm_store_ps(&raw mut dst[dst_offset + Full::Z_STRIDE], hi)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -228,20 +300,71 @@ impl BufferType for Flat {
 
 impl BufferApplyTo<Full> for Flat {
     fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>) {
-        todo!()
+        for z in 0..16 {
+            let base_z = z * Self::Z_STRIDE;
+
+            for x in 0..16 {
+                let base_x = base_z + x;
+
+                let val = src[base_x];
+
+                for y in 0..384 {
+                    let base_y = y * Full::Y_STRIDE + base_x;
+
+                    dst[base_y] = F::scalar(val, if F::READS_DST { dst[base_y] } else { 0.0 });
+                }
+            }
+        }
     }
 
     unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>) {
-        todo!()
+        for y in 0..384 {
+            let base_y = y * Full::Y_STRIDE;
+
+            for z in 0..16 {
+                let base_z = z * Self::Z_STRIDE;
+                let base_dst = base_y + base_z;
+
+                // SAFETY: requirements passed to caller
+                unsafe {
+                    let src0 = x86_64::_mm256_load_ps(&raw const src[base_z]);
+                    let src1 = x86_64::_mm256_load_ps(&raw const src[base_z + 0x8]);
+
+                    let dst0 = F::simd(
+                        src0,
+                        if F::READS_DST {
+                            x86_64::_mm256_load_ps(&raw const dst[base_dst])
+                        } else {
+                            x86_64::_mm256_setzero_ps()
+                        },
+                    );
+
+                    let dst1 = F::simd(
+                        src1,
+                        if F::READS_DST {
+                            x86_64::_mm256_load_ps(&raw const dst[base_dst + 0x8])
+                        } else {
+                            x86_64::_mm256_setzero_ps()
+                        },
+                    );
+
+                    x86_64::_mm256_store_ps(&raw mut dst[base_dst], dst0);
+                    x86_64::_mm256_store_ps(&raw mut dst[base_dst + 0x8], dst1);
+                }
+            }
+        }
     }
 }
 
 impl BufferApplyTo<Interpolated> for Flat {
-    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Interpolated>) {
+    fn apply_to<F: BufferOperation>(_src: &Buffer<Self>, _dst: &mut Buffer<Interpolated>) {
         todo!()
     }
 
-    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Interpolated>) {
+    unsafe fn apply_to_simd<F: BufferOperation>(
+        _src: &Buffer<Self>,
+        _dst: &mut Buffer<Interpolated>,
+    ) {
         todo!()
     }
 }
@@ -264,31 +387,34 @@ impl BufferType for FlatCell {
 }
 
 impl BufferApplyTo<Full> for FlatCell {
-    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>) {
+    fn apply_to<F: BufferOperation>(_src: &Buffer<Self>, _dst: &mut Buffer<Full>) {
         todo!()
     }
 
-    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>) {
+    unsafe fn apply_to_simd<F: BufferOperation>(_src: &Buffer<Self>, _dst: &mut Buffer<Full>) {
         todo!()
     }
 }
 
 impl BufferApplyTo<Interpolated> for FlatCell {
-    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Interpolated>) {
+    fn apply_to<F: BufferOperation>(_src: &Buffer<Self>, _dst: &mut Buffer<Interpolated>) {
         todo!()
     }
 
-    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Interpolated>) {
+    unsafe fn apply_to_simd<F: BufferOperation>(
+        _src: &Buffer<Self>,
+        _dst: &mut Buffer<Interpolated>,
+    ) {
         todo!()
     }
 }
 
 impl BufferApplyTo<Flat> for FlatCell {
-    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Flat>) {
+    fn apply_to<F: BufferOperation>(_src: &Buffer<Self>, _dst: &mut Buffer<Flat>) {
         todo!()
     }
 
-    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Flat>) {
+    unsafe fn apply_to_simd<F: BufferOperation>(_src: &Buffer<Self>, _dst: &mut Buffer<Flat>) {
         todo!()
     }
 }

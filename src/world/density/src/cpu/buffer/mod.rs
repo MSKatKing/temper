@@ -3,13 +3,13 @@ use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use temper_core::pos::ChunkBlockPos;
 
-mod ty;
-mod op;
 mod id;
+mod op;
+mod ty;
 
 pub use id::BufferId;
-pub use ty::*;
 pub use op::*;
+pub use ty::*;
 
 #[derive(Debug)]
 pub struct Buffer<Type: BufferType> {
@@ -43,6 +43,7 @@ impl<Type: BufferType> Drop for Buffer<Type> {
 }
 
 impl<Type: BufferType> Buffer<Type> {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         debug_assert_ne!(Type::SIZE, 0);
 
@@ -71,46 +72,14 @@ impl<Type: BufferType> Buffer<Type> {
     }
 
     pub fn pos_iter(&self) -> impl Iterator<Item = (ChunkBlockPos, &f32)> + '_ {
-        self
-            .iter()
+        self.iter()
             .enumerate()
-            .map(|(idx, val)|
-                (Type::unpack_coord(idx), val)
-            )
+            .map(|(idx, val)| (Type::unpack_coord(idx), val))
     }
 
     pub fn pos_iter_mut(&mut self) -> impl Iterator<Item = (ChunkBlockPos, &mut f32)> + '_ {
-        self
-            .iter_mut()
+        self.iter_mut()
             .enumerate()
-            .map(|(idx, val)|
-                (Type::unpack_coord(idx), val)
-            )
-    }
-
-    pub fn apply_to<Other: BufferType, Op: BufferOperation>(&self, other: &mut Buffer<Other>)
-    where
-        Type: BufferApplyTo<Other> {
-        if is_x86_feature_detected!("avx2") {
-            // SAFETY: buffer contents are always aligned to 32 bytes and if we're here then avx2 is
-            // supported by the system
-            unsafe {
-                Type::apply_to_simd::<Op>(self, other)
-            }
-        } else {
-            Type::apply_to::<Op>(self, other)
-        }
-    }
-
-    pub fn apply_to_self<Op: BufferOperation>(&mut self) {
-        if is_x86_feature_detected!("avx2") {
-            // SAFETY: buffer contents are always aligned to 32 bytes and if we're here then avx2 is
-            // supported by the system
-            unsafe {
-                Type::apply_to_self_simd::<Op>(self)
-            }
-        } else {
-            Type::apply_to_self::<Op>(self)
-        }
+            .map(|(idx, val)| (Type::unpack_coord(idx), val))
     }
 }

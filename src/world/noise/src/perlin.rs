@@ -41,10 +41,7 @@ impl PerlinNoise {
         }
     }
 
-    pub fn new_legacy<R: RandomSource>(
-        rand: &mut R,
-        octaves: &[i32],
-    ) -> PerlinNoise {
+    pub fn new_legacy<R: RandomSource>(rand: &mut R, octaves: &[i32]) -> PerlinNoise {
         debug_assert!(!octaves.is_empty());
 
         let low_freq_octaves = -octaves[0];
@@ -66,7 +63,8 @@ impl PerlinNoise {
         if zero_octave_index >= 0 && zero_octave_index < octaves {
             let zero_octave_amplitude = amplitudes[zero_octave_index as usize];
             if zero_octave_amplitude != 0.0 {
-                noise_levels[zero_octave_index as usize] = Some((zero_octave, zero_octave_amplitude));
+                noise_levels[zero_octave_index as usize] =
+                    Some((zero_octave, zero_octave_amplitude));
             }
         }
 

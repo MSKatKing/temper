@@ -81,9 +81,7 @@ impl BufferOperation for Add {
 
     unsafe fn simd(src: __m256, dst: __m256) -> __m256 {
         // SAFETY: requirements passed to caller
-        unsafe {
-            x86_64::_mm256_add_ps(src, dst)
-        }
+        unsafe { x86_64::_mm256_add_ps(src, dst) }
     }
 }
 
@@ -96,9 +94,7 @@ impl BufferOperation for Sub {
 
     unsafe fn simd(src: __m256, dst: __m256) -> __m256 {
         // SAFETY: requirements passed to caller
-        unsafe {
-            x86_64::_mm256_sub_ps(dst, src)
-        }
+        unsafe { x86_64::_mm256_sub_ps(dst, src) }
     }
 }
 
@@ -111,9 +107,7 @@ impl BufferOperation for Mul {
 
     unsafe fn simd(src: __m256, dst: __m256) -> __m256 {
         // SAFETY: requirements passed to caller
-        unsafe {
-            x86_64::_mm256_mul_ps(src, dst)
-        }
+        unsafe { x86_64::_mm256_mul_ps(src, dst) }
     }
 }
 
@@ -126,9 +120,7 @@ impl BufferOperation for Div {
 
     unsafe fn simd(src: __m256, dst: __m256) -> __m256 {
         // SAFETY: requirements passed to caller
-        unsafe {
-            x86_64::_mm256_div_ps(dst, src)
-        }
+        unsafe { x86_64::_mm256_div_ps(dst, src) }
     }
 }
 
@@ -141,9 +133,7 @@ impl BufferOperation for Min {
 
     unsafe fn simd(src: __m256, dst: __m256) -> __m256 {
         // SAFETY: requirements passed to caller
-        unsafe {
-            x86_64::_mm256_min_ps(src, dst)
-        }
+        unsafe { x86_64::_mm256_min_ps(src, dst) }
     }
 }
 
@@ -156,8 +146,6 @@ impl BufferOperation for Max {
 
     unsafe fn simd(src: __m256, dst: __m256) -> __m256 {
         // SAFETY: requirements passed to caller
-        unsafe {
-            x86_64::_mm256_max_ps(src, dst)
-        }
+        unsafe { x86_64::_mm256_max_ps(src, dst) }
     }
 }
