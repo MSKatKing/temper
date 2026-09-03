@@ -85,11 +85,11 @@ impl_workspace_field!(
 );
 
 pub struct Workspace<'func> {
-    pub full: Vec<Buffer<Full>>,
-    pub flat: Vec<Buffer<Flat>>,
-    pub flat_cell: Vec<Buffer<FlatCell>>,
-    pub interpolated: Vec<Buffer<Interpolated>>,
-    pub operations: &'func [Box<dyn Operation>],
+    full: Vec<Buffer<Full>>,
+    flat: Vec<Buffer<Flat>>,
+    flat_cell: Vec<Buffer<FlatCell>>,
+    interpolated: Vec<Buffer<Interpolated>>,
+    operations: &'func [Box<dyn Operation>],
 
     pub current_pos: ChunkPos,
 }
@@ -108,6 +108,10 @@ impl Workspace<'_> {
 
     pub fn set_pos(&mut self, pos: ChunkPos) {
         self.current_pos = pos;
+    }
+    
+    pub fn out(&self) -> &Buffer<Full> {
+        &self.full[0]
     }
 
     pub fn get_buffer<T: WorkspaceStorable>(&self, id: BufferId<T>) -> Option<&Buffer<T>> {
