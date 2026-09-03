@@ -223,6 +223,26 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             });
 
             parent_buffer
+        },
+        DensityFunction::OldBlendedNoise {
+            xz_scale,
+            y_scale,
+            xz_factor,
+            y_factor,
+            smear_scale_multiplier,
+        } => {
+            compiler.push_op(Operation::ClearBuffer {
+                destination: parent_buffer,
+                source: ValueSource::Noise(NoiseAccessor::new_blended(
+                    *xz_scale,
+                    *y_scale,
+                    *xz_factor,
+                    *y_factor,
+                    *smear_scale_multiplier,
+                ))
+            });
+
+            parent_buffer
         }
         DensityFunction::Interpolated { input } => marker_compile!(Interpolated, input),
         DensityFunction::Cache2d { input } => marker_compile!(Flat, input),
@@ -301,6 +321,78 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             });
 
             input
+        },
+        DensityFunction::Abs {
+            input,
+        } => {
+            match ValueSource::try_from(input, rand) {
+                Some(val) => {
+                    compiler.push_op(Operation::ClearBuffer {
+                        destination: parent_buffer,
+                        source: val,
+                    });
+
+                    // TODO: this should be replaced with a ValueSource
+                    compiler.push_op(Operation::AbsBuffer {
+                        buffer: parent_buffer,
+                    });
+
+                    parent_buffer
+                },
+                None => {
+                    let buf = compiler.alloc_buffer(parent_buffer.ty);
+                    let actual = compile(compiler, rand, input.function().expect("should be linked"), buf);
+
+                    if buf != actual {
+                        compiler.free_buffer(buf)
+                    }
+
+                    compiler.push_op(Operation::AbsBuffer {
+                        buffer: actual,
+                    });
+
+                    actual
+                }
+            }
+        },
+        DensityFunction::Clamp {
+            input,
+            min,
+            max,
+        } => {
+            match ValueSource::try_from(input, rand) {
+                Some(val) => {
+                    compiler.push_op(Operation::ClearBuffer {
+                        destination: parent_buffer,
+                        source: val,
+                    });
+
+                    // TODO: this should be replaced with a ValueSource
+                    compiler.push_op(Operation::ClampBuffer {
+                        buffer: parent_buffer,
+                        min: *min as f32,
+                        max: *max as f32,
+                    });
+
+                    parent_buffer
+                },
+                None => {
+                    let buf = compiler.alloc_buffer(parent_buffer.ty);
+                    let actual = compile(compiler, rand, input.function().expect("should be linked"), buf);
+
+                    if buf != actual {
+                        compiler.free_buffer(buf)
+                    }
+
+                    compiler.push_op(Operation::ClampBuffer {
+                        buffer: actual,
+                        min: *min as f32,
+                        max: *max as f32,
+                    });
+
+                    actual
+                }
+            }
         }
         _ => todo!("{:?}", func),
     }

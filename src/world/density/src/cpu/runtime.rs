@@ -100,31 +100,33 @@ pub fn execute_function(workspace: &mut Workspace) -> Option<()> {
                 }),
             Operation::RangeChoiceBuffer {
                 input,
-                in_range,
-                out_of_range,
+                in_range: ValueSource::Buffer(in_range),
+                out_of_range: ValueSource::Buffer(out_of_range),
                 range,
             } => {
-                todo!("range_choice");
-                // let (dst, src) = workspace.get_dst_src(*input, *in_range)?;
-                // 
-                // buffer_apply_func(dst, src, |src, dst| {
-                //     if range.contains(&dst) {
-                //         src
-                //     } else {
-                //         f32::NAN
-                //     }
-                // })?;
-                // 
-                // let (dst, src) = workspace.get_dst_src(*input, *out_of_range)?;
-                // 
-                // buffer_apply_func(dst, src, |src, dst| {
-                //     if dst.is_nan() {
-                //         src
-                //     } else {
-                //         dst
-                //     }
-                // })?;
-            }
+                let (dst, src) = workspace.get_dst_src(*input, *in_range)?;
+
+                buffer_apply_func(dst, src, |src, dst| {
+                    if range.contains(&dst) {
+                        src
+                    } else {
+                        f32::NAN
+                    }
+                })?;
+
+                let (dst, src) = workspace.get_dst_src(*input, *out_of_range)?;
+
+                buffer_apply_func(dst, src, |src, dst| {
+                    if dst.is_nan() {
+                        src
+                    } else {
+                        dst
+                    }
+                })?;
+            },
+            Operation::RangeChoiceBuffer {
+                ..
+            } => todo!("range_choice"),
         }
     }
 
