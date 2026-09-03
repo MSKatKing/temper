@@ -1,36 +1,106 @@
-use crate::cpu::buffer::{Buffer, BufferId, BufferType};
+use crate::cpu::buffer::{Buffer, BufferId, BufferType, Flat, FlatCell, Full, Interpolated};
 use crate::cpu::compiler::CompiledDensityFunction;
-use crate::cpu::operation::Operation;
-use crate::cpu::runtime::execute_function;
 use temper_core::pos::{BlockPos, ChunkBlockPos, ChunkPos};
+use crate::cpu::runtime::Operation;
+
+pub trait WorkspaceStorable: BufferType {
+    fn get_buffer<'a>(workspace: &'a Workspace, id: BufferId<Self>) -> Option<&'a Buffer<Self>>;
+    fn get_buffer_mut<'a>(workspace: &'a mut Workspace, id: BufferId<Self>) -> Option<&'a mut Buffer<Self>>;
+}
+
+pub trait GetDstSrc<Dst: BufferType>: BufferType {
+    fn get_dst_src<'a>(workspace: &'a mut Workspace, dst: BufferId<Dst>, src: BufferId<Self>) -> Option<(&'a mut Buffer<Dst>, &'a Buffer<Self>)>;
+}
+
+macro_rules! impl_workspace_field {
+    ($ty:ty => $field:ident, [$($ty_b:ty => $field_b:ident),* $(,)?]) => {
+        impl WorkspaceStorable for $ty {
+            fn get_buffer<'a>(workspace: &'a Workspace, id: BufferId<$ty>) -> Option<&'a Buffer<$ty>> {
+                workspace.$field.get(id.idx())
+            }
+
+            fn get_buffer_mut<'a>(workspace: &'a mut Workspace, id: BufferId<$ty>) -> Option<&'a mut Buffer<$ty>> {
+                workspace.$field.get_mut(id.idx())
+            }
+        }
+
+        impl GetDstSrc<$ty> for $ty {
+            fn get_dst_src<'a>(workspace: &'a mut Workspace, dst: BufferId<$ty>, src: BufferId<$ty>) -> Option<(&'a mut Buffer<$ty>, &'a Buffer<$ty>)> {
+                if dst.idx() == src.idx() {
+                    return None;
+                }
+
+                split_two(&mut workspace.$field, dst.idx(), src.idx())
+            }
+        }
+
+        $(
+            impl GetDstSrc<$ty> for $ty_b {
+                fn get_dst_src<'a>(workspace: &'a mut Workspace, dst: BufferId<$ty>, src: BufferId<$ty_b>) -> Option<(&'a mut Buffer<$ty>, &'a Buffer<$ty_b>)> {
+                    if dst.idx() == src.idx() {
+                        return None;
+                    }
+
+                    workspace.$field.get_mut(dst.idx()).and_then(|dst| Some((dst, workspace.$field_b.get(src.idx())?)))
+                }
+            }
+        )*
+    };
+}
+
+impl_workspace_field!(
+    Full => full,
+    [
+        Interpolated => interpolated,
+        Flat => flat,
+        FlatCell => flat_cell,
+    ]
+);
+
+impl_workspace_field!(
+    Interpolated => interpolated,
+    [
+        Full => full,
+        Flat => flat,
+        FlatCell => flat_cell,
+    ]
+);
+
+impl_workspace_field!(
+    Flat => flat,
+    [
+        Full => full,
+        Interpolated => interpolated,
+        FlatCell => flat_cell,
+    ]
+);
+
+impl_workspace_field!(
+    FlatCell => flat_cell,
+    [
+        Full => full,
+        Interpolated => interpolated,
+        Flat => flat,
+    ]
+);
 
 pub struct Workspace<'func> {
-    pub out: Buffer,
-    pub full: Vec<Buffer>,
-    pub flat: Vec<Buffer>,
-    pub flat_cell: Vec<Buffer>,
-    pub interpolated: Vec<Buffer>,
-    pub operations: &'func [Operation],
+    pub full: Vec<Buffer<Full>>,
+    pub flat: Vec<Buffer<Flat>>,
+    pub flat_cell: Vec<Buffer<FlatCell>>,
+    pub interpolated: Vec<Buffer<Interpolated>>,
+    pub operations: &'func [Box<dyn Operation>],
 
     pub current_pos: ChunkPos,
 }
 
 impl Workspace<'_> {
     pub fn new(density_function: &CompiledDensityFunction) -> Workspace<'_> {
-        fn instantiate_buffers(function: &CompiledDensityFunction, ty: BufferType) -> Vec<Buffer> {
-            function
-                .buffers
-                .get(&ty)
-                .map(|buffers| buffers.iter().map(|_| Buffer::new(ty)).collect::<Vec<_>>())
-                .unwrap_or_else(|| Vec::with_capacity(0))
-        }
-
         Workspace {
-            out: Buffer::new(BufferType::Out),
-            full: instantiate_buffers(density_function, BufferType::Full),
-            interpolated: instantiate_buffers(density_function, BufferType::Interpolated),
-            flat: instantiate_buffers(density_function, BufferType::Flat),
-            flat_cell: instantiate_buffers(density_function, BufferType::FlatCell),
+            full: (0..density_function.flat_buffer_count).map(|_| Buffer::new()).collect(),
+            interpolated: (0..density_function.interpolated_buffer_count).map(|_| Buffer::new()).collect(),
+            flat: (0..density_function.flat_buffer_count).map(|_| Buffer::new()).collect(),
+            flat_cell: (0..density_function.flat_cell_buffer_count).map(|_| Buffer::new()).collect(),
             operations: &density_function.ops,
             current_pos: ChunkPos::new(0, 0),
         }
@@ -40,123 +110,16 @@ impl Workspace<'_> {
         self.current_pos = pos;
     }
 
-    pub fn get_buffer(&self, id: BufferId) -> Option<&Buffer> {
-        match id.ty {
-            BufferType::Out => Some(&self.out),
-            BufferType::Full => self.full.get(id.id as usize),
-            BufferType::Flat => self.flat.get(id.id as usize),
-            BufferType::FlatCell => self.flat_cell.get(id.id as usize),
-            BufferType::Interpolated => self.interpolated.get(id.id as usize),
-        }
+    pub fn get_buffer<T: WorkspaceStorable>(&self, id: BufferId<T>) -> Option<&Buffer<T>> {
+        T::get_buffer(self, id)
     }
 
-    pub fn get_buffer_mut(&mut self, id: BufferId) -> Option<&mut Buffer> {
-        match id.ty {
-            BufferType::Out => Some(&mut self.out),
-            BufferType::Full => self.full.get_mut(id.id as usize),
-            BufferType::Flat => self.flat.get_mut(id.id as usize),
-            BufferType::FlatCell => self.flat_cell.get_mut(id.id as usize),
-            BufferType::Interpolated => self.interpolated.get_mut(id.id as usize),
-        }
+    pub fn get_buffer_mut<T: WorkspaceStorable>(&mut self, id: BufferId<T>) -> Option<&mut Buffer<T>> {
+        T::get_buffer_mut(self, id)
     }
 
-    pub fn get_dst_src(&mut self, dst: BufferId, src: BufferId) -> Option<(&mut Buffer, &Buffer)> {
-        if dst == src {
-            return None;
-        }
-
-        match (dst.ty, src.ty) {
-            (BufferType::Out, BufferType::Out) => unreachable!(),
-            (BufferType::Full, BufferType::Full) => {
-                split_two(&mut self.full, dst.id as _, src.id as _)
-            }
-            (BufferType::Flat, BufferType::Flat) => {
-                split_two(&mut self.flat, dst.id as _, src.id as _)
-            }
-            (BufferType::FlatCell, BufferType::FlatCell) => {
-                split_two(&mut self.flat, dst.id as _, src.id as _)
-            }
-            (BufferType::Interpolated, BufferType::Interpolated) => {
-                split_two(&mut self.interpolated, dst.id as _, src.id as _)
-            }
-
-            (BufferType::Out, BufferType::Flat) => {
-                Some((&mut self.out, self.flat.get(src.id as usize)?))
-            }
-            (BufferType::Out, BufferType::FlatCell) => {
-                Some((&mut self.out, self.flat_cell.get(src.id as usize)?))
-            }
-            (BufferType::Out, BufferType::Full) => {
-                Some((&mut self.out, self.full.get(dst.id as usize)?))
-            }
-            (BufferType::Out, BufferType::Interpolated) => {
-                Some((&mut self.out, self.interpolated.get(dst.id as usize)?))
-            }
-
-            (BufferType::Full, BufferType::Out) => {
-                Some((self.full.get_mut(dst.id as usize)?, &self.out))
-            }
-            (BufferType::Full, BufferType::Flat) => Some((
-                self.full.get_mut(dst.id as usize)?,
-                self.flat.get(src.id as usize)?,
-            )),
-            (BufferType::Full, BufferType::FlatCell) => Some((
-                self.full.get_mut(dst.id as usize)?,
-                self.flat_cell.get(src.id as usize)?,
-            )),
-            (BufferType::Full, BufferType::Interpolated) => Some((
-                self.full.get_mut(dst.id as usize)?,
-                self.interpolated.get(src.id as usize)?,
-            )),
-
-            (BufferType::Flat, BufferType::Out) => {
-                Some((self.flat.get_mut(dst.id as usize)?, &self.out))
-            }
-            (BufferType::Flat, BufferType::Full) => Some((
-                self.flat.get_mut(dst.id as usize)?,
-                self.full.get(src.id as usize)?,
-            )),
-            (BufferType::Flat, BufferType::FlatCell) => Some((
-                self.flat.get_mut(dst.id as usize)?,
-                self.flat_cell.get(src.id as usize)?,
-            )),
-            (BufferType::Flat, BufferType::Interpolated) => Some((
-                self.flat.get_mut(dst.id as usize)?,
-                self.interpolated.get(src.id as usize)?,
-            )),
-
-            (BufferType::FlatCell, BufferType::Out) => {
-                Some((self.flat_cell.get_mut(dst.id as usize)?, &self.out))
-            }
-            (BufferType::FlatCell, BufferType::Full) => Some((
-                self.flat_cell.get_mut(dst.id as usize)?,
-                self.full.get(src.id as usize)?,
-            )),
-            (BufferType::FlatCell, BufferType::Flat) => Some((
-                self.flat_cell.get_mut(dst.id as usize)?,
-                self.flat.get(src.id as usize)?,
-            )),
-            (BufferType::FlatCell, BufferType::Interpolated) => Some((
-                self.flat_cell.get_mut(dst.id as usize)?,
-                self.interpolated.get(src.id as usize)?,
-            )),
-
-            (BufferType::Interpolated, BufferType::Out) => {
-                Some((self.interpolated.get_mut(dst.id as usize)?, &self.out))
-            }
-            (BufferType::Interpolated, BufferType::Full) => Some((
-                self.interpolated.get_mut(dst.id as usize)?,
-                self.full.get(src.id as usize)?,
-            )),
-            (BufferType::Interpolated, BufferType::Flat) => Some((
-                self.interpolated.get_mut(dst.id as usize)?,
-                self.flat.get(src.id as usize)?,
-            )),
-            (BufferType::Interpolated, BufferType::FlatCell) => Some((
-                self.interpolated.get_mut(dst.id as usize)?,
-                self.flat_cell.get(src.id as usize)?,
-            )),
-        }
+    pub fn get_dst_src<Dst: BufferType, Src: BufferType + GetDstSrc<Dst>>(&mut self, dst: BufferId<Dst>, src: BufferId<Src>) -> Option<(&mut Buffer<Dst>, &Buffer<Src>)> {
+        Src::get_dst_src(self, dst, src)
     }
 
     pub fn get_global_pos(&self, local_pos: ChunkBlockPos) -> BlockPos {
@@ -165,7 +128,11 @@ impl Workspace<'_> {
 
     #[must_use]
     pub fn execute(&mut self) -> Option<()> {
-        execute_function(self)
+        for operation in self.operations {
+            operation.execute(self)?;
+        }
+        
+        Some(())
     }
 }
 
