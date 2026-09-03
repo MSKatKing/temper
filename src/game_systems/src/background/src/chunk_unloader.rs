@@ -21,24 +21,16 @@ pub fn handle(
 
     // gather chunks players can see OR are waiting to see
     for chunk_receiver in query.iter() {
-        for &(x, z) in &chunk_receiver.loaded {
-            visible_chunks.insert(ChunkPos::new(x, z));
-        }
+        visible_chunks.extend(chunk_receiver.loaded.iter().copied());
 
         // this protects chunks currently being generated/sent
-        for &(x, z) in &chunk_receiver.loading {
-            visible_chunks.insert(ChunkPos::new(x, z));
-        }
+        visible_chunks.extend(chunk_receiver.loading.iter().copied());
 
         // this protects chunks waiting for block updates
-        for &(x, z) in &chunk_receiver.dirty {
-            visible_chunks.insert(ChunkPos::new(x, z));
-        }
+        visible_chunks.extend(chunk_receiver.dirty.iter().copied());
 
         // this protects chunks dispatched to the pool but not yet harvested
-        for &(x, z) in &chunk_receiver.in_flight {
-            visible_chunks.insert(ChunkPos::new(x, z));
-        }
+        visible_chunks.extend(chunk_receiver.in_flight.iter().copied());
     }
 
     // map all chunks currently in the cache
@@ -68,12 +60,14 @@ pub fn handle(
     }
 
     let mut unloaded_entries = 0;
+    let mut generation_skipped = 0;
     let mut chunks_to_write = Vec::new();
 
     // unload anything not in the visible/pending set
     // if 0 players are online, visible_chunks is empty, so this should gracefully unload the entire server.
     for chunk_pos in all_chunks.difference(&visible_chunks) {
         if generation_locked.contains(chunk_pos) {
+            generation_skipped += 1;
             continue;
         }
 
@@ -113,17 +107,18 @@ pub fn handle(
         state.0.thread_pool.oneshot(move || {
             for (pos, dim, chunk) in chunks_to_write {
                 if let Err(err) = state_clone.0.world.insert_chunk(pos, dim, chunk) {
-                    error!("Failed to write chunk {:?} back to storage: {:?}", pos, err);
+                    error!("Failed to write chunk {} back to storage: {:?}", pos, err);
                 }
             }
         });
     }
 
-    if unloaded_entries > 0 {
+    if unloaded_entries > 0 || generation_skipped > 0 {
         trace!(
-            "Unloaded {} chunks ({} queued for write to disk). {} chunks remain in cache.",
+            "Unloaded {} chunks ({} queued for write, {} kept for in-progress generation). {} chunks remain in cache.",
             unloaded_entries,
             written_chunks,
+            generation_skipped,
             state.0.world.get_cache().len()
         );
     }

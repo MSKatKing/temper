@@ -1,3 +1,4 @@
+use crate::{emit_load_messages_for_known_chunks, wait_for_saved_chunk};
 use background::{chunk_unloader, entity_unloader};
 use bevy_ecs::prelude::*;
 use mobs::spawn::{
@@ -12,58 +13,17 @@ use temper_components::player::client_information::ClientInformationComponent;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_core::dimension::Dimension;
-use temper_core::pos::ChunkPos;
 use temper_entities::FoxBundle;
 use temper_entities::MobKind;
 use temper_entities::entity_types::EntityTypeEnum;
 use temper_entities::markers::entity_types::Fox;
 use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
 use temper_messages::chunk_calc::ChunkCalc;
-use temper_messages::load_chunk_entities::LoadChunkEntities;
-use temper_state::GlobalStateResource;
 use temper_state::create_test_state;
-
-/// `chunk_unloader` dispatches storage writes to the thread pool, so a chunk
-/// evicted from the cache is not immediately readable from storage. Poll until
-/// the write lands rather than assuming it already has.
-pub fn wait_for_saved_chunk(
-    state: &GlobalStateResource,
-    pos: ChunkPos,
-) -> temper_world::RefChunk<'_> {
-    for _ in 0..200 {
-        if let Ok(chunk) = state.0.world.get_chunk(pos, Dimension::Overworld) {
-            return chunk;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(5));
-    }
-    panic!("chunk {pos:?} never reached storage after unload");
-}
 
 fn emit_chunk_calc_for(entity: Entity) -> impl FnMut(MessageWriter<ChunkCalc>) {
     move |mut writer: MessageWriter<ChunkCalc>| {
         writer.write(ChunkCalc(entity));
-    }
-}
-
-fn emit_load_messages_for_known_chunks(
-    state: Res<temper_state::GlobalStateResource>,
-    mut query: Query<&mut ChunkReceiver>,
-    mut writer: MessageWriter<LoadChunkEntities>,
-) {
-    for mut receiver in query.iter_mut() {
-        while let Some((x, z)) = receiver.loading.pop_front() {
-            let chunk = ChunkPos::new(x, z);
-            receiver.loaded.insert((x, z));
-
-            if state
-                .0
-                .world
-                .chunk_exists(chunk, Dimension::Overworld)
-                .expect("chunk existence check should succeed")
-            {
-                writer.write(LoadChunkEntities(chunk));
-            }
-        }
     }
 }
 
@@ -82,7 +42,7 @@ fn player_can_unload_entities_by_moving_away_and_reload_them_after_returning() {
     let expected_last_synced = fox_bundle.last_synced_position;
 
     let mut receiver = ChunkReceiver::default();
-    receiver.loaded.insert((fox_chunk.x(), fox_chunk.z()));
+    receiver.loaded.insert(fox_chunk);
 
     let player_entity = world
         .spawn((
@@ -189,11 +149,7 @@ fn player_can_unload_entities_by_moving_away_and_reload_them_after_returning() {
         let receiver = world
             .get::<ChunkReceiver>(player_entity)
             .expect("player chunk receiver should exist after returning");
-        let queued_fox_chunks = receiver
-            .loading
-            .iter()
-            .filter(|(x, z)| (*x, *z) == (fox_chunk.x(), fox_chunk.z()))
-            .count();
+        let queued_fox_chunks = receiver.loading.iter().filter(|c| **c == fox_chunk).count();
         assert_eq!(
             queued_fox_chunks, 1,
             "player return should queue the fox chunk exactly once"

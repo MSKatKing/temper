@@ -38,7 +38,7 @@ pub fn generate_spawn_chunks(state: GlobalState) -> Result<(), BinaryError> {
                     .chunk_generator
                     .generate(chunk_store, Dimension::Overworld, pos)
             {
-                error!("Failed to generate chunk at ({}, {}): {:?}", x, z, e);
+                error!("Failed to generate chunk at {}: {:?}", pos, e);
             }
         });
     }

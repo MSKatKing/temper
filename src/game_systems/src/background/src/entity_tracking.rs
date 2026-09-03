@@ -35,8 +35,7 @@ pub fn refresh_visible_entities(
                         return false;
                     }
 
-                    let chunk = pos.chunk();
-                    chunk_receiver.loaded.contains(&(chunk.x(), chunk.z()))
+                    chunk_receiver.loaded.contains(&pos.chunk())
                 })
                 .unwrap_or(false);
 
@@ -55,8 +54,7 @@ pub fn refresh_visible_entities(
                 continue;
             }
 
-            let chunk = pos.chunk();
-            if !chunk_receiver.loaded.contains(&(chunk.x(), chunk.z())) {
+            if !chunk_receiver.loaded.contains(&pos.chunk()) {
                 continue;
             }
 

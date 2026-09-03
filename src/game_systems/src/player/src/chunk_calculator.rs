@@ -1,5 +1,4 @@
 use bevy_ecs::prelude::{MessageReader, Query, Res};
-use bevy_math::IVec2;
 use std::collections::HashSet;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::client_information::ClientInformationComponent;
@@ -27,13 +26,12 @@ pub fn handle(
         let client_view_distance = i32::from(client_info.view_distance);
         let radius = server_render_distance.min(client_view_distance);
         let player_chunk = ChunkPos::from(position.coords);
-        let player_vec = IVec2::new(player_chunk.x(), player_chunk.z());
 
         // 1. Build the absolute set of chunks the player currently needs
         let mut needed_set = HashSet::new();
         for x in player_chunk.x() - radius..=player_chunk.x() + radius {
             for z in player_chunk.z() - radius..=player_chunk.z() + radius {
-                needed_set.insert((x, z));
+                needed_set.insert(ChunkPos::new(x, z));
             }
         }
 
@@ -54,13 +52,13 @@ pub fn handle(
         chunk_receiver.dirty.retain(|c| needed_set.contains(c));
 
         // 4. Queue genuinely new chunks, preventing duplicates
-        for &chunk_coords in &needed_set {
-            if !chunk_receiver.loaded.contains(&chunk_coords)
-                && !chunk_receiver.loading.contains(&chunk_coords)
-                && !chunk_receiver.dirty.contains(&chunk_coords)
-                && !chunk_receiver.in_flight.contains(&chunk_coords)
+        for &chunk_pos in &needed_set {
+            if !chunk_receiver.loaded.contains(&chunk_pos)
+                && !chunk_receiver.loading.contains(&chunk_pos)
+                && !chunk_receiver.dirty.contains(&chunk_pos)
+                && !chunk_receiver.in_flight.contains(&chunk_pos)
             {
-                chunk_receiver.loading.push_back(chunk_coords);
+                chunk_receiver.loading.push_back(chunk_pos);
             }
         }
 
@@ -68,6 +66,6 @@ pub fn handle(
         chunk_receiver
             .loading
             .make_contiguous()
-            .sort_by_key(|&(x, z)| IVec2::new(x, z).chebyshev_distance(player_vec));
+            .sort_by_key(|chunk_pos| chunk_pos.pos.chebyshev_distance(player_chunk.pos));
     }
 }
