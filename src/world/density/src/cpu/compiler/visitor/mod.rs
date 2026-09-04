@@ -1,12 +1,13 @@
 mod math;
 
-use crate::cpu::buffer::{BufferId, Flat, FlatCell, Full, Interpolated};
+use crate::cpu::buffer::{BufferId, BufferType, Flat, FlatCell, Full, Interpolated};
 use crate::cpu::compiler::{AnyBufferId, ToAnyBufferId};
 use crate::cpu::noise::NoiseAccessor;
-use crate::cpu::runtime::{FillBuffer, FillConstant, FillNoise, Operation};
-use crate::cpu::workspace::WorkspaceStorable;
+use crate::cpu::runtime::{FillBuffer, FillConstant, FillNoise, Operation, ShiftedNoise};
+use crate::cpu::workspace::{GetDstSrc, WorkspaceStorable};
 
 pub use math::*;
+use temper_noise::NormalNoise;
 
 pub struct BufferOperationResult {
     pub op: Box<dyn Operation>,
@@ -22,8 +23,12 @@ impl BufferOperationResult {
     }
 }
 
+pub trait VisitorBufferType: BufferType + WorkspaceStorable + ToAnyBufferId + GetDstSrc<Self> { }
+
+impl<T: BufferType + WorkspaceStorable + ToAnyBufferId + GetDstSrc<Self>> VisitorBufferType for T { }
+
 pub trait BufferOperationVisitor: Sized {
-    fn visit_any<T: WorkspaceStorable + ToAnyBufferId + 'static>(
+    fn visit_any<T: VisitorBufferType + 'static>(
         self,
         id: BufferId<T>,
     ) -> Option<BufferOperationResult>;
@@ -66,9 +71,7 @@ macro_rules! impl_commutative_visitor {
     ($visitor:ty, $operation:ident, $src_field:ident) => {
         impl $crate::cpu::compiler::visitor::BufferOperationVisitor for $visitor {
             fn visit_any<
-                T: $crate::cpu::workspace::WorkspaceStorable
-                    + $crate::cpu::compiler::ToAnyBufferId
-                    + 'static,
+                T: $crate::cpu::compiler::visitor::VisitorBufferType + 'static,
             >(
                 self,
                 _id: $crate::cpu::buffer::BufferId<T>,
@@ -284,9 +287,7 @@ macro_rules! impl_non_commutative_visitor {
     ($visitor:ty, $operation:ident, $src_field:ident) => {
         impl $crate::cpu::compiler::visitor::BufferOperationVisitor for $visitor {
             fn visit_any<
-                T: $crate::cpu::workspace::WorkspaceStorable
-                    + $crate::cpu::compiler::ToAnyBufferId
-                    + 'static,
+                T: $crate::cpu::compiler::visitor::VisitorBufferType + 'static,
             >(
                 self,
                 _id: $crate::cpu::buffer::BufferId<T>,
@@ -441,7 +442,7 @@ macro_rules! impl_non_commutative_visitor {
 macro_rules! impl_direct_visitor {
     ($visitor:ty, $operation:ident, $dst_field:ident, $($field:ident: $self_field:ident),*) => {
         impl $crate::cpu::compiler::visitor::BufferOperationVisitor for $visitor {
-            fn visit_any<T: $crate::cpu::workspace::WorkspaceStorable + $crate::cpu::compiler::ToAnyBufferId + 'static>(self, id: $crate::cpu::buffer::BufferId<T>) -> Option<$crate::cpu::compiler::visitor::BufferOperationResult> {
+            fn visit_any<T: $crate::cpu::compiler::visitor::VisitorBufferType + 'static>(self, id: $crate::cpu::buffer::BufferId<T>) -> Option<$crate::cpu::compiler::visitor::BufferOperationResult> {
                 Some($crate::cpu::compiler::visitor::BufferOperationResult::new($operation::<T> {
                     $dst_field: id,
                     $(
@@ -457,6 +458,26 @@ impl_visitor_base!(FillBufferVisitor, other: AnyBufferId);
 impl_visitor_base!(FillConstantVisitor, other: f32);
 impl_visitor_base!(FillNoiseVisitor, other: NoiseAccessor);
 
+impl_visitor_base!(ShiftedNoiseVisitor, noise: NormalNoise, xz_scale: f32, y_scale: f32, shift_x: AnyBufferId, shift_y: AnyBufferId, shift_z: AnyBufferId);
+
 impl_commutative_visitor!(FillBufferVisitor, FillBuffer, other);
 impl_direct_visitor!(FillConstantVisitor, FillConstant, dst, src: other);
 impl_direct_visitor!(FillNoiseVisitor, FillNoise, dst, noise: other);
+
+impl BufferOperationVisitor for ShiftedNoiseVisitor {
+    fn visit_any<T: VisitorBufferType + 'static>(self, id: BufferId<T>) -> Option<BufferOperationResult> {
+        let shift_x = T::try_downcast_to(self.shift_x)?;
+        let shift_y = T::try_downcast_to(self.shift_y)?;
+        let shift_z = T::try_downcast_to(self.shift_z)?;
+
+        Some(BufferOperationResult::new(ShiftedNoise {
+            dst: id,
+            xz_scale: self.xz_scale,
+            y_scale: self.y_scale,
+            noise: self.noise,
+            shift_x,
+            shift_y,
+            shift_z
+        }, id))
+    }
+}

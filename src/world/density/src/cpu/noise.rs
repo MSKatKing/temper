@@ -8,6 +8,8 @@ use temper_noise::{BlendedNoise, NormalNoise};
 pub enum NoiseAccessType {
     Basic { xz_scale: f32, y_scale: f32 },
     Shift,
+    ShiftA,
+    ShiftB,
 }
 
 #[derive(Debug, Clone)]
@@ -84,12 +86,22 @@ impl NoiseAccessor {
                 pos.z * xz_scale as f64,
             ),
             NoiseAccessType::Shift => pos / 4.0,
+            NoiseAccessType::ShiftA => DVec3::new(
+                pos.x / 4.0,
+                0.0,
+                pos.z / 4.0,
+            ),
+            NoiseAccessType::ShiftB => DVec3::new(
+                pos.z / 4.0,
+                pos.x / 4.0,
+                0.0,
+            ),
         }
     }
 
     fn apply_noise(&self, val: f32) -> f32 {
         match self.access_type {
-            NoiseAccessType::Shift => val * 4.0,
+            NoiseAccessType::Shift | NoiseAccessType::ShiftA | NoiseAccessType::ShiftB => val * 4.0,
             _ => val,
         }
     }
