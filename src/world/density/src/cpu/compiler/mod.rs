@@ -2,7 +2,7 @@ mod math;
 mod visitor;
 
 use crate::cpu::buffer::{BufferId, BufferType, Flat, FlatCell, Full, Interpolated};
-use crate::cpu::compiler::math::{compile_add, compile_mul};
+use crate::cpu::compiler::math::{compile_add, compile_div, compile_max, compile_min, compile_mul, compile_sub};
 use crate::cpu::compiler::visitor::{
     BufferOperationResult, BufferOperationVisitor, FillBufferVisitor, FillConstantVisitor,
     FillNoiseVisitor, YClampedGradientVisitor,
@@ -31,7 +31,7 @@ pub struct CompiledDensityFunction {
     pub(crate) flat_cell_buffer_count: usize,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum AnyBufferId {
     Full(BufferId<Full>),
     Interpolated(BufferId<Interpolated>),
@@ -77,29 +77,29 @@ impl AnyBufferId {
 }
 
 pub trait ToAnyBufferId: BufferType {
-    fn to_any_buffer_id(this: BufferId<Self>) -> AnyBufferId;
+    fn convert_to_any(this: BufferId<Self>) -> AnyBufferId;
 }
 
 impl ToAnyBufferId for Full {
-    fn to_any_buffer_id(this: BufferId<Self>) -> AnyBufferId {
+    fn convert_to_any(this: BufferId<Self>) -> AnyBufferId {
         AnyBufferId::Full(this)
     }
 }
 
 impl ToAnyBufferId for Interpolated {
-    fn to_any_buffer_id(this: BufferId<Self>) -> AnyBufferId {
+    fn convert_to_any(this: BufferId<Self>) -> AnyBufferId {
         AnyBufferId::Interpolated(this)
     }
 }
 
 impl ToAnyBufferId for Flat {
-    fn to_any_buffer_id(this: BufferId<Self>) -> AnyBufferId {
+    fn convert_to_any(this: BufferId<Self>) -> AnyBufferId {
         AnyBufferId::Flat(this)
     }
 }
 
 impl ToAnyBufferId for FlatCell {
-    fn to_any_buffer_id(this: BufferId<Self>) -> AnyBufferId {
+    fn convert_to_any(this: BufferId<Self>) -> AnyBufferId {
         AnyBufferId::FlatCell(this)
     }
 }
@@ -228,6 +228,18 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
         }
         DensityFunction::Mul { left, right } => {
             compile_mul(compiler, rand, left, right, parent_buffer)
+        }
+        DensityFunction::Min { left, right } => {
+            compile_min(compiler, rand, left, right, parent_buffer)
+        }
+        DensityFunction::Max { left, right } => {
+            compile_max(compiler, rand, left, right, parent_buffer)
+        }
+        DensityFunction::Sub { left, right } => {
+            compile_sub(compiler, rand, left, right, parent_buffer)
+        }
+        DensityFunction::Div { left, right } => {
+            compile_div(compiler, rand, left, right, parent_buffer)
         }
         DensityFunction::YClampedGradient {
             from_y,

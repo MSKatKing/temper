@@ -1,14 +1,14 @@
 use crate::cpu::buffer::{Buffer, BufferId, BufferType, Flat, FlatCell, Full, Interpolated};
-use crate::cpu::compiler::CompiledDensityFunction;
-use crate::cpu::runtime::Operation;
+use crate::cpu::compiler::{CompiledDensityFunction, ToAnyBufferId};
+use crate::cpu::runtime::{DensityError, DensityResult, Operation};
 use temper_core::pos::{BlockPos, ChunkBlockPos, ChunkPos};
 
 pub trait WorkspaceStorable: BufferType {
-    fn get_buffer<'a>(workspace: &'a Workspace, id: BufferId<Self>) -> Option<&'a Buffer<Self>>;
+    fn get_buffer<'a>(workspace: &'a Workspace, id: BufferId<Self>) -> DensityResult<&'a Buffer<Self>>;
     fn get_buffer_mut<'a>(
         workspace: &'a mut Workspace,
         id: BufferId<Self>,
-    ) -> Option<&'a mut Buffer<Self>>;
+    ) -> DensityResult<&'a mut Buffer<Self>>;
 }
 
 pub trait GetDstSrc<Dst: BufferType>: BufferType {
@@ -16,39 +16,35 @@ pub trait GetDstSrc<Dst: BufferType>: BufferType {
         workspace: &'a mut Workspace,
         dst: BufferId<Dst>,
         src: BufferId<Self>,
-    ) -> Option<(&'a mut Buffer<Dst>, &'a Buffer<Self>)>;
+    ) -> DensityResult<(&'a mut Buffer<Dst>, &'a Buffer<Self>)>;
 }
 
 macro_rules! impl_workspace_field {
     ($ty:ty => $field:ident, [$($ty_b:ty => $field_b:ident),* $(,)?]) => {
         impl WorkspaceStorable for $ty {
-            fn get_buffer<'a>(workspace: &'a Workspace, id: BufferId<$ty>) -> Option<&'a Buffer<$ty>> {
-                workspace.$field.get(id.idx())
+            fn get_buffer<'a>(workspace: &'a Workspace, id: BufferId<$ty>) -> DensityResult<&'a Buffer<$ty>> {
+                workspace.$field.get(id.idx()).ok_or(DensityError::MissingBuffer(<$ty as ToAnyBufferId>::convert_to_any(id)))
             }
 
-            fn get_buffer_mut<'a>(workspace: &'a mut Workspace, id: BufferId<$ty>) -> Option<&'a mut Buffer<$ty>> {
-                workspace.$field.get_mut(id.idx())
+            fn get_buffer_mut<'a>(workspace: &'a mut Workspace, id: BufferId<$ty>) -> DensityResult<&'a mut Buffer<$ty>> {
+                workspace.$field.get_mut(id.idx()).ok_or(DensityError::MissingBuffer(<$ty as ToAnyBufferId>::convert_to_any(id)))
             }
         }
 
         impl GetDstSrc<$ty> for $ty {
-            fn get_dst_src<'a>(workspace: &'a mut Workspace, dst: BufferId<$ty>, src: BufferId<$ty>) -> Option<(&'a mut Buffer<$ty>, &'a Buffer<$ty>)> {
+            fn get_dst_src<'a>(workspace: &'a mut Workspace, dst: BufferId<$ty>, src: BufferId<$ty>) -> DensityResult<(&'a mut Buffer<$ty>, &'a Buffer<$ty>)> {
                 if dst.idx() == src.idx() {
-                    return None;
+                    return Err(DensityError::DstSrcSameBuffer(<$ty as ToAnyBufferId>::convert_to_any(dst)));
                 }
 
-                split_two(&mut workspace.$field, dst.idx(), src.idx())
+                split_two(&mut workspace.$field, dst.idx(), src.idx()).ok_or(DensityError::InvalidDstSrc(<$ty as ToAnyBufferId>::convert_to_any(dst), <$ty as ToAnyBufferId>::convert_to_any(src)))
             }
         }
 
         $(
             impl GetDstSrc<$ty> for $ty_b {
-                fn get_dst_src<'a>(workspace: &'a mut Workspace, dst: BufferId<$ty>, src: BufferId<$ty_b>) -> Option<(&'a mut Buffer<$ty>, &'a Buffer<$ty_b>)> {
-                    if dst.idx() == src.idx() {
-                        return None;
-                    }
-
-                    workspace.$field.get_mut(dst.idx()).and_then(|dst| Some((dst, workspace.$field_b.get(src.idx())?)))
+                fn get_dst_src<'a>(workspace: &'a mut Workspace, dst: BufferId<$ty>, src: BufferId<$ty_b>) -> DensityResult<(&'a mut Buffer<$ty>, &'a Buffer<$ty_b>)> {
+                    workspace.$field.get_mut(dst.idx()).and_then(|dst| Some((dst, workspace.$field_b.get(src.idx())?))).ok_or(DensityError::InvalidDstSrc(<$ty as ToAnyBufferId>::convert_to_any(dst), <$ty_b as ToAnyBufferId>::convert_to_any(src)))
                 }
             }
         )*
@@ -129,14 +125,14 @@ impl Workspace<'_> {
         &self.full[0]
     }
 
-    pub fn get_buffer<T: WorkspaceStorable>(&self, id: BufferId<T>) -> Option<&Buffer<T>> {
+    pub fn get_buffer<T: WorkspaceStorable>(&self, id: BufferId<T>) -> DensityResult<&Buffer<T>> {
         T::get_buffer(self, id)
     }
 
     pub fn get_buffer_mut<T: WorkspaceStorable>(
         &mut self,
         id: BufferId<T>,
-    ) -> Option<&mut Buffer<T>> {
+    ) -> DensityResult<&mut Buffer<T>> {
         T::get_buffer_mut(self, id)
     }
 
@@ -144,7 +140,7 @@ impl Workspace<'_> {
         &mut self,
         dst: BufferId<Dst>,
         src: BufferId<Src>,
-    ) -> Option<(&mut Buffer<Dst>, &Buffer<Src>)> {
+    ) -> DensityResult<(&mut Buffer<Dst>, &Buffer<Src>)> {
         Src::get_dst_src(self, dst, src)
     }
 
@@ -152,8 +148,7 @@ impl Workspace<'_> {
         self.current_pos.chunk_block(local_pos)
     }
 
-    #[must_use]
-    pub fn execute(&mut self) -> Option<()> {
+    pub fn execute(&mut self) -> DensityResult<()> {
         if is_x86_feature_detected!("avx2") {
             for operation in self.operations {
                 // SAFETY: avx2 is enabled if we are here
@@ -167,7 +162,7 @@ impl Workspace<'_> {
             }
         }
 
-        Some(())
+        Ok(())
     }
 }
 

@@ -17,7 +17,7 @@ impl BufferOperationResult {
     pub fn new<O: Operation + 'static, T: ToAnyBufferId>(op: O, output_buf: BufferId<T>) -> Self {
         Self {
             op: Box::new(op),
-            output_buf: T::to_any_buffer_id(output_buf),
+            output_buf: T::convert_to_any(output_buf),
         }
     }
 }
@@ -261,6 +261,164 @@ macro_rules! impl_commutative_visitor {
                             other,
                         )
                     }
+                    AnyBufferId::FlatCell(other) => {
+                        $crate::cpu::compiler::visitor::BufferOperationResult::new(
+                            $operation::<
+                                $crate::cpu::buffer::FlatCell,
+                                $crate::cpu::buffer::FlatCell,
+                            > {
+                                dst: id,
+                                src: other,
+                            },
+                            id,
+                        )
+                    }
+                }
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! impl_non_commutative_visitor {
+    ($visitor:ty, $operation:ident, $src_field:ident) => {
+        impl $crate::cpu::compiler::visitor::BufferOperationVisitor for $visitor {
+            fn visit_any<
+                T: $crate::cpu::workspace::WorkspaceStorable
+                    + $crate::cpu::compiler::ToAnyBufferId
+                    + 'static,
+            >(
+                self,
+                _id: $crate::cpu::buffer::BufferId<T>,
+            ) -> Option<$crate::cpu::compiler::visitor::BufferOperationResult> {
+                None // we need to define different behavior based on dst and src types
+            }
+
+            fn visit_full(
+                self,
+                id: $crate::cpu::buffer::BufferId<$crate::cpu::buffer::Full>,
+            ) -> $crate::cpu::compiler::visitor::BufferOperationResult {
+                match self.$src_field {
+                    AnyBufferId::Full(other) => {
+                        $crate::cpu::compiler::visitor::BufferOperationResult::new(
+                            $operation::<$crate::cpu::buffer::Full, $crate::cpu::buffer::Full> {
+                                dst: id,
+                                src: other,
+                            },
+                            id,
+                        )
+                    }
+                    AnyBufferId::Interpolated(other) => {
+                        $crate::cpu::compiler::visitor::BufferOperationResult::new(
+                            $operation::<
+                                $crate::cpu::buffer::Full,
+                                $crate::cpu::buffer::Interpolated,
+                            > {
+                                dst: id,
+                                src: other,
+                            },
+                            id,
+                        )
+                    }
+                    AnyBufferId::Flat(other) => {
+                        $crate::cpu::compiler::visitor::BufferOperationResult::new(
+                            $operation::<$crate::cpu::buffer::Full, $crate::cpu::buffer::Flat> {
+                                dst: id,
+                                src: other,
+                            },
+                            id,
+                        )
+                    }
+                    AnyBufferId::FlatCell(other) => {
+                        $crate::cpu::compiler::visitor::BufferOperationResult::new(
+                            $operation::<$crate::cpu::buffer::Full, $crate::cpu::buffer::FlatCell> {
+                                dst: id,
+                                src: other,
+                            },
+                            id,
+                        )
+                    }
+                }
+            }
+
+            fn visit_interpolated(
+                self,
+                id: $crate::cpu::buffer::BufferId<$crate::cpu::buffer::Interpolated>,
+            ) -> $crate::cpu::compiler::visitor::BufferOperationResult {
+                match self.$src_field {
+                    AnyBufferId::Full(_) => panic!("non commutative tried to have higher buffer write to lower buffer"),
+                    AnyBufferId::Interpolated(other) => {
+                        $crate::cpu::compiler::visitor::BufferOperationResult::new(
+                            $operation::<
+                                $crate::cpu::buffer::Interpolated,
+                                $crate::cpu::buffer::Interpolated,
+                            > {
+                                dst: id,
+                                src: other,
+                            },
+                            id,
+                        )
+                    }
+                    AnyBufferId::Flat(other) => {
+                        $crate::cpu::compiler::visitor::BufferOperationResult::new(
+                            $operation::<
+                                $crate::cpu::buffer::Interpolated,
+                                $crate::cpu::buffer::Flat,
+                            > {
+                                dst: id,
+                                src: other,
+                            },
+                            id,
+                        )
+                    }
+                    AnyBufferId::FlatCell(other) => {
+                        $crate::cpu::compiler::visitor::BufferOperationResult::new(
+                            $operation::<
+                                $crate::cpu::buffer::Interpolated,
+                                $crate::cpu::buffer::FlatCell,
+                            > {
+                                dst: id,
+                                src: other,
+                            },
+                            id,
+                        )
+                    }
+                }
+            }
+
+            fn visit_flat(
+                self,
+                id: $crate::cpu::buffer::BufferId<$crate::cpu::buffer::Flat>,
+            ) -> $crate::cpu::compiler::visitor::BufferOperationResult {
+                match self.$src_field {
+                    AnyBufferId::Full(_) | AnyBufferId::Interpolated(_) => panic!("non commutative tried to have higher buffer write to lower buffer"),
+                    AnyBufferId::Flat(other) => {
+                        $crate::cpu::compiler::visitor::BufferOperationResult::new(
+                            $operation::<$crate::cpu::buffer::Flat, $crate::cpu::buffer::Flat> {
+                                dst: id,
+                                src: other,
+                            },
+                            id,
+                        )
+                    }
+                    AnyBufferId::FlatCell(other) => {
+                        $crate::cpu::compiler::visitor::BufferOperationResult::new(
+                            $operation::<$crate::cpu::buffer::Flat, $crate::cpu::buffer::FlatCell> {
+                                dst: id,
+                                src: other,
+                            },
+                            id,
+                        )
+                    }
+                }
+            }
+
+            fn visit_flat_cell(
+                self,
+                id: $crate::cpu::buffer::BufferId<$crate::cpu::buffer::FlatCell>,
+            ) -> $crate::cpu::compiler::visitor::BufferOperationResult {
+                match self.$src_field {
+                    AnyBufferId::Full(_) | AnyBufferId::Interpolated(_) | AnyBufferId::Flat(_) => panic!("non commutative tried to have higher buffer write to lower buffer"),
                     AnyBufferId::FlatCell(other) => {
                         $crate::cpu::compiler::visitor::BufferOperationResult::new(
                             $operation::<

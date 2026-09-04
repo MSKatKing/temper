@@ -104,7 +104,7 @@ impl BiomeGenerator for PlainsBiome {
         workspace.set_pos(pos);
         workspace
             .execute()
-            .unwrap_or_else(|| panic!("failed to execute density function"));
+            .unwrap_or_else(|e| panic!("failed to execute density function: {:?}", e));
 
         // Fill with water first
         for section_y in -4..4 {

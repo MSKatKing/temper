@@ -146,10 +146,12 @@ impl WorldGenerator {
         // gather(&mut external, &EXTERNAL);
 
         let mut func = DensityFunctionArgument::Function(Box::new(DensityFunction::Add {
-            left: DensityFunctionArgument::Function(Box::new(DensityFunction::Noise {
-                noise: "minecraft:surface".to_string(),
-                xz_scale: 1.0,
-                y_scale: 1.0,
+            left: DensityFunctionArgument::Function(Box::new(DensityFunction::Cache2d {
+                input: DensityFunctionArgument::Function(Box::new(DensityFunction::Noise {
+                    noise: "minecraft:surface".to_string(),
+                    xz_scale: 1.0,
+                    y_scale: 1.0,
+                })),
             })),
             right: DensityFunctionArgument::Function(Box::new(DensityFunction::YClampedGradient {
                 from_y: 32,
