@@ -145,7 +145,7 @@ pub struct NoiseDiv<Dst: WorkspaceStorable> {
 impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for FillBuffer<Dst, Src> {
     fn execute(&self, workspace: &mut Workspace) -> DensityResult<()> {
         let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
-        Src::apply_to::<Replace>(src, dst);
+        Src::apply_to(src, dst, Replace);
         Ok(())
     }
 
@@ -154,7 +154,7 @@ impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for Fi
 
         // SAFETY: requirements passed to caller
         unsafe {
-            Src::apply_to_simd::<Replace>(src, dst);
+            Src::apply_to_simd(src, dst, Replace);
         }
 
         Ok(())
@@ -204,7 +204,7 @@ impl<Dst: WorkspaceStorable> Operation for YClampedGradient<Dst> {
 impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for BufferAdd<Dst, Src> {
     fn execute(&self, workspace: &mut Workspace) -> DensityResult<()> {
         let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
-        Src::apply_to::<Add>(src, dst);
+        Src::apply_to(src, dst, Add);
         Ok(())
     }
 
@@ -213,7 +213,7 @@ impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for Bu
 
         // SAFETY: requirements passed to caller
         unsafe {
-            Src::apply_to_simd::<Add>(src, dst);
+            Src::apply_to_simd(src, dst, Add);
         }
 
         Ok(())
@@ -241,7 +241,7 @@ impl<Dst: WorkspaceStorable> Operation for NoiseAdd<Dst> {
 impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for BufferMul<Dst, Src> {
     fn execute(&self, workspace: &mut Workspace) -> DensityResult<()> {
         let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
-        Src::apply_to::<Mul>(src, dst);
+        Src::apply_to(src, dst, Mul);
         Ok(())
     }
 
@@ -250,7 +250,7 @@ impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for Bu
 
         // SAFETY: requirements passed to caller
         unsafe {
-            Src::apply_to_simd::<Mul>(src, dst);
+            Src::apply_to_simd(src, dst, Mul);
         }
 
         Ok(())
@@ -279,7 +279,7 @@ impl<Dst: WorkspaceStorable> Operation for NoiseMul<Dst> {
 impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for BufferMin<Dst, Src> {
     fn execute(&self, workspace: &mut Workspace) -> DensityResult<()> {
         let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
-        Src::apply_to::<Min>(src, dst);
+        Src::apply_to(src, dst, Min);
         Ok(())
     }
 
@@ -288,7 +288,7 @@ impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for Bu
 
         // SAFETY: requirements passed to caller
         unsafe {
-            Src::apply_to_simd::<Min>(src, dst);
+            Src::apply_to_simd(src, dst, Min);
         }
 
         Ok(())
@@ -317,7 +317,7 @@ impl<Dst: WorkspaceStorable> Operation for NoiseMin<Dst> {
 impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for BufferMax<Dst, Src> {
     fn execute(&self, workspace: &mut Workspace) -> DensityResult<()> {
         let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
-        Src::apply_to::<Max>(src, dst);
+        Src::apply_to(src, dst, Max);
         Ok(())
     }
 
@@ -326,7 +326,7 @@ impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for Bu
 
         // SAFETY: requirements passed to caller
         unsafe {
-            Src::apply_to_simd::<Max>(src, dst);
+            Src::apply_to_simd(src, dst, Max);
         }
 
         Ok(())
@@ -355,7 +355,7 @@ impl<Dst: WorkspaceStorable> Operation for NoiseMax<Dst> {
 impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for BufferSub<Dst, Src> {
     fn execute(&self, workspace: &mut Workspace) -> DensityResult<()> {
         let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
-        Src::apply_to::<Sub>(src, dst);
+        Src::apply_to(src, dst, Sub);
         Ok(())
     }
 
@@ -364,7 +364,7 @@ impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for Bu
 
         // SAFETY: requirements passed to caller
         unsafe {
-            Src::apply_to_simd::<Sub>(src, dst);
+            Src::apply_to_simd(src, dst, Sub);
         }
 
         Ok(())
@@ -393,7 +393,7 @@ impl<Dst: WorkspaceStorable> Operation for NoiseSub<Dst> {
 impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for BufferDiv<Dst, Src> {
     fn execute(&self, workspace: &mut Workspace) -> DensityResult<()> {
         let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
-        Src::apply_to::<Div>(src, dst);
+        Src::apply_to(src, dst, Div);
         Ok(())
     }
 
@@ -402,7 +402,7 @@ impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for Bu
 
         // SAFETY: requirements passed to caller
         unsafe {
-            Src::apply_to_simd::<Div>(src, dst);
+            Src::apply_to_simd(src, dst, Div);
         }
 
         Ok(())

@@ -1,13 +1,17 @@
 mod math;
+mod map;
+mod range_choice;
 
 use crate::cpu::workspace::{GetDstSrc, Workspace, WorkspaceStorable};
-pub use math::*;
 use crate::cpu::buffer::BufferId;
 use crate::cpu::compiler::AnyBufferId;
 use bevy_math::DVec3;
-pub use math::*;
 use std::fmt::Debug;
 use temper_noise::NormalNoise;
+
+pub use math::*;
+pub use map::*;
+pub use range_choice::*;
 
 pub trait Operation: Debug + Send + Sync {
     fn execute(&self, workspace: &mut Workspace) -> DensityResult<()>;

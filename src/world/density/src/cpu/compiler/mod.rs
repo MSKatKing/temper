@@ -5,10 +5,7 @@ use crate::cpu::buffer::{BufferId, BufferType, Flat, FlatCell, Full, Interpolate
 use crate::cpu::compiler::math::{
     compile_add, compile_div, compile_max, compile_min, compile_mul, compile_sub,
 };
-use crate::cpu::compiler::visitor::{
-    BufferOperationResult, BufferOperationVisitor, FillBufferVisitor, FillConstantVisitor,
-    FillNoiseVisitor, ShiftedNoiseVisitor, YClampedGradientVisitor,
-};
+use crate::cpu::compiler::visitor::{AbsBufferVisitor, AbsNoiseVisitor, BufferOperationResult, BufferOperationVisitor, ClampBufferVisitor, ClampNoiseVisitor, FillBufferVisitor, FillConstantVisitor, FillNoiseVisitor, PowBufferVisitor, PowNoiseVisitor, RangeChoiceVisitor, ShiftedNoiseVisitor, SqueezeBufferVisitor, SqueezeNoiseVisitor, YClampedGradientVisitor};
 use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
 use crate::cpu::runtime::Operation;
 use crate::{DensityFunction, DensityFunctionArgument};
@@ -285,6 +282,15 @@ fn compile_arg<R: RandomSource, P: PositionalRandom<R>>(
                     NoiseAccessType::ShiftB,
                 ))
             }
+            DensityFunction::OldBlendedNoise { xz_scale, xz_factor, y_scale, y_factor, smear_scale_multiplier } => {
+                ReturnValue::Noise(NoiseAccessor::new_blended(
+                    *xz_scale,
+                    *y_scale,
+                    *xz_factor,
+                    *y_factor,
+                    *smear_scale_multiplier,
+                ))
+            }
             DensityFunction::CacheAllInCell { input } => {
                 compile_arg(compiler, rand, input, parent_buffer)
             }
@@ -332,7 +338,12 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             (*from_value as f32)..=(*to_value as f32),
         )),
         DensityFunction::Cache2d { input } => {
-            let buffer = compiler.alloc_buffer(AnyBufferId::Flat(BufferId::<Flat>::new(0)));
+            let buffer = if parent_buffer.level() >= Flat::LEVEL {
+                parent_buffer
+            } else {
+                compiler.alloc_buffer(AnyBufferId::Flat(BufferId::<Flat>::new(0)))
+            };
+
             let input_source = compile_arg(compiler, rand, input, buffer);
 
             match input_source {
@@ -352,8 +363,12 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             }
         }
         DensityFunction::Interpolated { input } => {
-            let buffer =
-                compiler.alloc_buffer(AnyBufferId::Interpolated(BufferId::<Interpolated>::new(0)));
+            let buffer = if parent_buffer.level() >= Interpolated::LEVEL {
+                parent_buffer
+            } else {
+                compiler.alloc_buffer(AnyBufferId::Interpolated(BufferId::<Interpolated>::new(0)))
+            };
+
             let input_source = compile_arg(compiler, rand, input, buffer);
 
             match input_source {
@@ -373,7 +388,12 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             }
         }
         DensityFunction::FlatCache { input } => {
-            let buffer = compiler.alloc_buffer(AnyBufferId::FlatCell(BufferId::<FlatCell>::new(0)));
+            let buffer = if parent_buffer.level() >= FlatCell::LEVEL {
+                parent_buffer
+            } else {
+                compiler.alloc_buffer(AnyBufferId::FlatCell(BufferId::<FlatCell>::new(0)))
+            };
+
             let input_source = compile_arg(compiler, rand, input, buffer);
 
             match input_source {
@@ -470,6 +490,122 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
                 actual_z,
             ))
         }
+        DensityFunction::OldBlendedNoise { xz_scale, xz_factor, y_scale, y_factor, smear_scale_multiplier } => {
+            compiler.push_visitor(FillNoiseVisitor::new(parent_buffer, NoiseAccessor::new_blended(*xz_scale, *y_scale, *xz_factor, *y_factor, *smear_scale_multiplier)))
+        }
+        DensityFunction::Squeeze { input } => {
+            let input = compile_arg(compiler, rand, input, parent_buffer);
+
+            match input {
+                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(
+                    parent_buffer,
+                    val / 2.0 - val.powi(3) / 24.0
+                )),
+                ReturnValue::Noise(val) => compiler.push_visitor(SqueezeNoiseVisitor::new(
+                    parent_buffer,
+                    val,
+                )),
+                ReturnValue::Buffer(buf) => compiler.push_visitor(SqueezeBufferVisitor::new(
+                    buf,
+                )),
+            }
+        }
+        DensityFunction::RangeChoice { input, when_in_range, when_out_of_range, min_inclusive, max_exclusive } => {
+            let input = compile_arg(compiler, rand, input, parent_buffer);
+
+            let in_range_buf = compiler.alloc_buffer(parent_buffer);
+            let when_in_range = compile_arg(compiler, rand, when_in_range, in_range_buf);
+
+            let out_of_range_buf = compiler.alloc_buffer(parent_buffer);
+            let when_out_of_range = compile_arg(compiler, rand, when_out_of_range, out_of_range_buf);
+
+            let when_in_range = match when_in_range {
+                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(in_range_buf, val)),
+                ReturnValue::Noise(noise) => compiler.push_visitor(FillNoiseVisitor::new(in_range_buf, noise)),
+                ReturnValue::Buffer(buf) => {
+                    if buf != in_range_buf {
+                        compiler.free_buffer(in_range_buf)
+                    }
+
+                    buf
+                }
+            };
+
+            let when_out_of_range = match when_out_of_range {
+                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(out_of_range_buf, val)),
+                ReturnValue::Noise(noise) => compiler.push_visitor(FillNoiseVisitor::new(out_of_range_buf, noise)),
+                ReturnValue::Buffer(buf) => {
+                    if buf != out_of_range_buf {
+                        compiler.free_buffer(out_of_range_buf)
+                    }
+
+                    buf
+                }
+            };
+
+            let dst = match input {
+                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(parent_buffer, val)),
+                ReturnValue::Noise(noise) => compiler.push_visitor(FillNoiseVisitor::new(parent_buffer, noise)),
+                ReturnValue::Buffer(buf) => {
+                    if buf != parent_buffer {
+                        compiler.free_buffer(buf)
+                    }
+
+                    buf
+                }
+            };
+
+            compiler.free_buffer(when_in_range);
+            compiler.free_buffer(when_out_of_range);
+
+        compiler.push_visitor(RangeChoiceVisitor::new(dst, when_in_range, when_out_of_range, (*min_inclusive as f32)..(*max_exclusive as f32)))
+        }
+        DensityFunction::Abs { input } => {
+            let input = compile_arg(compiler, rand, input, parent_buffer);
+
+            match input {
+                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(parent_buffer, val.abs())),
+                ReturnValue::Noise(noise) => compiler.push_visitor(AbsNoiseVisitor::new(parent_buffer, noise)),
+                ReturnValue::Buffer(buf) => compiler.push_visitor(AbsBufferVisitor::new(buf)),
+            }
+        }
+        DensityFunction::Clamp { input, min, max } => {
+            let input = compile_arg(compiler, rand, input, parent_buffer);
+
+            match input {
+                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(parent_buffer, val.clamp(*min as f32, *max as f32))),
+                ReturnValue::Noise(noise) => compiler.push_visitor(ClampNoiseVisitor::new(parent_buffer, noise, *min as f32, *max as f32)),
+                ReturnValue::Buffer(buf) => compiler.push_visitor(ClampBufferVisitor::new(buf, *min as f32, *max as f32)),
+            }
+        }
+        DensityFunction::Square { input } => {
+            let input = compile_arg(compiler, rand, input, parent_buffer);
+
+            match input {
+                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(parent_buffer, val.powi(2))),
+                ReturnValue::Noise(noise) => compiler.push_visitor(PowNoiseVisitor::new(parent_buffer, noise, 2)),
+                ReturnValue::Buffer(buf) => compiler.push_visitor(PowBufferVisitor::new(buf, 2)),
+            }
+        }
+        DensityFunction::Cube { input } => {
+            let input = compile_arg(compiler, rand, input, parent_buffer);
+
+            match input {
+                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(parent_buffer, val.powi(3))),
+                ReturnValue::Noise(noise) => compiler.push_visitor(PowNoiseVisitor::new(parent_buffer, noise, 3)),
+                ReturnValue::Buffer(buf) => compiler.push_visitor(PowBufferVisitor::new(buf, 3)),
+            }
+        }
+        DensityFunction::Invert { input } => {
+            let input = compile_arg(compiler, rand, input, parent_buffer);
+
+            match input {
+                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(parent_buffer, val.powi(-1))),
+                ReturnValue::Noise(noise) => compiler.push_visitor(PowNoiseVisitor::new(parent_buffer, noise, -1)),
+                ReturnValue::Buffer(buf) => compiler.push_visitor(PowBufferVisitor::new(buf, -1)),
+            }
+        }
+        DensityFunction::IntervalSelect { .. } => compiler.push_visitor(FillConstantVisitor::new(parent_buffer, 0.0)),
         _ => todo!("{:?}", func),
     }
 }

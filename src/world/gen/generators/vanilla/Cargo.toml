@@ -8,3 +8,4 @@ gen-core = { path = "../../core" }
 temper-core = { workspace = true }
 temper-density = { path = "../../../density" }
 temper-macros = { workspace = true }
+include_dir = { workspace = true }

@@ -18,7 +18,7 @@ pub trait BufferOperation {
     ///
     /// # Returns
     /// A value that will be stored in the destination buffer.
-    fn scalar(src: f32, dst: f32) -> f32;
+    fn scalar(&self, src: f32, dst: f32) -> f32;
 
     /// Defines this buffer operation in terms of two SIMD values. The order of the values within
     /// the SIMD values does not matter, but they should map to the same index in the destination
@@ -36,7 +36,7 @@ pub trait BufferOperation {
     /// # Returns
     /// A value that will be stored in the destination buffer.
     #[cfg(target_arch = "x86_64")]
-    unsafe fn simd(src: __m256, dst: __m256) -> __m256;
+    unsafe fn simd(&self, src: __m256, dst: __m256) -> __m256;
 }
 
 /// Performs `dst = src`.
@@ -63,11 +63,11 @@ pub struct Max;
 impl BufferOperation for Replace {
     const READS_DST: bool = false;
 
-    fn scalar(src: f32, _: f32) -> f32 {
+    fn scalar(&self, src: f32, _: f32) -> f32 {
         src
     }
 
-    unsafe fn simd(src: __m256, _: __m256) -> __m256 {
+    unsafe fn simd(&self, src: __m256, _: __m256) -> __m256 {
         src
     }
 }
@@ -75,11 +75,11 @@ impl BufferOperation for Replace {
 impl BufferOperation for Add {
     const READS_DST: bool = true;
 
-    fn scalar(src: f32, dst: f32) -> f32 {
+    fn scalar(&self, src: f32, dst: f32) -> f32 {
         src + dst
     }
 
-    unsafe fn simd(src: __m256, dst: __m256) -> __m256 {
+    unsafe fn simd(&self, src: __m256, dst: __m256) -> __m256 {
         // SAFETY: requirements passed to caller
         unsafe { x86_64::_mm256_add_ps(src, dst) }
     }
@@ -88,11 +88,11 @@ impl BufferOperation for Add {
 impl BufferOperation for Sub {
     const READS_DST: bool = true;
 
-    fn scalar(src: f32, dst: f32) -> f32 {
+    fn scalar(&self, src: f32, dst: f32) -> f32 {
         dst - src
     }
 
-    unsafe fn simd(src: __m256, dst: __m256) -> __m256 {
+    unsafe fn simd(&self, src: __m256, dst: __m256) -> __m256 {
         // SAFETY: requirements passed to caller
         unsafe { x86_64::_mm256_sub_ps(dst, src) }
     }
@@ -101,11 +101,11 @@ impl BufferOperation for Sub {
 impl BufferOperation for Mul {
     const READS_DST: bool = true;
 
-    fn scalar(src: f32, dst: f32) -> f32 {
+    fn scalar(&self, src: f32, dst: f32) -> f32 {
         src * dst
     }
 
-    unsafe fn simd(src: __m256, dst: __m256) -> __m256 {
+    unsafe fn simd(&self, src: __m256, dst: __m256) -> __m256 {
         // SAFETY: requirements passed to caller
         unsafe { x86_64::_mm256_mul_ps(src, dst) }
     }
@@ -114,11 +114,11 @@ impl BufferOperation for Mul {
 impl BufferOperation for Div {
     const READS_DST: bool = true;
 
-    fn scalar(src: f32, dst: f32) -> f32 {
+    fn scalar(&self, src: f32, dst: f32) -> f32 {
         dst / src
     }
 
-    unsafe fn simd(src: __m256, dst: __m256) -> __m256 {
+    unsafe fn simd(&self, src: __m256, dst: __m256) -> __m256 {
         // SAFETY: requirements passed to caller
         unsafe { x86_64::_mm256_div_ps(dst, src) }
     }
@@ -127,11 +127,11 @@ impl BufferOperation for Div {
 impl BufferOperation for Min {
     const READS_DST: bool = true;
 
-    fn scalar(src: f32, dst: f32) -> f32 {
+    fn scalar(&self, src: f32, dst: f32) -> f32 {
         src.min(dst)
     }
 
-    unsafe fn simd(src: __m256, dst: __m256) -> __m256 {
+    unsafe fn simd(&self, src: __m256, dst: __m256) -> __m256 {
         // SAFETY: requirements passed to caller
         unsafe { x86_64::_mm256_min_ps(src, dst) }
     }
@@ -140,11 +140,11 @@ impl BufferOperation for Min {
 impl BufferOperation for Max {
     const READS_DST: bool = true;
 
-    fn scalar(src: f32, dst: f32) -> f32 {
+    fn scalar(&self, src: f32, dst: f32) -> f32 {
         src.max(dst)
     }
 
-    unsafe fn simd(src: __m256, dst: __m256) -> __m256 {
+    unsafe fn simd(&self, src: __m256, dst: __m256) -> __m256 {
         // SAFETY: requirements passed to caller
         unsafe { x86_64::_mm256_max_ps(src, dst) }
     }

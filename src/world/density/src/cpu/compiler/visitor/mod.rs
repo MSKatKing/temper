@@ -1,4 +1,6 @@
 mod math;
+mod map;
+mod range_choice;
 
 use crate::cpu::buffer::{BufferId, BufferType, Flat, FlatCell, Full, Interpolated};
 use crate::cpu::compiler::{AnyBufferId, ToAnyBufferId};
@@ -7,6 +9,9 @@ use crate::cpu::runtime::{FillBuffer, FillConstant, FillNoise, Operation, Shifte
 use crate::cpu::workspace::{GetDstSrc, WorkspaceStorable};
 
 pub use math::*;
+pub use map::*;
+pub use range_choice::*;
+
 use temper_noise::NormalNoise;
 
 pub struct BufferOperationResult {
@@ -55,6 +60,16 @@ pub trait BufferOperationVisitor: Sized {
 
 #[macro_export]
 macro_rules! impl_visitor_base {
+    ($name:ident) => {
+        pub struct $name;
+
+        impl $name {
+            #[allow(clippy::new_ret_no_self)]
+            pub fn new(dst: $crate::cpu::compiler::AnyBufferId) -> $crate::cpu::compiler::visitor::BufferOperationResult {
+                dst.visit($name)
+            }
+        }
+    };
     ($name:ident, $($field:ident: $field_ty:ty),+ $(,)?) => {
         pub struct $name {
             $($field: $field_ty),+

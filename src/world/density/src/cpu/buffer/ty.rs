@@ -15,8 +15,8 @@ pub trait BufferType: Sized + Debug + Send + Sync {
     fn pack_coord(pos: ChunkBlockPos) -> usize;
 
     /// Performs the BufferOperation on self (`src` and `dst` are both values from self).
-    fn apply_to_self<T: BufferOperation>(this: &mut Buffer<Self>) {
-        this.iter_mut().for_each(|v| *v = T::scalar(*v, *v))
+    fn apply_to_self<T: BufferOperation>(this: &mut Buffer<Self>, apply: T) {
+        this.iter_mut().for_each(|v| *v = apply.scalar(*v, *v))
     }
 
     /// Performs the BufferOperation on self (`src` and `dst` are both values from self).
@@ -24,10 +24,10 @@ pub trait BufferType: Sized + Debug + Send + Sync {
     /// # Safety
     /// The caller must ensure that the system supports the avx2 feature set.
     #[target_feature(enable = "avx2")]
-    unsafe fn apply_to_self_simd<T: BufferOperation>(this: &mut Buffer<Self>) {
+    unsafe fn apply_to_self_simd<T: BufferOperation>(this: &mut Buffer<Self>, apply: T) {
         this.as_chunks_mut::<8>().0.iter_mut().for_each(|v| unsafe {
             let src = x86_64::_mm256_load_ps(v.as_ptr());
-            x86_64::_mm256_store_ps(v.as_mut_ptr(), T::simd(src, src))
+            x86_64::_mm256_store_ps(v.as_mut_ptr(), apply.simd(src, src))
         })
     }
 }
@@ -48,7 +48,7 @@ pub trait BufferApplyTo<Dst: BufferType>: BufferType {
     /// `src`: the source buffer
     /// `dst`: the destination buffer
     /// `apply`: the function to transform the values from `src` and `dst` before writing.
-    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Dst>);
+    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Dst>, apply: F);
 
     /// Moves bytes from `src` into `dst`, first applying the `apply` function. The `apply` function
     /// should be in this format:
@@ -79,17 +79,17 @@ pub trait BufferApplyTo<Dst: BufferType>: BufferType {
     /// `dst`: the destination buffer
     /// `apply`: the function to transform the values from `src` and `dst` before writing.
     #[cfg(target_arch = "x86_64")]
-    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Dst>);
+    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Dst>, apply: F);
 }
 
 impl<Dst: BufferType> BufferApplyTo<Dst> for Dst {
-    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Dst>) {
+    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Dst>, apply: F) {
         dst.iter_mut()
             .zip(src.iter())
-            .for_each(|(dst, src)| *dst = F::scalar(*src, if F::READS_DST { *dst } else { 0.0 }));
+            .for_each(|(dst, src)| *dst = apply.scalar(*src, if F::READS_DST { *dst } else { 0.0 }));
     }
 
-    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Dst>) {
+    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Dst>, apply: F) {
         dst.as_chunks_mut::<8>()
             .0
             .iter_mut()
@@ -102,7 +102,7 @@ impl<Dst: BufferType> BufferApplyTo<Dst> for Dst {
                     x86_64::_mm256_setzero_ps()
                 };
 
-                let dst_v = F::simd(src_v, dst_v);
+                let dst_v = apply.simd(src_v, dst_v);
 
                 x86_64::_mm256_store_ps(dst.as_mut_ptr(), dst_v);
             })
@@ -175,7 +175,7 @@ impl BufferType for Interpolated {
 }
 
 impl BufferApplyTo<Full> for Interpolated {
-    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>) {
+    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>, apply: F) {
         for cell_y in 0..(386 / 4) {
             let cell_base_y = cell_y * Self::Y_STRIDE;
 
@@ -208,7 +208,7 @@ impl BufferApplyTo<Full> for Interpolated {
                                 );
 
                                 dst[base_x] =
-                                    F::scalar(src, if F::READS_DST { dst[base_x] } else { 0.0 });
+                                    apply.scalar(src, if F::READS_DST { dst[base_x] } else { 0.0 });
                             }
                         }
                     }
@@ -217,7 +217,7 @@ impl BufferApplyTo<Full> for Interpolated {
         }
     }
 
-    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>) {
+    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>, apply: F) {
         // SAFETY: requirements passed to caller
         unsafe {
             let x = x86_64::_mm256_setr_ps(0.0, 0.25, 0.5, 0.75, 0.0, 0.25, 0.5, 0.75);
@@ -251,7 +251,7 @@ impl BufferApplyTo<Full> for Interpolated {
 
                             let interpolated = lerp3_f32_simd([x, z[z_idx], y], src_data);
 
-                            let dst_data = F::simd(
+                            let dst_data = apply.simd(
                                 interpolated,
                                 if F::READS_DST {
                                     x86_64::_mm256_set_m128(
@@ -299,7 +299,7 @@ impl BufferType for Flat {
 }
 
 impl BufferApplyTo<Full> for Flat {
-    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>) {
+    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>, apply: F) {
         for z in 0..16 {
             let base_z = z * Self::Z_STRIDE;
 
@@ -311,13 +311,13 @@ impl BufferApplyTo<Full> for Flat {
                 for y in 0..384 {
                     let base_y = y * Full::Y_STRIDE + base_x;
 
-                    dst[base_y] = F::scalar(val, if F::READS_DST { dst[base_y] } else { 0.0 });
+                    dst[base_y] = apply.scalar(val, if F::READS_DST { dst[base_y] } else { 0.0 });
                 }
             }
         }
     }
 
-    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>) {
+    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>, apply: F) {
         for y in 0..384 {
             let base_y = y * Full::Y_STRIDE;
 
@@ -330,7 +330,7 @@ impl BufferApplyTo<Full> for Flat {
                     let src0 = x86_64::_mm256_load_ps(&raw const src[base_z]);
                     let src1 = x86_64::_mm256_load_ps(&raw const src[base_z + 0x8]);
 
-                    let dst0 = F::simd(
+                    let dst0 = apply.simd(
                         src0,
                         if F::READS_DST {
                             x86_64::_mm256_load_ps(&raw const dst[base_dst])
@@ -339,7 +339,7 @@ impl BufferApplyTo<Full> for Flat {
                         },
                     );
 
-                    let dst1 = F::simd(
+                    let dst1 = apply.simd(
                         src1,
                         if F::READS_DST {
                             x86_64::_mm256_load_ps(&raw const dst[base_dst + 0x8])
@@ -357,7 +357,7 @@ impl BufferApplyTo<Full> for Flat {
 }
 
 impl BufferApplyTo<Interpolated> for Flat {
-    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Interpolated>) {
+    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Interpolated>, apply: F) {
         for z in 0..16 {
             let base_z = z * Self::Z_STRIDE;
             let cell_base_z = (z / 4) * Interpolated::Z_STRIDE;
@@ -371,7 +371,7 @@ impl BufferApplyTo<Interpolated> for Flat {
                 for y in 0..(384 / 4) {
                     let cell_base_y = y * Interpolated::Y_STRIDE + cell_base_x;
 
-                    dst[cell_base_y << 3] = F::scalar(
+                    dst[cell_base_y << 3] = apply.scalar(
                         val,
                         if F::READS_DST {
                             dst[cell_base_y << 3]
@@ -387,6 +387,7 @@ impl BufferApplyTo<Interpolated> for Flat {
     unsafe fn apply_to_simd<F: BufferOperation>(
         src: &Buffer<Self>,
         dst: &mut Buffer<Interpolated>,
+        apply: F,
     ) {
         // SAFETY: requirements passed to caller
         unsafe {
@@ -415,7 +416,7 @@ impl BufferApplyTo<Interpolated> for Flat {
                     for y in 0..(384 / 4) {
                         let dst_base_y = dst_base_x + y * 16;
 
-                        let dst_data = F::simd(
+                        let dst_data = apply.simd(
                             src_data,
                             if F::READS_DST {
                                 x86_64::_mm256_load_ps(&raw const dst[dst_base_y << 3])
@@ -450,7 +451,7 @@ impl BufferType for FlatCell {
 }
 
 impl BufferApplyTo<Full> for FlatCell {
-    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>) {
+    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>, apply: F) {
         for cell_z in 0..4 {
             let src_base_z = cell_z * Self::Z_STRIDE;
 
@@ -469,7 +470,7 @@ impl BufferApplyTo<Full> for FlatCell {
                             let base_x = base_z + (cell_x * 4 + x);
 
                             dst[base_x] =
-                                F::scalar(val, if F::READS_DST { dst[base_x] } else { 0.0 });
+                                apply.scalar(val, if F::READS_DST { dst[base_x] } else { 0.0 });
                         }
                     }
                 }
@@ -477,7 +478,7 @@ impl BufferApplyTo<Full> for FlatCell {
         }
     }
 
-    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>) {
+    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>, apply: F) {
         // SAFETY: requirements passed to caller
         unsafe {
             for cell_z in 0..4 {
@@ -498,7 +499,7 @@ impl BufferApplyTo<Full> for FlatCell {
                         for z in 0..4 {
                             let base_x = base_y + (cell_z * 4 + z) * 4 + dst_base_x;
 
-                            let dst_val = F::simd(
+                            let dst_val = apply.simd(
                                 val,
                                 if F::READS_DST {
                                     x86_64::_mm256_load_ps(&raw const dst[base_x])
@@ -517,7 +518,7 @@ impl BufferApplyTo<Full> for FlatCell {
 }
 
 impl BufferApplyTo<Interpolated> for FlatCell {
-    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Interpolated>) {
+    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Interpolated>, apply: F) {
         for cell_z in 0..4 {
             let src_base_z = cell_z * Self::Z_STRIDE;
             let dst_base_z = cell_z * 4;
@@ -532,7 +533,7 @@ impl BufferApplyTo<Interpolated> for FlatCell {
                     let base_y = (y * 16) + dst_base_x;
 
                     for i in 0..8 {
-                        dst[(base_y << 3) + i] = F::scalar(
+                        dst[(base_y << 3) + i] = apply.scalar(
                             val,
                             if F::READS_DST {
                                 dst[(base_y << 3) + i]
@@ -549,6 +550,7 @@ impl BufferApplyTo<Interpolated> for FlatCell {
     unsafe fn apply_to_simd<F: BufferOperation>(
         src: &Buffer<Self>,
         dst: &mut Buffer<Interpolated>,
+        apply: F,
     ) {
         // SAFETY: requirements passed to caller
         unsafe {
@@ -563,7 +565,7 @@ impl BufferApplyTo<Interpolated> for FlatCell {
                     for y in 0..(384 / 4) {
                         let dst_base_y = cell_base_x + y * 16;
 
-                        let dst_data = F::simd(
+                        let dst_data = apply.simd(
                             val,
                             if F::READS_DST {
                                 x86_64::_mm256_load_ps(&raw const dst[dst_base_y << 3])
@@ -581,18 +583,18 @@ impl BufferApplyTo<Interpolated> for FlatCell {
 }
 
 impl BufferApplyTo<Flat> for FlatCell {
-    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Flat>) {
+    fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Flat>, apply: F) {
         dst.iter_mut().enumerate().for_each(|(i, val)| {
             let x = (i >> 2) & 0x3;
             let z = (i >> 6) & 0x3;
 
             let i = (z << 2) | x;
 
-            *val = F::scalar(src[i], if F::READS_DST { *val } else { 0.0 });
+            *val = apply.scalar(src[i], if F::READS_DST { *val } else { 0.0 });
         })
     }
 
-    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Flat>) {
+    unsafe fn apply_to_simd<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Flat>, apply: F) {
         // SAFETY: requirements passed to caller
         unsafe {
             src.as_chunks::<2>()
@@ -608,7 +610,7 @@ impl BufferApplyTo<Flat> for FlatCell {
                         x86_64::_mm_set1_ps(val[0]),
                     );
 
-                    let dst_v = F::simd(
+                    let dst_v = apply.simd(
                         src_v,
                         if F::READS_DST {
                             x86_64::_mm256_load_ps(&raw const dst[(z << 4) | x])
