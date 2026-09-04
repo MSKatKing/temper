@@ -17,6 +17,21 @@ pub trait GetDstSrc<Dst: BufferType>: BufferType {
         dst: BufferId<Dst>,
         src: BufferId<Self>,
     ) -> DensityResult<(&'a mut Buffer<Dst>, &'a Buffer<Self>)>;
+
+    fn get_dst_src_2<'a>(
+        workspace: &'a mut Workspace,
+        dst: BufferId<Dst>,
+        src0: BufferId<Self>,
+        src1: BufferId<Self>,
+    ) -> DensityResult<(&'a mut Buffer<Dst>, &'a Buffer<Self>, &'a Buffer<Self>)>;
+
+    fn get_dst_src_3<'a>(
+        workspace: &'a mut Workspace,
+        dst: BufferId<Dst>,
+        src0: BufferId<Self>,
+        src1: BufferId<Self>,
+        src2: BufferId<Self>,
+    ) -> DensityResult<(&'a mut Buffer<Dst>, &'a Buffer<Self>, &'a Buffer<Self>, &'a Buffer<Self>)>;
 }
 
 macro_rules! impl_workspace_field {
@@ -39,12 +54,36 @@ macro_rules! impl_workspace_field {
 
                 split_two(&mut workspace.$field, dst.idx(), src.idx()).ok_or(DensityError::InvalidDstSrc(<$ty as ToAnyBufferId>::convert_to_any(dst), <$ty as ToAnyBufferId>::convert_to_any(src)))
             }
+
+            fn get_dst_src_2<'a>(workspace: &'a mut Workspace, dst: BufferId<$ty>, src0: BufferId<Self>, src1: BufferId<Self>) -> DensityResult<(&'a mut Buffer<$ty>, &'a Buffer<Self>, &'a Buffer<Self>)> {
+                split_three(&mut workspace.$field, dst.idx(), src0.idx(), src1.idx()).ok_or(DensityError::InvalidDstSrc(<$ty as ToAnyBufferId>::convert_to_any(dst), <$ty as ToAnyBufferId>::convert_to_any(src0)))
+            }
+
+            fn get_dst_src_3<'a>(workspace: &'a mut Workspace, dst: BufferId<$ty>, src0: BufferId<Self>, src1: BufferId<Self>, src2: BufferId<Self>) -> DensityResult<(&'a mut Buffer<$ty>, &'a Buffer<Self>, &'a Buffer<Self>, &'a Buffer<Self>)> {
+                split_four(&mut workspace.$field, dst.idx(), src0.idx(), src1.idx(), src2.idx()).ok_or(DensityError::InvalidDstSrc(<$ty as ToAnyBufferId>::convert_to_any(dst), <$ty as ToAnyBufferId>::convert_to_any(src0)))
+            }
         }
 
         $(
             impl GetDstSrc<$ty> for $ty_b {
                 fn get_dst_src<'a>(workspace: &'a mut Workspace, dst: BufferId<$ty>, src: BufferId<$ty_b>) -> DensityResult<(&'a mut Buffer<$ty>, &'a Buffer<$ty_b>)> {
                     workspace.$field.get_mut(dst.idx()).and_then(|dst| Some((dst, workspace.$field_b.get(src.idx())?))).ok_or(DensityError::InvalidDstSrc(<$ty as ToAnyBufferId>::convert_to_any(dst), <$ty_b as ToAnyBufferId>::convert_to_any(src)))
+                }
+
+                fn get_dst_src_2<'a>(workspace: &'a mut Workspace, dst: BufferId<$ty>, src0: BufferId<Self>, src1: BufferId<Self>) -> DensityResult<(&'a mut Buffer<$ty>, &'a Buffer<Self>, &'a Buffer<Self>)> {
+                    workspace.$field.get_mut(dst.idx())
+                        .and_then(|dst| {
+                            let (a, b) = split_two(&mut workspace.$field_b, src0.idx(), src1.idx())?;
+                            Some((dst, &*a, b))
+                        }).ok_or(DensityError::InvalidDstSrc(<$ty as ToAnyBufferId>::convert_to_any(dst), <$ty_b as ToAnyBufferId>::convert_to_any(src0)))
+                }
+
+                fn get_dst_src_3<'a>(workspace: &'a mut Workspace, dst: BufferId<$ty>, src0: BufferId<Self>, src1: BufferId<Self>, src2: BufferId<Self>) -> DensityResult<(&'a mut Buffer<$ty>, &'a Buffer<Self>, &'a Buffer<Self>, &'a Buffer<Self>)> {
+                    workspace.$field.get_mut(dst.idx())
+                        .and_then(|dst| {
+                            let (a, b, c) = split_three(&mut workspace.$field_b, src0.idx(), src1.idx(), src2.idx())?;
+                            Some((dst, &*a, b, c))
+                        }).ok_or(DensityError::InvalidDstSrc(<$ty as ToAnyBufferId>::convert_to_any(dst), <$ty_b as ToAnyBufferId>::convert_to_any(src0)))
                 }
             }
         )*
@@ -178,4 +217,69 @@ fn split_two<T>(slice: &mut [T], a: usize, b: usize) -> Option<(&mut T, &T)> {
         let (left, right) = slice.split_at_mut(a);
         Some((&mut right[0], &mut left[0]))
     }
+}
+
+fn split_three<T>(slice: &mut [T], a: usize, b: usize, c: usize) -> Option<(&mut T, &T, &T)> {
+    if a == b || b == c || a == c || a >= slice.len() || b >= slice.len() || c >= slice.len() {
+        return None;
+    }
+
+    let mut indices = [(a, 0), (b, 1), (c, 2)];
+    indices.sort_by(|a, b| a.0.cmp(&b.0));
+
+    let [(i0, t0), (i1, t1), (i2, t2)] = indices;
+
+    let (s0, rem) = slice.split_at_mut(i1);
+    let (s1, rem) = rem.split_at_mut(i2 - i1);
+
+    let r0 = &mut s0[i0];
+    let r1 = &mut s1[0];
+    let r2 = &mut rem[0];
+
+    let mut splits = [None, None, None];
+    for (refs, ref_num) in [(r0, t0), (r1, t1), (r2, t2)] {
+        splits[ref_num] = Some(refs)
+    }
+
+    Some((
+        splits[0].take().unwrap(),
+        &*splits[1].take().unwrap(),
+        &*splits[2].take().unwrap(),
+    ))
+}
+
+fn split_four<T>(slice: &mut [T], a: usize, b: usize, c: usize, d: usize) -> Option<(&mut T, &T, &T, &T)> {
+    if a == b || b == c || a == c || a >= slice.len() || b >= slice.len() || c >= slice.len() {
+        return None;
+    }
+
+    if a == d || b == d || c == d || d >= slice.len() {
+        return None;
+    }
+
+    let mut indices = [(a, 0), (b, 1), (c, 2), (d, 3)];
+    indices.sort_by(|a, b| a.0.cmp(&b.0));
+
+    let [(i0, t0), (i1, t1), (i2, t2), (i3, t3)] = indices;
+
+    let (s0, rem) = slice.split_at_mut(i1);
+    let (s1, rem) = rem.split_at_mut(i2 - i1);
+    let (s2, rem) = rem.split_at_mut(i3 - i2);
+
+    let r0 = &mut s0[i0];
+    let r1 = &mut s1[0];
+    let r2 = &mut s2[0];
+    let r3 = &mut rem[0];
+
+    let mut splits = [None, None, None, None];
+    for (refs, ref_num) in [(r0, t0), (r1, t1), (r2, t2), (r3, t3)] {
+        splits[ref_num] = Some(refs)
+    }
+
+    Some((
+        splits[0].take().unwrap(),
+        &*splits[1].take().unwrap(),
+        &*splits[2].take().unwrap(),
+        &*splits[3].take().unwrap(),
+    ))
 }

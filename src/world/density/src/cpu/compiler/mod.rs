@@ -3,15 +3,13 @@ mod visitor;
 
 use crate::cpu::buffer::{BufferId, BufferType, Flat, FlatCell, Full, Interpolated};
 use crate::cpu::compiler::math::{compile_add, compile_div, compile_max, compile_min, compile_mul, compile_sub};
-use crate::cpu::compiler::visitor::{
-    BufferOperationResult, BufferOperationVisitor, FillBufferVisitor, FillConstantVisitor,
-    FillNoiseVisitor, YClampedGradientVisitor,
-};
+use crate::cpu::compiler::visitor::{BufferOperationResult, BufferOperationVisitor, FillBufferVisitor, FillConstantVisitor, FillNoiseVisitor, ShiftedNoiseVisitor, YClampedGradientVisitor};
 use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
 use crate::cpu::runtime::Operation;
 use crate::{DensityFunction, DensityFunctionArgument};
 use temper_core::random::{PositionalRandom, RandomSource};
 use temper_data::noise::NoiseParameter;
+use temper_noise::NormalNoise;
 
 pub struct Compiler {
     full_buffers: Vec<bool>,
@@ -63,6 +61,15 @@ impl AnyBufferId {
             Self::FlatCell(id) => id.idx(),
         }
     }
+    
+    pub fn level(&self) -> usize {
+        match self {
+            Self::Full(_) => Full::LEVEL,
+            Self::Interpolated(_) => Interpolated::LEVEL,
+            Self::Flat(_) => Flat::LEVEL,
+            Self::FlatCell(_) => FlatCell::LEVEL,
+        }
+    }
 
     pub fn copy_inner_type(&self, new_idx: usize) -> AnyBufferId {
         match self {
@@ -78,11 +85,19 @@ impl AnyBufferId {
 
 pub trait ToAnyBufferId: BufferType {
     fn convert_to_any(this: BufferId<Self>) -> AnyBufferId;
+    fn try_downcast_to(any: AnyBufferId) -> Option<BufferId<Self>>;
 }
 
 impl ToAnyBufferId for Full {
     fn convert_to_any(this: BufferId<Self>) -> AnyBufferId {
         AnyBufferId::Full(this)
+    }
+
+    fn try_downcast_to(any: AnyBufferId) -> Option<BufferId<Self>> {
+        match any {
+            AnyBufferId::Full(id) => Some(id),
+            _ => None,
+        }
     }
 }
 
@@ -90,17 +105,38 @@ impl ToAnyBufferId for Interpolated {
     fn convert_to_any(this: BufferId<Self>) -> AnyBufferId {
         AnyBufferId::Interpolated(this)
     }
+
+    fn try_downcast_to(any: AnyBufferId) -> Option<BufferId<Self>> {
+        match any {
+            AnyBufferId::Interpolated(id) => Some(id),
+            _ => None,
+        }
+    }
 }
 
 impl ToAnyBufferId for Flat {
     fn convert_to_any(this: BufferId<Self>) -> AnyBufferId {
         AnyBufferId::Flat(this)
     }
+
+    fn try_downcast_to(any: AnyBufferId) -> Option<BufferId<Self>> {
+        match any {
+            AnyBufferId::Flat(id) => Some(id),
+            _ => None,
+        }
+    }
 }
 
 impl ToAnyBufferId for FlatCell {
     fn convert_to_any(this: BufferId<Self>) -> AnyBufferId {
         AnyBufferId::FlatCell(this)
+    }
+
+    fn try_downcast_to(any: AnyBufferId) -> Option<BufferId<Self>> {
+        match any {
+            AnyBufferId::FlatCell(id) => Some(id),
+            _ => None,
+        }
     }
 }
 
@@ -210,6 +246,41 @@ fn compile_arg<R: RandomSource, P: PositionalRandom<R>>(
                         y_scale: *y_scale as f32,
                     },
                 ))
+            },
+            DensityFunction::Shift { 
+                noise,
+            } => {
+                let params = NoiseParameter::get_by_name(noise.as_str())
+                    .unwrap_or_else(|| panic!("unknown noise parameter: {}", noise.as_str()));
+                
+                ReturnValue::Noise(NoiseAccessor::new(
+                    params,
+                    rand,
+                    noise.as_str(),
+                    NoiseAccessType::Shift,
+                ))
+            }
+            DensityFunction::ShiftA { noise } => {
+                let params = NoiseParameter::get_by_name(noise.as_str())
+                    .unwrap_or_else(|| panic!("unknown noise parameter: {}", noise.as_str()));
+
+                ReturnValue::Noise(NoiseAccessor::new(
+                    params,
+                    rand,
+                    noise.as_str(),
+                    NoiseAccessType::ShiftA,
+                ))
+            }
+            DensityFunction::ShiftB { noise } => {
+                let params = NoiseParameter::get_by_name(noise.as_str())
+                    .unwrap_or_else(|| panic!("unknown noise parameter: {}", noise.as_str()));
+
+                ReturnValue::Noise(NoiseAccessor::new(
+                    params,
+                    rand,
+                    noise.as_str(),
+                    NoiseAccessType::ShiftB,
+                ))
             }
             DensityFunction::CacheAllInCell { input } => compile_arg(compiler, rand, input, parent_buffer),
             DensityFunction::CacheOnce { input } => compile_arg(compiler, rand, input, parent_buffer), // TODO: make this compile a global instead
@@ -312,6 +383,61 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
                     actual
                 }
             }
+        },
+        DensityFunction::ShiftedNoise { noise, xz_scale, y_scale, shift_x, shift_y, shift_z } => {
+            let x = compiler.alloc_buffer(parent_buffer);
+            let actual_x = compile_arg(compiler, rand, shift_x, x);
+            
+            let y = compiler.alloc_buffer(parent_buffer);
+            let actual_y = compile_arg(compiler, rand, shift_y, y);
+            
+            let z = compiler.alloc_buffer(parent_buffer);
+            let actual_z = compile_arg(compiler, rand, shift_z, z);
+            
+            let actual_x = match actual_x {
+                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(x, val)),
+                ReturnValue::Noise(val) => compiler.push_visitor(FillNoiseVisitor::new(x, val)),
+                ReturnValue::Buffer(buf) => if buf.level() > parent_buffer.level() {
+                    compiler.push_visitor(FillBufferVisitor::new(x, buf))
+                } else {
+                    x
+                }
+            };
+
+            let actual_y = match actual_y {
+                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(y, val)),
+                ReturnValue::Noise(val) => compiler.push_visitor(FillNoiseVisitor::new(y, val)),
+                ReturnValue::Buffer(buf) => if buf.level() > parent_buffer.level() {
+                    compiler.push_visitor(FillBufferVisitor::new(y, buf))
+                } else {
+                    y
+                }
+            };
+
+            let actual_z = match actual_z {
+                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(z, val)),
+                ReturnValue::Noise(val) => compiler.push_visitor(FillNoiseVisitor::new(z, val)),
+                ReturnValue::Buffer(buf) => if buf.level() > parent_buffer.level() {
+                    compiler.push_visitor(FillBufferVisitor::new(z, buf))
+                } else {
+                    z
+                }
+            };
+            
+            let params = NoiseParameter::get_by_name(noise.as_str())
+                .unwrap_or_else(|| panic!("Unknown noise parameter: {}", noise.as_str()));
+            
+            let noise = NormalNoise::new(&mut rand.spawn_from_hash(noise.as_str()), params.first_octave, params.amplitudes);
+            
+            compiler.push_visitor(ShiftedNoiseVisitor::new(
+                parent_buffer,
+                noise,
+                *xz_scale as f32,
+                *y_scale as f32,
+                actual_x,
+                actual_y,
+                actual_z,
+            ))
         }
         _ => todo!("{:?}", func),
     }
