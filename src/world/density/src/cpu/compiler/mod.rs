@@ -211,6 +211,8 @@ fn compile_arg<R: RandomSource, P: PositionalRandom<R>>(
                     },
                 ))
             }
+            DensityFunction::CacheAllInCell { input } => compile_arg(compiler, rand, input, parent_buffer),
+            DensityFunction::CacheOnce { input } => compile_arg(compiler, rand, input, parent_buffer), // TODO: make this compile a global instead
             func => ReturnValue::Buffer(compile(compiler, rand, func, parent_buffer)),
         },
     }
@@ -253,6 +255,46 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
         )),
         DensityFunction::Cache2d { input } => {
             let buffer = compiler.alloc_buffer(AnyBufferId::Flat(BufferId::<Flat>::new(0)));
+            let input_source = compile_arg(compiler, rand, input, buffer);
+
+            match input_source {
+                ReturnValue::Constant(val) => {
+                    compiler.push_visitor(FillConstantVisitor::new(buffer, val))
+                }
+                ReturnValue::Noise(noise) => {
+                    compiler.push_visitor(FillNoiseVisitor::new(buffer, noise))
+                }
+                ReturnValue::Buffer(actual) => {
+                    if actual != buffer {
+                        compiler.free_buffer(buffer);
+                    }
+
+                    actual
+                }
+            }
+        },
+        DensityFunction::Interpolated { input } => {
+            let buffer = compiler.alloc_buffer(AnyBufferId::Interpolated(BufferId::<Interpolated>::new(0)));
+            let input_source = compile_arg(compiler, rand, input, buffer);
+
+            match input_source {
+                ReturnValue::Constant(val) => {
+                    compiler.push_visitor(FillConstantVisitor::new(buffer, val))
+                }
+                ReturnValue::Noise(noise) => {
+                    compiler.push_visitor(FillNoiseVisitor::new(buffer, noise))
+                }
+                ReturnValue::Buffer(actual) => {
+                    if actual != buffer {
+                        compiler.free_buffer(buffer);
+                    }
+
+                    actual
+                }
+            }
+        },
+        DensityFunction::FlatCache { input } => {
+            let buffer = compiler.alloc_buffer(AnyBufferId::FlatCell(BufferId::<FlatCell>::new(0)));
             let input_source = compile_arg(compiler, rand, input, buffer);
 
             match input_source {
