@@ -30,6 +30,75 @@ pub struct Chunk {
 
     pub heightmaps: Heightmaps,
     dirty: Arc<AtomicBool>,
+    pub stage: u8,
+    pub noise: ChunkNoises,
+}
+
+#[derive(Clone, Serialize, Deserialize, TypeHash)]
+pub struct ChunkNoises {
+    /// Continentalness noise. Indexed as noise\[z]\[x] from 0,0 to 15,15
+    pub continentalness: [[f32; 16]; 16],
+    /// Erosion noise. Indexed as noise\[z]\[x] from 0,0 to 15,15
+    pub erosion: [[f32; 16]; 16],
+    /// Weirdness noise. Indexed as noise\[z]\[x] from 0,0 to 15,15
+    pub weirdness: [[f32; 16]; 16],
+    /// Jagged noise. Indexed as noise\[z]\[x] from 0,0 to 15,15
+    pub jaggedness: [[f32; 16]; 16],
+    /// Temperature noise. Indexed as noise\[z]\[x] from 0,0 to 15,15
+    pub temperature: [[f32; 16]; 16],
+    /// Humidity noise. Indexed as noise\[z]\[x] from 0,0 to 15,15
+    pub humidity: [[f32; 16]; 16],
+
+    // Stored as vecs to avoid putting 16*16*384 f32s on the stack. Which is nearly 400kb each.
+    /// Base 3d noise. Indexed as noise\[z]\[y]\[x] from 0,-64,0 to 15,383,15
+    pub base3d: Vec<f32>,
+    /// Cheese cave noise. Indexed as noise\[z]\[y]\[x] from 0,-64,0 to 15,383,15
+    pub cheese_caves: Vec<f32>,
+    /// Spaghetti cave noise. Indexed as noise\[z]\[y]\[x] from 0,-64,0 to 15,383,15
+    pub spaghetti_caves: Vec<f32>,
+    /// Noodle cave noise. Indexed as noise\[z]\[y]\[x] from 0,-64,0 to 15,383,15
+    pub noddle_caves: Vec<f32>,
+}
+
+impl Default for ChunkNoises {
+    fn default() -> Self {
+        Self {
+            continentalness: [[0.0; 16]; 16],
+            erosion: [[0.0; 16]; 16],
+            weirdness: [[0.0; 16]; 16],
+            jaggedness: [[0.0; 16]; 16],
+            temperature: [[0.0; 16]; 16],
+            humidity: [[0.0; 16]; 16],
+            base3d: Vec::new(),
+            cheese_caves: Vec::new(),
+            spaghetti_caves: Vec::new(),
+            noddle_caves: Vec::new(),
+        }
+    }
+}
+
+impl ChunkNoises {
+    pub fn without_transient_3d(&self) -> Self {
+        Self {
+            continentalness: self.continentalness,
+            erosion: self.erosion,
+            weirdness: self.weirdness,
+            jaggedness: self.jaggedness,
+            temperature: self.temperature,
+            humidity: self.humidity,
+            base3d: Vec::new(),
+            cheese_caves: Vec::new(),
+            spaghetti_caves: Vec::new(),
+            noddle_caves: Vec::new(),
+        }
+    }
+
+    pub fn clear_transient_3d(&mut self) {
+        self.base3d.clear();
+        self.cheese_caves.clear();
+        self.spaghetti_caves.clear();
+        self.noddle_caves.clear();
+    }
 }
 
 impl Chunk {
@@ -64,6 +133,8 @@ impl Chunk {
             entities: DashMap::new(),
             heightmaps: Heightmaps::default(),
             dirty: Arc::new(AtomicBool::new(false)),
+            stage: 0,
+            noise: ChunkNoises::default(),
         }
     }
 
@@ -90,6 +161,20 @@ impl Chunk {
             heightmaps: Heightmaps::default(),
             entities: DashMap::new(),
             dirty: Arc::new(AtomicBool::new(false)),
+            stage: 0,
+            noise: ChunkNoises::default(),
+        }
+    }
+
+    pub fn clone_without_transient_noise(&self) -> Chunk {
+        Chunk {
+            sections: self.sections.clone(),
+            height: self.height,
+            entities: self.entities.clone(),
+            heightmaps: self.heightmaps.clone(),
+            dirty: Arc::clone(&self.dirty),
+            stage: self.stage,
+            noise: self.noise.without_transient_3d(),
         }
     }
 
@@ -384,6 +469,8 @@ impl TryFrom<&VanillaChunk> for Chunk {
                 .unwrap_or_default(),
             entities: DashMap::new(),
             dirty: Arc::new(AtomicBool::new(false)),
+            stage: 6,
+            noise: ChunkNoises::default(),
         })
     }
 }
@@ -421,6 +508,28 @@ mod tests {
 
         assert_eq!(chunk.heightmaps.world_surface.get_height(0, 0), 10);
         assert_eq!(chunk.heightmaps.motion_blocking.get_height(0, 0), 63);
+    }
+
+    #[test]
+    fn transient_noise_can_be_dropped_from_chunk_snapshots() {
+        let mut chunk = Chunk::new_empty();
+        chunk.noise.continentalness[3][4] = 0.75;
+        chunk.noise.base3d = vec![0.0; 43];
+        chunk.noise.cheese_caves = vec![0.0; 43];
+        chunk.noise.spaghetti_caves = vec![0.0; 43];
+        chunk.noise.noddle_caves = vec![0.0; 43];
+        chunk.noise.base3d[42] = 0.5;
+        chunk.noise.cheese_caves[42] = 0.25;
+        chunk.noise.spaghetti_caves[42] = 0.125;
+        chunk.noise.noddle_caves[42] = 0.0625;
+
+        let snapshot = chunk.clone_without_transient_noise();
+
+        assert_eq!(snapshot.noise.continentalness[3][4], 0.75);
+        assert!(snapshot.noise.base3d.is_empty());
+        assert!(snapshot.noise.cheese_caves.is_empty());
+        assert!(snapshot.noise.spaghetti_caves.is_empty());
+        assert!(snapshot.noise.noddle_caves.is_empty());
     }
 
     #[test]

@@ -61,6 +61,8 @@ pub enum WorldError {
     CorruptedChunkData(u32, u32),
     #[error("NBT data error: {0}")]
     NBTError(#[from] temper_nbt::errors::NBTError),
+    #[error("Invalid world generator: {0}")]
+    InvalidWorldGenerator(String),
 }
 
 impl From<std::io::Error> for WorldError {

@@ -55,8 +55,7 @@ async fn visible_mobs_without_stream_writers_stay_tracked() {
     let mob_entity = world.spawn((Identity::new(None), mob_position)).id();
 
     let mut chunk_receiver = ChunkReceiver::default();
-    let mob_chunk = mob_position.chunk();
-    chunk_receiver.loaded.insert((mob_chunk.x(), mob_chunk.z()));
+    chunk_receiver.loaded.insert(mob_position.chunk());
 
     let mut tracker = EntityTracker::default();
     tracker.tracking.insert(mob_entity);

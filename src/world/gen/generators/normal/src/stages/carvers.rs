@@ -1,25 +1,31 @@
-use crate::interp::{smoothstep, trilerp};
+use crate::NormalGenerator;
+use crate::terrain::{NoiseGenerator, smoothstep, trilerp};
+use gen_core::{GenerationError, StageInput};
 use temper_core::block_state_id::BlockStateId;
-use temper_core::pos::{ChunkBlockPos, ChunkPos};
+use temper_core::pos::ChunkBlockPos;
 use temper_macros::{block, match_block};
-use temper_world_format::Chunk;
 
-pub(crate) fn generate_caves(
-    chunk: &mut Chunk,
-    chunk_pos: ChunkPos,
-    generator: &super::NoiseGenerator,
-) {
+impl NormalGenerator {
+    pub(crate) fn generate_carvers(&self, input: StageInput<'_>) -> Result<(), GenerationError> {
+        let noise = NoiseGenerator::new(self.seed);
+
+        generate_caves(input, &noise);
+
+        Ok(())
+    }
+}
+
+fn generate_caves(input: StageInput<'_>, noise: &NoiseGenerator) {
     const STEP_XZ: i32 = 4;
     const STEP_Y: i32 = 8;
     const Y_MIN: i32 = -60;
     const Y_MAX: i32 = 100;
+
     let y_len = Y_MAX - Y_MIN;
+    let gx = (16 / STEP_XZ + 1) as usize;
+    let gz = (16 / STEP_XZ + 1) as usize;
+    let gy = (y_len / STEP_Y + 1) as usize;
 
-    let gx = (16 / STEP_XZ + 1) as usize; // 5
-    let gz = (16 / STEP_XZ + 1) as usize; // 5
-    let gy = (y_len / STEP_Y + 1) as usize; // 41
-
-    // Sample coarse grid
     let mut grid = vec![0.0f64; gx * gy * gz];
     let idx = |ix: usize, iy: usize, iz: usize| -> usize { (iy * gz + iz) * gx + ix };
 
@@ -30,21 +36,18 @@ pub(crate) fn generate_caves(
                 let z = (iz as i32) * STEP_XZ;
                 let y = Y_MIN + (iy as i32) * STEP_Y;
 
-                let world_x = chunk_pos.x() * 16 + x;
-                let world_z = chunk_pos.z() * 16 + z;
+                let world_x = input.pos.x() * 16 + x;
+                let world_z = input.pos.z() * 16 + z;
 
-                let n = generator.get_cave_noise(
+                grid[idx(ix, iy, iz)] = noise.get_cave_noise(
                     f64::from(world_x) / 2.0,
                     f64::from(y) / 2.0,
                     f64::from(world_z) / 2.0,
                 );
-
-                grid[idx(ix, iy, iz)] = n;
             }
         }
     }
 
-    // Now fill blocks using interpolation within each cell
     for x in 0..16i32 {
         for z in 0..16i32 {
             let base_ix = (x / STEP_XZ) as usize;
@@ -58,7 +61,6 @@ pub(crate) fn generate_caves(
                 let base_iy = (yy / STEP_Y) as usize;
                 let ty = smoothstep(f64::from(yy % STEP_Y) / f64::from(STEP_Y));
 
-                // Read 8 corners
                 let ix0 = base_ix;
                 let ix1 = (base_ix + 1).min(gx - 1);
                 let iz0 = base_iz;
@@ -78,25 +80,26 @@ pub(crate) fn generate_caves(
                 let cave_noise =
                     trilerp(c000, c100, c010, c110, c001, c101, c011, c111, tx, ty, tz);
 
-                // Carving logic
-                if cave_noise > 0.6 {
-                    let current_block =
-                        chunk.get_block(ChunkBlockPos::new(x as u8, y as i16, z as u8));
-                    if match_block!("air", current_block)
-                        || match_block!("cave_air", current_block)
-                        || match_block!("water", current_block)
-                        || match_block!(
-                            "water",
-                            chunk.get_block(ChunkBlockPos::new(x as u8, (y + 1) as i16, z as u8))
-                        )
-                    {
-                        continue;
-                    }
-                    chunk.set_block(
-                        ChunkBlockPos::new(x as u8, y as i16, z as u8),
-                        block!("air"),
-                    );
+                if cave_noise <= 0.6 {
+                    continue;
                 }
+
+                let pos = ChunkBlockPos::new(x as u8, y as i16, z as u8);
+                let current_block = input.target.get_block(pos);
+                let above =
+                    input
+                        .target
+                        .get_block(ChunkBlockPos::new(x as u8, (y + 1) as i16, z as u8));
+
+                if match_block!("air", current_block)
+                    || match_block!("cave_air", current_block)
+                    || match_block!("water", current_block)
+                    || match_block!("water", above)
+                {
+                    continue;
+                }
+
+                input.target.set_block(pos, block!("air"));
             }
         }
     }

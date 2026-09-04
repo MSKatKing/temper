@@ -13,5 +13,8 @@ temper-world-format = { workspace = true }
 bitcode = { workspace = true }
 yazi = { workspace = true }
 
+[dev-dependencies]
+tempfile = { workspace = true }
+
 [lints]
 workspace = true

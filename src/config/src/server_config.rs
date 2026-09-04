@@ -46,6 +46,7 @@ pub struct ServerConfig {
     pub block_scanner_ips: bool,
     pub dashboard: DashboardConfig,
     pub performance: PerformanceConfig,
+    pub world_gen: WorldGenConfig,
 }
 
 /// The database configuration section from [ServerConfig].
@@ -81,6 +82,17 @@ pub struct DashboardConfig {
 pub struct PerformanceConfig {
     pub chunks_per_tick_min: u32,
     pub chunks_per_tick: i32,
+}
+
+/// World generation config
+///
+/// Fields:
+/// - `seed`: The seed to use
+/// - `generator`: The generator to use
+#[derive(Debug, Deserialize, Serialize, Default)]
+pub struct WorldGenConfig {
+    pub seed: String,
+    pub generator: String,
 }
 
 pub fn create_config() -> ServerConfig {
@@ -133,6 +145,10 @@ pub fn create_dummy_config() -> ServerConfig {
         performance: PerformanceConfig {
             chunks_per_tick_min: 5,
             chunks_per_tick: 10,
+        },
+        world_gen: WorldGenConfig {
+            seed: "dummy".to_string(),
+            generator: "normal".to_string(),
         },
     }
 }

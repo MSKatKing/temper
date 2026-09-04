@@ -77,3 +77,7 @@ serve_page = true
 port = 9000
 # Randomly generated secret for accessing the dashboard.
 secret = "This will be replaced with a random string on first run, do not change this text. If you see this outside of the default config, something is wrong."
+
+[world_gen]
+seed = "temper rox"
+generator = "normal"

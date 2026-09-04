@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+gen-core = { path = "./core" }
+gen-scheduler = { path = "./scheduler" }
+normal = { path = "./generators/normal" }
+skyblock = { path = "./generators/skyblock" }
+superflat = { path = "./generators/superflat" }
 temper-world-format = { workspace = true }
 noise = { workspace = true }
 temper-core = { workspace = true }
@@ -11,14 +16,5 @@ temper-macros = { workspace = true }
 thiserror = { workspace = true }
 rand = { workspace = true }
 
-[dev-dependencies]
-criterion = { workspace = true }
-
 [lints]
 workspace = true
-
-
-[[bench]]
-name = "gen_benches"
-harness = false
-path = "benches/gen.rs"

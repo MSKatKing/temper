@@ -22,6 +22,7 @@ temper-resources = { workspace = true }
 temper-entities = { workspace = true }
 temper-permissions = { workspace = true }
 temper-particles = { workspace = true }
+temper-world-format = { workspace = true }
 
 ctor = { workspace = true }
 tracing = { workspace = true }
