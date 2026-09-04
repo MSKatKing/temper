@@ -5,10 +5,10 @@ use crate::cpu::buffer::{BufferId, BufferType, Flat, FlatCell, Full, Interpolate
 use crate::cpu::compiler::math::{
     compile_add, compile_div, compile_max, compile_min, compile_mul, compile_sub,
 };
-use crate::cpu::compiler::visitor::{AbsBufferVisitor, AbsNoiseVisitor, BufferOperationResult, BufferOperationVisitor, ClampBufferVisitor, ClampNoiseVisitor, FillBufferVisitor, FillConstantVisitor, FillNoiseVisitor, PowBufferVisitor, PowNoiseVisitor, RangeChoiceVisitor, ShiftedNoiseVisitor, SqueezeBufferVisitor, SqueezeNoiseVisitor, YClampedGradientVisitor};
+use crate::cpu::compiler::visitor::{AbsBufferVisitor, AbsNoiseVisitor, BufferOperationResult, BufferOperationVisitor, ClampBufferVisitor, ClampNoiseVisitor, FillBufferVisitor, FillConstantVisitor, FillNoiseVisitor, IntervalSelectVisitor, PowBufferVisitor, PowNoiseVisitor, RangeChoiceVisitor, ShiftedNoiseVisitor, SplinePoint, SplineVisitor, SqueezeBufferVisitor, SqueezeNoiseVisitor, ValueOrBuffer, YClampedGradientVisitor};
 use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
 use crate::cpu::runtime::Operation;
-use crate::{DensityFunction, DensityFunctionArgument};
+use crate::{DensityFunction, DensityFunctionArgument, DensitySpline, ValueOrSpline};
 use temper_core::random::{PositionalRandom, RandomSource};
 use temper_data::noise::NoiseParameter;
 use temper_noise::NormalNoise;
@@ -513,10 +513,18 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
         DensityFunction::RangeChoice { input, when_in_range, when_out_of_range, min_inclusive, max_exclusive } => {
             let input = compile_arg(compiler, rand, input, parent_buffer);
 
-            let in_range_buf = compiler.alloc_buffer(parent_buffer);
+            let dst = match input {
+                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(parent_buffer, val)),
+                ReturnValue::Noise(noise) => compiler.push_visitor(FillNoiseVisitor::new(parent_buffer, noise)),
+                ReturnValue::Buffer(buf) => {
+                    buf
+                }
+            };
+
+            let in_range_buf = compiler.alloc_buffer(dst);
             let when_in_range = compile_arg(compiler, rand, when_in_range, in_range_buf);
 
-            let out_of_range_buf = compiler.alloc_buffer(parent_buffer);
+            let out_of_range_buf = compiler.alloc_buffer(dst);
             let when_out_of_range = compile_arg(compiler, rand, when_out_of_range, out_of_range_buf);
 
             let when_in_range = match when_in_range {
@@ -543,22 +551,10 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
                 }
             };
 
-            let dst = match input {
-                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(parent_buffer, val)),
-                ReturnValue::Noise(noise) => compiler.push_visitor(FillNoiseVisitor::new(parent_buffer, noise)),
-                ReturnValue::Buffer(buf) => {
-                    if buf != parent_buffer {
-                        compiler.free_buffer(buf)
-                    }
-
-                    buf
-                }
-            };
-
             compiler.free_buffer(when_in_range);
             compiler.free_buffer(when_out_of_range);
 
-        compiler.push_visitor(RangeChoiceVisitor::new(dst, when_in_range, when_out_of_range, (*min_inclusive as f32)..(*max_exclusive as f32)))
+            compiler.push_visitor(RangeChoiceVisitor::new(dst, when_in_range, when_out_of_range, (*min_inclusive as f32)..(*max_exclusive as f32)))
         }
         DensityFunction::Abs { input } => {
             let input = compile_arg(compiler, rand, input, parent_buffer);
@@ -605,9 +601,100 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
                 ReturnValue::Buffer(buf) => compiler.push_visitor(PowBufferVisitor::new(buf, -1)),
             }
         }
-        DensityFunction::IntervalSelect { .. } => compiler.push_visitor(FillConstantVisitor::new(parent_buffer, 0.0)),
+        DensityFunction::IntervalSelect { input, thresholds, functions } => {
+            let input = compile_arg(compiler, rand, input, parent_buffer);
+
+            let buf = match input {
+                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(parent_buffer, val)),
+                ReturnValue::Noise(noise) => compiler.push_visitor(FillNoiseVisitor::new(parent_buffer, noise)),
+                ReturnValue::Buffer(buf) => buf,
+            };
+            
+            let mut buffers = Vec::with_capacity(functions.len());
+            for function in functions {
+                let buf = compiler.alloc_buffer(buf);
+                let actual = compile_arg(compiler, rand, function, buf);
+                
+                let actual = match actual {
+                    ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(buf, val)),
+                    ReturnValue::Noise(noise) => compiler.push_visitor(FillNoiseVisitor::new(buf, noise)),
+                    ReturnValue::Buffer(actual) => {
+                        let actual = if actual.level() != buf.level() {
+                            compiler.free_buffer(actual);
+                            compiler.push_visitor(FillBufferVisitor::new(buf, actual))
+                        } else {
+                            actual
+                        };
+                        
+                        if actual != buf {
+                            compiler.free_buffer(buf)
+                        }
+                        
+                        actual
+                    },
+                };
+                
+                buffers.push(actual);
+            }
+            
+            buffers.iter().for_each(|buf| compiler.free_buffer(*buf));
+            
+            let thresholds = thresholds.iter().map(|v| *v as f32).collect::<Vec<_>>();
+            
+            compiler.push_visitor(IntervalSelectVisitor::new(buf, thresholds, buffers))
+        },
+        DensityFunction::Spline { spline } => compile_spline(compiler, rand, spline, parent_buffer),
         _ => todo!("{:?}", func),
     }
+}
+
+fn compile_spline<R: RandomSource, P: PositionalRandom<R>>(
+    compiler: &mut Compiler,
+    rand: &mut P,
+    spline: &DensitySpline,
+    parent_buffer: AnyBufferId,
+) -> AnyBufferId {
+    let input = compile_arg(compiler, rand, &spline.coordinate, parent_buffer);
+    
+    let input = match input {
+        ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(parent_buffer, val)),
+        ReturnValue::Noise(noise) => compiler.push_visitor(FillNoiseVisitor::new(parent_buffer, noise)),
+        ReturnValue::Buffer(buf) => buf,
+    };
+
+    let mut points = Vec::with_capacity(spline.points.len());
+    for point in spline.points.iter() {
+        let buf = compiler.alloc_buffer(input);
+        
+        let value = match &point.value {
+            ValueOrSpline::Value(v) => {
+                compiler.free_buffer(buf);
+                ValueOrBuffer::Value(*v as f32)
+            }
+            ValueOrSpline::Spline(spline) => {
+                let actual = compile_spline(compiler, rand, spline, buf);
+                if actual != buf {
+                    compiler.push_visitor(FillBufferVisitor::new(buf, actual));
+                }
+                
+                ValueOrBuffer::Buffer(buf)
+            }
+        };
+        
+        points.push(SplinePoint {
+            location: point.location as f32,
+            derivative: point.derivative as f32,
+            value,
+        })
+    }
+
+    points.iter().for_each(|buf| {
+        if let ValueOrBuffer::Buffer(buf) = &buf.value {
+            compiler.free_buffer(*buf);
+        }
+    });
+    
+    compiler.push_visitor(SplineVisitor::new(input, points))
 }
 
 #[cfg(test)]

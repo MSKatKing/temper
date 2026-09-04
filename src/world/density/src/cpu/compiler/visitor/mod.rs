@@ -1,6 +1,8 @@
 mod math;
 mod map;
 mod range_choice;
+mod interval_select;
+mod spline;
 
 use crate::cpu::buffer::{BufferId, BufferType, Flat, FlatCell, Full, Interpolated};
 use crate::cpu::compiler::{AnyBufferId, ToAnyBufferId};
@@ -11,6 +13,8 @@ use crate::cpu::workspace::{GetDstSrc, WorkspaceStorable};
 pub use math::*;
 pub use map::*;
 pub use range_choice::*;
+pub use interval_select::*;
+pub use spline::*;
 
 use temper_noise::NormalNoise;
 

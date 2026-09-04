@@ -48,6 +48,8 @@ impl VanillaGenerator {
         let func = func.fold();
         let final_density = Compiler::compile(&mut rand, func);
 
+        println!("{:?}", final_density);
+
         Self {
             rand,
             final_density,

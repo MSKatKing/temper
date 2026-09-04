@@ -145,7 +145,7 @@ impl BufferType for Full {
 
 impl BufferType for Interpolated {
     const SIZE: usize = 8 * (4 * 4 * 96);
-    const LEVEL: usize = 0;
+    const LEVEL: usize = 1;
     const Z_STRIDE: usize = 8 * 4;
     const Y_STRIDE: usize = <Self as BufferType>::Z_STRIDE * 4;
 
@@ -280,7 +280,7 @@ impl BufferApplyTo<Full> for Interpolated {
 
 impl BufferType for Flat {
     const SIZE: usize = 16 * 16;
-    const LEVEL: usize = 0;
+    const LEVEL: usize = 2;
     const Z_STRIDE: usize = 16;
     const Y_STRIDE: usize = 0;
 
@@ -435,7 +435,7 @@ impl BufferApplyTo<Interpolated> for Flat {
 
 impl BufferType for FlatCell {
     const SIZE: usize = 4 * 4;
-    const LEVEL: usize = 0;
+    const LEVEL: usize = 3;
     const Z_STRIDE: usize = 4;
     const Y_STRIDE: usize = 0;
 

@@ -1,6 +1,8 @@
 mod math;
 mod map;
 mod range_choice;
+mod interval_select;
+mod spline;
 
 use crate::cpu::workspace::{GetDstSrc, Workspace, WorkspaceStorable};
 use crate::cpu::buffer::BufferId;
@@ -12,6 +14,8 @@ use temper_noise::NormalNoise;
 pub use math::*;
 pub use map::*;
 pub use range_choice::*;
+pub use interval_select::*;
+pub use spline::*;
 
 pub trait Operation: Debug + Send + Sync {
     fn execute(&self, workspace: &mut Workspace) -> DensityResult<()>;

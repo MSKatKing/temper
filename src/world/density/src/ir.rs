@@ -68,15 +68,15 @@ density_function!(
 
 #[derive(Deserialize, PartialEq, Debug, Clone)]
 pub struct DensitySpline {
-    coordinate: DensityFunctionArgument,
-    points: Vec<DensitySplinePoint>,
+    pub coordinate: DensityFunctionArgument,
+    pub points: Vec<DensitySplinePoint>,
 }
 
 #[derive(Deserialize, PartialEq, Debug, Clone)]
 pub struct DensitySplinePoint {
-    location: f64,
-    value: ValueOrSpline,
-    derivative: f64,
+    pub location: f64,
+    pub value: ValueOrSpline,
+    pub derivative: f64,
 }
 
 #[derive(Deserialize, PartialEq, Debug, Clone)]
@@ -491,7 +491,7 @@ impl DensityFunction {
                     })
                 }
             }
-            DensityFunction::Spline { .. } => Arg::wrap_const(0.0), // TODO: correct impl
+            DensityFunction::Spline { spline } => Arg::wrap_func(DensityFunction::Spline { spline }), // TODO: correct impl
             DensityFunction::WeirdScaledSampler {
                 rarity_value_mapper,
                 noise,
