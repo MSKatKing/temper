@@ -11,6 +11,7 @@ pub fn generator_from_name(name: &str, seed: u64) -> Option<Arc<dyn ChunkGenerat
         }
         ("normal", _) => Some(Arc::new(normal::NormalGenerator::new(seed))),
         ("superflat", _) => Some(Arc::new(superflat::SuperflatGenerator::new(seed))),
+        ("vanilla", _) => Some(Arc::new(vanilla::VanillaGenerator::new(seed))),
         _ => None,
     }
 }

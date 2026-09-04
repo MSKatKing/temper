@@ -70,6 +70,7 @@ members = [
     "src/world/gen/generators/normal",
     "src/world/gen/generators/skyblock",
     "src/world/gen/generators/superflat",
+    "src/world/gen/generators/vanilla",
     "src/world/gen/structures",
     "src/world/noise",
     "tests",
