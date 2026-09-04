@@ -28,7 +28,7 @@ pub trait VisitorBufferType:
 {
 }
 
-impl<T: BufferType + WorkspaceStorable + ToAnyBufferId + GetDstSrc<Self>> VisitorBufferType for T {}
+impl<T: BufferType + WorkspaceStorable + ToAnyBufferId + GetDstSrc<Self>> VisitorBufferType for T { }
 
 pub trait BufferOperationVisitor: Sized {
     fn visit_any<T: VisitorBufferType + 'static>(

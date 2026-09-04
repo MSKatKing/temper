@@ -114,7 +114,7 @@ unsafe fn u8_slice_to_u64_be_simd(input: &[u8]) -> Vec<u64> {
     let mut output: Vec<u64> = Vec::new();
     output.reserve_exact(input.len() / 8);
 
-    let input = input.as_chunks::<32>();
+    let (input, remainder) = input.as_chunks::<32>();
 
     let shuffle_mask = _mm256_setr_epi8(
         7, 6, 5, 4, 3, 2, 1, 0, // Reverse first u64
@@ -123,7 +123,7 @@ unsafe fn u8_slice_to_u64_be_simd(input: &[u8]) -> Vec<u64> {
         31, 30, 29, 28, 27, 26, 25, 24, // Reverse fourth u64
     );
 
-    for (i, chunk) in input.0.iter().enumerate() {
+    for (i, chunk) in input.iter().enumerate() {
         #[expect(clippy::cast_ptr_alignment)]
         let out = output.as_mut_ptr().cast::<__m256i>().add(i);
         let data = _mm256_loadu_si256(chunk.as_ptr().cast());
@@ -131,10 +131,9 @@ unsafe fn u8_slice_to_u64_be_simd(input: &[u8]) -> Vec<u64> {
         _mm256_storeu_si256(out, shuffled);
         output.set_len((i + 1) * 4);
     }
-    let input = input.1;
 
-    for bytes in input.as_chunks::<8>().0 {
-        let val = u64::from_be_bytes(*bytes);
+    for chunk in remainder.as_chunks::<8>().0 {
+        let val = u64::from_be_bytes(*chunk);
         output.push(val);
     }
 
@@ -170,8 +169,8 @@ unsafe fn u32_slice_to_u8_be_simd(input: &[u32]) -> Vec<u8> {
         26, 25, 24, 31, 30, 29, 28,
     );
 
-    let input = input.as_chunks::<8>();
-    for (i, chunk) in input.0.iter().enumerate() {
+    let (input, remainder) = input.as_chunks::<8>();
+    for (i, chunk) in input.iter().enumerate() {
         #[expect(clippy::cast_ptr_alignment)]
         let out = output.as_mut_ptr().cast::<__m256i>().add(i);
         let data = _mm256_loadu_si256(chunk.as_ptr().cast());
@@ -180,9 +179,7 @@ unsafe fn u32_slice_to_u8_be_simd(input: &[u32]) -> Vec<u8> {
         output.set_len((i + 1) * 32);
     }
 
-    let input = input.1;
-
-    for val in input {
+    for val in remainder {
         let val = val.to_be_bytes();
         output.extend_from_slice(&val);
     }
@@ -215,9 +212,9 @@ unsafe fn u64_slice_to_u8_be_simd(input: &[u64]) -> Vec<u8> {
         31, 30, 29, 28, 27, 26, 25, 24, // Reverse fourth u64
     );
 
-    let input = input.as_chunks::<4>();
+    let (input, remainder) = input.as_chunks::<4>();
 
-    for (i, chunk) in input.0.iter().enumerate() {
+    for (i, chunk) in input.iter().enumerate() {
         #[expect(clippy::cast_ptr_alignment)]
         let out = output.as_mut_ptr().cast::<__m256i>().add(i);
         let data = _mm256_loadu_si256(chunk.as_ptr().cast());
@@ -226,7 +223,7 @@ unsafe fn u64_slice_to_u8_be_simd(input: &[u64]) -> Vec<u8> {
         output.set_len((i + 1) * 32);
     }
 
-    for val in input.1 {
+    for val in remainder {
         let val = val.to_be_bytes();
         output.extend_from_slice(&val);
     }
