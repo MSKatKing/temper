@@ -1,4 +1,6 @@
-use crate::cpu::buffer::{Add, BufferApplyTo, BufferId, BufferType, Div, Max, Min, Mul, Replace, Sub};
+use crate::cpu::buffer::{
+    Add, BufferApplyTo, BufferId, BufferType, Div, Max, Min, Mul, Replace, Sub,
+};
 use crate::cpu::noise::NoiseAccessor;
 use crate::cpu::runtime::{DensityResult, Operation};
 use crate::cpu::workspace::{GetDstSrc, Workspace, WorkspaceStorable};
@@ -283,12 +285,12 @@ impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for Bu
 
     unsafe fn execute_simd(&self, workspace: &mut Workspace) -> DensityResult<()> {
         let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
-        
+
         // SAFETY: requirements passed to caller
         unsafe {
             Src::apply_to_simd::<Min>(src, dst);
         }
-        
+
         Ok(())
     }
 }
@@ -321,12 +323,12 @@ impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for Bu
 
     unsafe fn execute_simd(&self, workspace: &mut Workspace) -> DensityResult<()> {
         let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
-        
+
         // SAFETY: requirements passed to caller
         unsafe {
             Src::apply_to_simd::<Max>(src, dst);
         }
-        
+
         Ok(())
     }
 }
@@ -359,12 +361,12 @@ impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for Bu
 
     unsafe fn execute_simd(&self, workspace: &mut Workspace) -> DensityResult<()> {
         let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
-        
+
         // SAFETY: requirements passed to caller
         unsafe {
             Src::apply_to_simd::<Sub>(src, dst);
         }
-        
+
         Ok(())
     }
 }
@@ -397,12 +399,12 @@ impl<Dst: BufferType, Src: BufferApplyTo<Dst> + GetDstSrc<Dst>> Operation for Bu
 
     unsafe fn execute_simd(&self, workspace: &mut Workspace) -> DensityResult<()> {
         let (dst, src) = workspace.get_dst_src(self.dst, self.src)?;
-        
+
         // SAFETY: requirements passed to caller
         unsafe {
             Src::apply_to_simd::<Div>(src, dst);
         }
-        
+
         Ok(())
     }
 }

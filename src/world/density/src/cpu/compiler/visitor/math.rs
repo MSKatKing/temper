@@ -1,7 +1,13 @@
 use crate::cpu::compiler::AnyBufferId;
 use crate::cpu::noise::NoiseAccessor;
-use crate::cpu::runtime::{BufferAdd, BufferDiv, BufferMax, BufferMin, BufferMul, BufferSub, ConstantAdd, ConstantDiv, ConstantMax, ConstantMin, ConstantMul, ConstantSub, NoiseAdd, NoiseDiv, NoiseMax, NoiseMin, NoiseMul, NoiseSub, YClampedGradient};
-use crate::{impl_commutative_visitor, impl_direct_visitor, impl_non_commutative_visitor, impl_visitor_base};
+use crate::cpu::runtime::{
+    BufferAdd, BufferDiv, BufferMax, BufferMin, BufferMul, BufferSub, ConstantAdd, ConstantDiv,
+    ConstantMax, ConstantMin, ConstantMul, ConstantSub, NoiseAdd, NoiseDiv, NoiseMax, NoiseMin,
+    NoiseMul, NoiseSub, YClampedGradient,
+};
+use crate::{
+    impl_commutative_visitor, impl_direct_visitor, impl_non_commutative_visitor, impl_visitor_base,
+};
 use std::ops::RangeInclusive;
 
 impl_visitor_base!(AddBufferVisitor, other: AnyBufferId);

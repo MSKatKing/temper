@@ -86,16 +86,8 @@ impl NoiseAccessor {
                 pos.z * xz_scale as f64,
             ),
             NoiseAccessType::Shift => pos / 4.0,
-            NoiseAccessType::ShiftA => DVec3::new(
-                pos.x / 4.0,
-                0.0,
-                pos.z / 4.0,
-            ),
-            NoiseAccessType::ShiftB => DVec3::new(
-                pos.z / 4.0,
-                pos.x / 4.0,
-                0.0,
-            ),
+            NoiseAccessType::ShiftA => DVec3::new(pos.x / 4.0, 0.0, pos.z / 4.0),
+            NoiseAccessType::ShiftB => DVec3::new(pos.z / 4.0, pos.x / 4.0, 0.0),
         }
     }
 

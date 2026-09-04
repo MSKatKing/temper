@@ -23,9 +23,12 @@ impl BufferOperationResult {
     }
 }
 
-pub trait VisitorBufferType: BufferType + WorkspaceStorable + ToAnyBufferId + GetDstSrc<Self> { }
+pub trait VisitorBufferType:
+    BufferType + WorkspaceStorable + ToAnyBufferId + GetDstSrc<Self>
+{
+}
 
-impl<T: BufferType + WorkspaceStorable + ToAnyBufferId + GetDstSrc<Self>> VisitorBufferType for T { }
+impl<T: BufferType + WorkspaceStorable + ToAnyBufferId + GetDstSrc<Self>> VisitorBufferType for T {}
 
 pub trait BufferOperationVisitor: Sized {
     fn visit_any<T: VisitorBufferType + 'static>(
@@ -70,9 +73,7 @@ macro_rules! impl_visitor_base {
 macro_rules! impl_commutative_visitor {
     ($visitor:ty, $operation:ident, $src_field:ident) => {
         impl $crate::cpu::compiler::visitor::BufferOperationVisitor for $visitor {
-            fn visit_any<
-                T: $crate::cpu::compiler::visitor::VisitorBufferType + 'static,
-            >(
+            fn visit_any<T: $crate::cpu::compiler::visitor::VisitorBufferType + 'static>(
                 self,
                 _id: $crate::cpu::buffer::BufferId<T>,
             ) -> Option<$crate::cpu::compiler::visitor::BufferOperationResult> {
@@ -286,9 +287,7 @@ macro_rules! impl_commutative_visitor {
 macro_rules! impl_non_commutative_visitor {
     ($visitor:ty, $operation:ident, $src_field:ident) => {
         impl $crate::cpu::compiler::visitor::BufferOperationVisitor for $visitor {
-            fn visit_any<
-                T: $crate::cpu::compiler::visitor::VisitorBufferType + 'static,
-            >(
+            fn visit_any<T: $crate::cpu::compiler::visitor::VisitorBufferType + 'static>(
                 self,
                 _id: $crate::cpu::buffer::BufferId<T>,
             ) -> Option<$crate::cpu::compiler::visitor::BufferOperationResult> {
@@ -347,7 +346,9 @@ macro_rules! impl_non_commutative_visitor {
                 id: $crate::cpu::buffer::BufferId<$crate::cpu::buffer::Interpolated>,
             ) -> $crate::cpu::compiler::visitor::BufferOperationResult {
                 match self.$src_field {
-                    AnyBufferId::Full(_) => panic!("non commutative tried to have higher buffer write to lower buffer"),
+                    AnyBufferId::Full(_) => {
+                        panic!("non commutative tried to have higher buffer write to lower buffer")
+                    }
                     AnyBufferId::Interpolated(other) => {
                         $crate::cpu::compiler::visitor::BufferOperationResult::new(
                             $operation::<
@@ -392,7 +393,9 @@ macro_rules! impl_non_commutative_visitor {
                 id: $crate::cpu::buffer::BufferId<$crate::cpu::buffer::Flat>,
             ) -> $crate::cpu::compiler::visitor::BufferOperationResult {
                 match self.$src_field {
-                    AnyBufferId::Full(_) | AnyBufferId::Interpolated(_) => panic!("non commutative tried to have higher buffer write to lower buffer"),
+                    AnyBufferId::Full(_) | AnyBufferId::Interpolated(_) => {
+                        panic!("non commutative tried to have higher buffer write to lower buffer")
+                    }
                     AnyBufferId::Flat(other) => {
                         $crate::cpu::compiler::visitor::BufferOperationResult::new(
                             $operation::<$crate::cpu::buffer::Flat, $crate::cpu::buffer::Flat> {
@@ -419,7 +422,9 @@ macro_rules! impl_non_commutative_visitor {
                 id: $crate::cpu::buffer::BufferId<$crate::cpu::buffer::FlatCell>,
             ) -> $crate::cpu::compiler::visitor::BufferOperationResult {
                 match self.$src_field {
-                    AnyBufferId::Full(_) | AnyBufferId::Interpolated(_) | AnyBufferId::Flat(_) => panic!("non commutative tried to have higher buffer write to lower buffer"),
+                    AnyBufferId::Full(_) | AnyBufferId::Interpolated(_) | AnyBufferId::Flat(_) => {
+                        panic!("non commutative tried to have higher buffer write to lower buffer")
+                    }
                     AnyBufferId::FlatCell(other) => {
                         $crate::cpu::compiler::visitor::BufferOperationResult::new(
                             $operation::<
@@ -465,19 +470,25 @@ impl_direct_visitor!(FillConstantVisitor, FillConstant, dst, src: other);
 impl_direct_visitor!(FillNoiseVisitor, FillNoise, dst, noise: other);
 
 impl BufferOperationVisitor for ShiftedNoiseVisitor {
-    fn visit_any<T: VisitorBufferType + 'static>(self, id: BufferId<T>) -> Option<BufferOperationResult> {
+    fn visit_any<T: VisitorBufferType + 'static>(
+        self,
+        id: BufferId<T>,
+    ) -> Option<BufferOperationResult> {
         let shift_x = T::try_downcast_to(self.shift_x)?;
         let shift_y = T::try_downcast_to(self.shift_y)?;
         let shift_z = T::try_downcast_to(self.shift_z)?;
 
-        Some(BufferOperationResult::new(ShiftedNoise {
-            dst: id,
-            xz_scale: self.xz_scale,
-            y_scale: self.y_scale,
-            noise: self.noise,
-            shift_x,
-            shift_y,
-            shift_z
-        }, id))
+        Some(BufferOperationResult::new(
+            ShiftedNoise {
+                dst: id,
+                xz_scale: self.xz_scale,
+                y_scale: self.y_scale,
+                noise: self.noise,
+                shift_x,
+                shift_y,
+                shift_z,
+            },
+            id,
+        ))
     }
 }

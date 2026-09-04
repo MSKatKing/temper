@@ -4,7 +4,10 @@ use crate::cpu::runtime::{DensityError, DensityResult, Operation};
 use temper_core::pos::{BlockPos, ChunkBlockPos, ChunkPos};
 
 pub trait WorkspaceStorable: BufferType {
-    fn get_buffer<'a>(workspace: &'a Workspace, id: BufferId<Self>) -> DensityResult<&'a Buffer<Self>>;
+    fn get_buffer<'a>(
+        workspace: &'a Workspace,
+        id: BufferId<Self>,
+    ) -> DensityResult<&'a Buffer<Self>>;
     fn get_buffer_mut<'a>(
         workspace: &'a mut Workspace,
         id: BufferId<Self>,
@@ -31,7 +34,12 @@ pub trait GetDstSrc<Dst: BufferType>: BufferType {
         src0: BufferId<Self>,
         src1: BufferId<Self>,
         src2: BufferId<Self>,
-    ) -> DensityResult<(&'a mut Buffer<Dst>, &'a Buffer<Self>, &'a Buffer<Self>, &'a Buffer<Self>)>;
+    ) -> DensityResult<(
+        &'a mut Buffer<Dst>,
+        &'a Buffer<Self>,
+        &'a Buffer<Self>,
+        &'a Buffer<Self>,
+    )>;
 }
 
 macro_rules! impl_workspace_field {
@@ -248,7 +256,13 @@ fn split_three<T>(slice: &mut [T], a: usize, b: usize, c: usize) -> Option<(&mut
     ))
 }
 
-fn split_four<T>(slice: &mut [T], a: usize, b: usize, c: usize, d: usize) -> Option<(&mut T, &T, &T, &T)> {
+fn split_four<T>(
+    slice: &mut [T],
+    a: usize,
+    b: usize,
+    c: usize,
+    d: usize,
+) -> Option<(&mut T, &T, &T, &T)> {
     if a == b || b == c || a == c || a >= slice.len() || b >= slice.len() || c >= slice.len() {
         return None;
     }

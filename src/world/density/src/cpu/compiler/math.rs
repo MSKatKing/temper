@@ -1,5 +1,10 @@
 use crate::DensityFunctionArgument;
-use crate::cpu::compiler::visitor::{AddBufferVisitor, AddConstantVisitor, AddNoiseVisitor, DivBufferVisitor, DivConstantVisitor, DivNoiseVisitor, FillConstantVisitor, FillNoiseVisitor, MaxBufferVisitor, MaxConstantVisitor, MaxNoiseVisitor, MinBufferVisitor, MinConstantVisitor, MinNoiseVisitor, MulBufferVisitor, MulConstantVisitor, MulNoiseVisitor, SubBufferVisitor, SubConstantVisitor, SubNoiseVisitor};
+use crate::cpu::compiler::visitor::{
+    AddBufferVisitor, AddConstantVisitor, AddNoiseVisitor, DivBufferVisitor, DivConstantVisitor,
+    DivNoiseVisitor, FillConstantVisitor, FillNoiseVisitor, MaxBufferVisitor, MaxConstantVisitor,
+    MaxNoiseVisitor, MinBufferVisitor, MinConstantVisitor, MinNoiseVisitor, MulBufferVisitor,
+    MulConstantVisitor, MulNoiseVisitor, SubBufferVisitor, SubConstantVisitor, SubNoiseVisitor,
+};
 use crate::cpu::compiler::{AnyBufferId, Compiler, ReturnValue, compile_arg};
 use temper_core::random::{PositionalRandom, RandomSource};
 
@@ -46,7 +51,8 @@ macro_rules! compile_commutative {
                     compiler.push_visitor(<$constant>::new(noise, val))
                 }
                 (ReturnValue::Noise(noise_a), ReturnValue::Noise(noise_b)) => {
-                    let noise_a = compiler.push_visitor(FillNoiseVisitor::new(parent_buffer, noise_a));
+                    let noise_a =
+                        compiler.push_visitor(FillNoiseVisitor::new(parent_buffer, noise_a));
 
                     compiler.push_visitor(<$noise>::new(noise_a, noise_b))
                 }
@@ -113,7 +119,8 @@ macro_rules! compile_non_commutative {
                     compiler.push_visitor(<$constant>::new(noise, val))
                 }
                 (ReturnValue::Noise(noise_a), ReturnValue::Noise(noise_b)) => {
-                    let noise_a = compiler.push_visitor(FillNoiseVisitor::new(parent_buffer, noise_a));
+                    let noise_a =
+                        compiler.push_visitor(FillNoiseVisitor::new(parent_buffer, noise_a));
 
                     compiler.push_visitor(<$noise>::new(noise_a, noise_b))
                 }
@@ -141,9 +148,39 @@ macro_rules! compile_non_commutative {
     };
 }
 
-compile_commutative!(compile_add, AddBufferVisitor, AddConstantVisitor, AddNoiseVisitor);
-compile_commutative!(compile_mul, MulBufferVisitor, MulConstantVisitor, MulNoiseVisitor);
-compile_commutative!(compile_min, MinBufferVisitor, MinConstantVisitor, MinNoiseVisitor);
-compile_commutative!(compile_max, MaxBufferVisitor, MaxConstantVisitor, MaxNoiseVisitor);
-compile_non_commutative!(compile_sub, SubBufferVisitor, SubConstantVisitor, SubNoiseVisitor);
-compile_non_commutative!(compile_div, DivBufferVisitor, DivConstantVisitor, DivNoiseVisitor);
+compile_commutative!(
+    compile_add,
+    AddBufferVisitor,
+    AddConstantVisitor,
+    AddNoiseVisitor
+);
+compile_commutative!(
+    compile_mul,
+    MulBufferVisitor,
+    MulConstantVisitor,
+    MulNoiseVisitor
+);
+compile_commutative!(
+    compile_min,
+    MinBufferVisitor,
+    MinConstantVisitor,
+    MinNoiseVisitor
+);
+compile_commutative!(
+    compile_max,
+    MaxBufferVisitor,
+    MaxConstantVisitor,
+    MaxNoiseVisitor
+);
+compile_non_commutative!(
+    compile_sub,
+    SubBufferVisitor,
+    SubConstantVisitor,
+    SubNoiseVisitor
+);
+compile_non_commutative!(
+    compile_div,
+    DivBufferVisitor,
+    DivConstantVisitor,
+    DivNoiseVisitor
+);

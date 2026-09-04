@@ -371,11 +371,14 @@ impl BufferApplyTo<Interpolated> for Flat {
                 for y in 0..(384 / 4) {
                     let cell_base_y = y * Interpolated::Y_STRIDE + cell_base_x;
 
-                    dst[cell_base_y << 3] = F::scalar(val, if F::READS_DST {
-                        dst[cell_base_y << 3]
-                    } else {
-                        0.0
-                    });
+                    dst[cell_base_y << 3] = F::scalar(
+                        val,
+                        if F::READS_DST {
+                            dst[cell_base_y << 3]
+                        } else {
+                            0.0
+                        },
+                    );
                 }
             }
         }
@@ -406,7 +409,8 @@ impl BufferApplyTo<Interpolated> for Flat {
                     let src_base_x = src_base_z + x * 4;
                     let dst_base_x = dst_base_z + x;
 
-                    let src_data = x86_64::_mm256_i32gather_ps::<4>(&raw const src[src_base_x], src_offsets);
+                    let src_data =
+                        x86_64::_mm256_i32gather_ps::<4>(&raw const src[src_base_x], src_offsets);
 
                     for y in 0..(384 / 4) {
                         let dst_base_y = dst_base_x + y * 16;
@@ -417,7 +421,7 @@ impl BufferApplyTo<Interpolated> for Flat {
                                 x86_64::_mm256_load_ps(&raw const dst[dst_base_y << 3])
                             } else {
                                 x86_64::_mm256_setzero_ps()
-                            }
+                            },
                         );
 
                         x86_64::_mm256_store_ps(&raw mut dst[dst_base_y << 3], dst_data);
@@ -464,11 +468,8 @@ impl BufferApplyTo<Full> for FlatCell {
                         for x in 0..4 {
                             let base_x = base_z + (cell_x * 4 + x);
 
-                            dst[base_x] = F::scalar(val, if F::READS_DST {
-                                dst[base_x]
-                            } else {
-                                0.0
-                            });
+                            dst[base_x] =
+                                F::scalar(val, if F::READS_DST { dst[base_x] } else { 0.0 });
                         }
                     }
                 }
@@ -503,7 +504,7 @@ impl BufferApplyTo<Full> for FlatCell {
                                     x86_64::_mm256_load_ps(&raw const dst[base_x])
                                 } else {
                                     x86_64::_mm256_setzero_ps()
-                                }
+                                },
                             );
 
                             x86_64::_mm256_store_ps(&raw mut dst[base_x], dst_val);
@@ -531,11 +532,14 @@ impl BufferApplyTo<Interpolated> for FlatCell {
                     let base_y = (y * 16) + dst_base_x;
 
                     for i in 0..8 {
-                        dst[(base_y << 3) + i] = F::scalar(val, if F::READS_DST {
-                            dst[(base_y << 3) + i]
-                        } else {
-                            0.0
-                        })
+                        dst[(base_y << 3) + i] = F::scalar(
+                            val,
+                            if F::READS_DST {
+                                dst[(base_y << 3) + i]
+                            } else {
+                                0.0
+                            },
+                        )
                     }
                 }
             }
@@ -565,7 +569,7 @@ impl BufferApplyTo<Interpolated> for FlatCell {
                                 x86_64::_mm256_load_ps(&raw const dst[dst_base_y << 3])
                             } else {
                                 x86_64::_mm256_setzero_ps()
-                            }
+                            },
                         );
 
                         x86_64::_mm256_store_ps(&raw mut dst[dst_base_y << 3], dst_data);
@@ -610,7 +614,7 @@ impl BufferApplyTo<Flat> for FlatCell {
                             x86_64::_mm256_load_ps(&raw const dst[(z << 4) | x])
                         } else {
                             x86_64::_mm256_setzero_ps()
-                        }
+                        },
                     );
 
                     x86_64::_mm256_store_ps(&raw mut dst[(z << 4) | x], dst_v);
