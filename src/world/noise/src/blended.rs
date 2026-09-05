@@ -1,7 +1,7 @@
 use crate::PerlinNoise;
 use bevy_math::DVec3;
 use std::fmt::{Debug, Formatter};
-use temper_core::math::lerp;
+use temper_core::math::clamped_lerp;
 use temper_core::pos::BlockPos;
 use temper_core::random::XoroshiroRandomSource;
 
@@ -68,7 +68,7 @@ impl BlendedNoise {
 
         for i in 0..8 {
             if let Some((noise, _)) = &self.main_noise.get_octave_noise(i) {
-                main_noise_value = noise.noise_advanced(
+                main_noise_value += noise.noise_advanced(
                     main.map(|v| PerlinNoise::wrap(v * pow)),
                     main_smear * pow,
                     main_y * pow,
@@ -98,9 +98,10 @@ impl BlendedNoise {
             pow /= 2.0;
         }
 
-        lerp(
-            factor.clamp(0.0, 1.0),
-            [blend_min / 512.0, blend_max / 512.0],
+        clamped_lerp(
+            factor,
+            blend_min / 512.0,
+            blend_max / 512.0,
         ) / 128.0
     }
 }
@@ -108,5 +109,25 @@ impl BlendedNoise {
 impl Debug for BlendedNoise {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "BlendedNoise {{}}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::{NoiseMapTest, run_test};
+
+    const BLENDED_TESTS: NoiseMapTest<(f64, f64, f64, f64, f64)> = &[((0x0, (1.0, 1.0, 0.25, 0.25, 8.0)), &[([245.0, 46.0, 38.0], -0.12654345658295169), ([79.0, 224.0, 252.0], 0.05858189062496527), ([20.0, 84.0, 167.0], 0.15598663909079818), ([92.0, 148.0, 7.0], 0.607647860818965), ([206.0, 111.0, 227.0], -0.09847710750813403), ([204.0, 42.0, 166.0], -0.10478960713988411), ([215.0, 69.0, 19.0], -0.20775163473244568), ([100.0, 250.0, 48.0], 0.13620409227923413), ([7.0, 32.0, 115.0], 0.002356496032795155), ([91.0, 113.0, 139.0], -0.34137862480868314), ([231.0, 53.0, 192.0], -0.05367432435298384), ([88.0, 84.0, 137.0], -0.05623176127529331), ([91.0, 7.0, 217.0], -0.014628661720083841), ([110.0, 243.0, 228.0], 0.18394520291329408), ([40.0, 144.0, 139.0], -0.12857364932438692), ([172.0, 72.0, 69.0], -0.030149820264244117), ([189.0, 123.0, 66.0], -0.0284654558195548), ([222.0, 9.0, 192.0], -0.14066521314952846), ([13.0, 198.0, 92.0], -0.03983141528692724), ([2.0, 210.0, 101.0], 0.2429129621236074), ]),];
+
+
+    #[test]
+    pub fn test_blended_noise() {
+        run_test(
+            &BLENDED_TESTS,
+            |_, (xz_scale, y_scale, xz_factor, y_factor, smear_scale_multiplier)| {
+                BlendedNoise::new_unseeded(*xz_scale, *y_scale, *xz_factor, *y_factor, *smear_scale_multiplier)
+            },
+            |noise, pos| noise.noise(BlockPos::of(pos.x as i32, pos.y as i32, pos.z as i32)),
+        )
     }
 }
