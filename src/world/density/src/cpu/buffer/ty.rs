@@ -165,9 +165,9 @@ impl BufferType for Interpolated {
     }
 
     fn pack_coord(pos: ChunkBlockPos) -> usize {
-        let cell_x = pos.x() as usize / 4;
-        let cell_z = pos.z() as usize / 4;
-        let cell_y = (pos.y() + 64) as usize / 4;
+        let cell_x = pos.x() as usize >> 2;
+        let cell_z = pos.z() as usize >> 2;
+        let cell_y = (pos.y() + 64) as usize >> 2;
 
         let cell_idx = (cell_x & 0x4) | ((cell_z & 0x4) << 2) | (cell_y << 4);
         cell_idx << 3
@@ -177,10 +177,10 @@ impl BufferType for Interpolated {
 impl BufferApplyTo<Full> for Interpolated {
     fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Full>, apply: F) {
         for cell_y in 0..(386 / 4) {
-            let cell_base_y = cell_y * Self::Y_STRIDE;
+            let cell_base_y = cell_y * 16;
 
             for cell_z in 0..4 {
-                let cell_base_z = cell_base_y + cell_z * Self::Z_STRIDE;
+                let cell_base_z = cell_base_y + cell_z * 4;
 
                 for cell_x in 0..4 {
                     let cell_base_x = cell_base_z + cell_x;
@@ -360,16 +360,16 @@ impl BufferApplyTo<Interpolated> for Flat {
     fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Interpolated>, apply: F) {
         for z in 0..16 {
             let base_z = z * Self::Z_STRIDE;
-            let cell_base_z = (z / 4) * Interpolated::Z_STRIDE;
+            let cell_base_z = (z >> 2) * 4;
 
             for x in 0..16 {
                 let base_x = base_z + x;
-                let cell_base_x = cell_base_z + (x / 4);
+                let cell_base_x = cell_base_z + (x >> 2);
 
                 let val = src[base_x];
 
                 for y in 0..(384 / 4) {
-                    let cell_base_y = y * Interpolated::Y_STRIDE + cell_base_x;
+                    let cell_base_y = y * 16 + cell_base_x;
 
                     dst[cell_base_y << 3] = apply.scalar(
                         val,
@@ -440,8 +440,8 @@ impl BufferType for FlatCell {
     const Y_STRIDE: usize = 0;
 
     fn unpack_coord(idx: usize) -> ChunkBlockPos {
-        let x = (idx as u8 & 0x3) * 4;
-        let z = ((idx >> 2) as u8 & 0x3) * 4;
+        let x = (idx as u8 & 0x3) << 2;
+        let z = ((idx >> 2) as u8 & 0x3) << 2;
         ChunkBlockPos::new(x, 0, z)
     }
 
@@ -520,17 +520,15 @@ impl BufferApplyTo<Full> for FlatCell {
 impl BufferApplyTo<Interpolated> for FlatCell {
     fn apply_to<F: BufferOperation>(src: &Buffer<Self>, dst: &mut Buffer<Interpolated>, apply: F) {
         for cell_z in 0..4 {
-            let src_base_z = cell_z * Self::Z_STRIDE;
-            let dst_base_z = cell_z * 4;
+            let cell_base_z = cell_z * Self::Z_STRIDE;
 
             for cell_x in 0..4 {
-                let src_base_x = src_base_z + cell_x;
-                let dst_base_x = dst_base_z + cell_x;
+                let cell_base_z = cell_base_z + cell_x;
 
-                let val = src[src_base_x];
+                let val = src[cell_base_z];
 
                 for y in 0..(384 / 4) {
-                    let base_y = (y * 16) + dst_base_x;
+                    let base_y = (y * 16) + cell_base_z;
 
                     for i in 0..8 {
                         dst[(base_y << 3) + i] = apply.scalar(
@@ -610,16 +608,20 @@ impl BufferApplyTo<Flat> for FlatCell {
                         x86_64::_mm_set1_ps(val[0]),
                     );
 
-                    let dst_v = apply.simd(
-                        src_v,
-                        if F::READS_DST {
-                            x86_64::_mm256_load_ps(&raw const dst[(z << 4) | x])
-                        } else {
-                            x86_64::_mm256_setzero_ps()
-                        },
-                    );
+                    for row in 0..4 {
+                        let dst_idx = ((z * 4 + row) << 4) | x;
 
-                    x86_64::_mm256_store_ps(&raw mut dst[(z << 4) | x], dst_v);
+                        let dst_v = apply.simd(
+                            src_v,
+                            if F::READS_DST {
+                                x86_64::_mm256_load_ps(&raw const dst[dst_idx])
+                            } else {
+                                x86_64::_mm256_setzero_ps()
+                            },
+                        );
+
+                        x86_64::_mm256_store_ps(&raw mut dst[dst_idx], dst_v);
+                    }
                 })
         }
     }

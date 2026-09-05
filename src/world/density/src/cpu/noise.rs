@@ -32,7 +32,7 @@ impl NoiseAccessor {
         access_type: NoiseAccessType,
     ) -> Self {
         let noise = NormalNoise::new(
-            &mut rand.spawn_from_hash(name),
+            &mut rand.spawn_from_hash(name.strip_prefix("minecraft:").unwrap_or(name)),
             noise_param.first_octave,
             noise_param.amplitudes,
         );

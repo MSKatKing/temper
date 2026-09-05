@@ -5,9 +5,9 @@ use crate::cpu::buffer::{BufferId, BufferType, Flat, FlatCell, Full, Interpolate
 use crate::cpu::compiler::math::{
     compile_add, compile_div, compile_max, compile_min, compile_mul, compile_sub,
 };
-use crate::cpu::compiler::visitor::{AbsBufferVisitor, AbsNoiseVisitor, BufferOperationResult, BufferOperationVisitor, ClampBufferVisitor, ClampNoiseVisitor, FillBufferVisitor, FillConstantVisitor, FillNoiseVisitor, IntervalSelectVisitor, PowBufferVisitor, PowNoiseVisitor, RangeChoiceVisitor, ShiftedNoiseVisitor, SplinePoint, SplineVisitor, SqueezeBufferVisitor, SqueezeNoiseVisitor, ValueOrBuffer, YClampedGradientVisitor};
+use crate::cpu::compiler::visitor::{AbsBufferVisitor, AbsNoiseVisitor, BufferOperationResult, BufferOperationVisitor, ClampBufferVisitor, ClampNoiseVisitor, FillBufferVisitor, FillConstantVisitor, FillNoiseVisitor, IntervalSelectVisitor, NegativeDecayBufferVisitor, NegativeDecayNoiseVisitor, PowBufferVisitor, PowNoiseVisitor, RangeChoiceVisitor, ShiftedNoiseVisitor, SplinePoint, SplineVisitor, SqueezeBufferVisitor, SqueezeNoiseVisitor, ValueOrBuffer, YClampedGradientVisitor};
 use crate::cpu::noise::{NoiseAccessType, NoiseAccessor};
-use crate::cpu::runtime::Operation;
+use crate::cpu::runtime::{NegativeDecayNoise, Operation};
 use crate::{DensityFunction, DensityFunctionArgument, DensitySpline, ValueOrSpline};
 use temper_core::random::{PositionalRandom, RandomSource};
 use temper_data::noise::NoiseParameter;
@@ -609,12 +609,12 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
                 ReturnValue::Noise(noise) => compiler.push_visitor(FillNoiseVisitor::new(parent_buffer, noise)),
                 ReturnValue::Buffer(buf) => buf,
             };
-            
+
             let mut buffers = Vec::with_capacity(functions.len());
             for function in functions {
                 let buf = compiler.alloc_buffer(buf);
                 let actual = compile_arg(compiler, rand, function, buf);
-                
+
                 let actual = match actual {
                     ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(buf, val)),
                     ReturnValue::Noise(noise) => compiler.push_visitor(FillNoiseVisitor::new(buf, noise)),
@@ -625,25 +625,43 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
                         } else {
                             actual
                         };
-                        
+
                         if actual != buf {
                             compiler.free_buffer(buf)
                         }
-                        
+
                         actual
                     },
                 };
-                
+
                 buffers.push(actual);
             }
-            
+
             buffers.iter().for_each(|buf| compiler.free_buffer(*buf));
-            
+
             let thresholds = thresholds.iter().map(|v| *v as f32).collect::<Vec<_>>();
-            
+
             compiler.push_visitor(IntervalSelectVisitor::new(buf, thresholds, buffers))
         },
         DensityFunction::Spline { spline } => compile_spline(compiler, rand, spline, parent_buffer),
+        DensityFunction::HalfNegative { input } => {
+            let input = compile_arg(compiler, rand, input, parent_buffer);
+
+            match input {
+                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(parent_buffer, if val.is_sign_negative() { val / 2.0 } else { val })),
+                ReturnValue::Noise(noise) => compiler.push_visitor(NegativeDecayNoiseVisitor::new(parent_buffer, noise, 2.0)),
+                ReturnValue::Buffer(buf) => compiler.push_visitor(NegativeDecayBufferVisitor::new(buf, 2.0)),
+            }
+        }
+        DensityFunction::QuarterNegative { input } => {
+            let input = compile_arg(compiler, rand, input, parent_buffer);
+
+            match input {
+                ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(parent_buffer, if val.is_sign_negative() { val / 4.0 } else { val })),
+                ReturnValue::Noise(noise) => compiler.push_visitor(NegativeDecayNoiseVisitor::new(parent_buffer, noise, 4.0)),
+                ReturnValue::Buffer(buf) => compiler.push_visitor(NegativeDecayBufferVisitor::new(buf, 4.0)),
+            }
+        }
         _ => todo!("{:?}", func),
     }
 }
@@ -655,7 +673,7 @@ fn compile_spline<R: RandomSource, P: PositionalRandom<R>>(
     parent_buffer: AnyBufferId,
 ) -> AnyBufferId {
     let input = compile_arg(compiler, rand, &spline.coordinate, parent_buffer);
-    
+
     let input = match input {
         ReturnValue::Constant(val) => compiler.push_visitor(FillConstantVisitor::new(parent_buffer, val)),
         ReturnValue::Noise(noise) => compiler.push_visitor(FillNoiseVisitor::new(parent_buffer, noise)),
@@ -665,7 +683,7 @@ fn compile_spline<R: RandomSource, P: PositionalRandom<R>>(
     let mut points = Vec::with_capacity(spline.points.len());
     for point in spline.points.iter() {
         let buf = compiler.alloc_buffer(input);
-        
+
         let value = match &point.value {
             ValueOrSpline::Value(v) => {
                 compiler.free_buffer(buf);
@@ -676,11 +694,11 @@ fn compile_spline<R: RandomSource, P: PositionalRandom<R>>(
                 if actual != buf {
                     compiler.push_visitor(FillBufferVisitor::new(buf, actual));
                 }
-                
+
                 ValueOrBuffer::Buffer(buf)
             }
         };
-        
+
         points.push(SplinePoint {
             location: point.location as f32,
             derivative: point.derivative as f32,
@@ -693,7 +711,9 @@ fn compile_spline<R: RandomSource, P: PositionalRandom<R>>(
             compiler.free_buffer(*buf);
         }
     });
-    
+
+    points.sort_by(|point_a, point_b| point_a.location.total_cmp(&point_b.location));
+
     compiler.push_visitor(SplineVisitor::new(input, points))
 }
 

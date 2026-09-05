@@ -17,7 +17,7 @@ pub struct VanillaGenerator {
 
 impl VanillaGenerator {
     pub fn new(seed: u64) -> VanillaGenerator {
-        const BASE: &str = include_str!("density/base.json");
+        const BASE: &str = include_str!("density/custom.json");
         const EXTERNAL: Dir = include_dir!("assets/generated/generated/data/minecraft/worldgen/density_function");
 
         let mut rand = XoroshiroRandomSource::new(seed);

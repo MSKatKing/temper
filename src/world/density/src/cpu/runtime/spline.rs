@@ -35,18 +35,18 @@ impl<Dst: WorkspaceStorable> Operation for Spline<Dst> {
                             SplineOrValue::Value(v) => *v,
                             SplineOrValue::Spline(buf) => workspace.get_buffer(*buf).unwrap()[target_idx],
                         },
-                        Interpolation::CatmullRom,
+                        Interpolation::Bezier(point.derivative),
                     )
                 })
                 .collect::<Vec<_>>();
-            
+
             let spline = splines::Spline::from_vec(points);
-            
-            values.push(spline.sample(*dst).unwrap());
+
+            values.push(spline.clamped_sample(*dst).unwrap());
         }
-        
+
         workspace.get_buffer_mut(self.dst)?.copy_from_slice(values.as_slice());
-        
+
         Ok(())
     }
 }

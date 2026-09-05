@@ -576,7 +576,7 @@ impl DensityFunction {
                 shift_y.link_arg(externals);
                 shift_z.link_arg(externals);
             }
-            DensityFunction::Spline { .. } => {} // TODO: correct impl
+            DensityFunction::Spline { spline } => link_spline(spline, externals),
             DensityFunction::Beardifier
             | DensityFunction::BlendAlpha
             | DensityFunction::BlendOffset
@@ -588,6 +588,16 @@ impl DensityFunction {
             | DensityFunction::OldBlendedNoise { .. }
             | DensityFunction::YClampedGradient { .. }
             | DensityFunction::EndIslands => {}
+        }
+    }
+}
+
+fn link_spline(spline: &mut DensitySpline, externals: &HashMap<String, DensityFunctionArgument>) {
+    spline.coordinate.link_arg(externals);
+
+    for point in spline.points.iter_mut() {
+        if let ValueOrSpline::Spline(spline) = &mut point.value {
+            link_spline(spline, externals);
         }
     }
 }

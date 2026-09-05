@@ -1,11 +1,22 @@
+use std::any::type_name;
 use crate::cpu::buffer::ty::{BufferType, Full};
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 
-#[derive(Debug)]
 pub struct BufferId<Type: BufferType> {
     idx: usize,
     __type: PhantomData<Type>,
+}
+
+impl<Type: BufferType> Debug for BufferId<Type> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "BufferId<{}>({})",
+            type_name::<Type>().split("::").last().unwrap(),
+            self.idx,
+        )
+    }
 }
 
 impl<Type: BufferType> Clone for BufferId<Type> {

@@ -60,6 +60,21 @@ pub struct PowNoise<Dst: WorkspaceStorable> {
     pub amt: i32,
 }
 
+struct NegativeDecay { amt: f32 }
+
+#[derive(Debug)]
+pub struct NegativeDecayBuffer<Dst: WorkspaceStorable> {
+    pub dst: BufferId<Dst>,
+    pub amt: f32,
+}
+
+#[derive(Debug)]
+pub struct NegativeDecayNoise<Dst: WorkspaceStorable> {
+    pub dst: BufferId<Dst>,
+    pub noise: NoiseAccessor,
+    pub amt: f32,
+}
+
 impl<Dst: WorkspaceStorable> Operation for SqueezeBuffer<Dst> {
     fn execute(&self, workspace: &mut Workspace) -> DensityResult<()> {
         let dst = workspace.get_buffer_mut(self.dst)?;
@@ -239,6 +254,46 @@ impl<Dst: WorkspaceStorable> Operation for PowNoise<Dst> {
         let dst = workspace.get_buffer_mut(self.dst)?;
         dst.pos_iter_mut().for_each(|(pos, v)| {
             *v = self.noise.noise(chunk_pos.chunk_block(pos)).powi(self.amt as i32);
+        });
+        Ok(())
+    }
+}
+
+impl BufferOperation for NegativeDecay {
+    const READS_DST: bool = false;
+    
+    fn scalar(&self, src: f32, _: f32) -> f32 {
+        if src.is_sign_negative() {
+            src / self.amt
+        } else {
+            src
+        }
+    }
+
+    unsafe fn simd(&self, src: __m256, dst: __m256) -> __m256 {
+        todo!()
+    }
+}
+
+impl<Dst: WorkspaceStorable> Operation for NegativeDecayBuffer<Dst> {
+    fn execute(&self, workspace: &mut Workspace) -> DensityResult<()> {
+        let dst = workspace.get_buffer_mut(self.dst)?;
+        Dst::apply_to_self(dst, NegativeDecay { amt: self.amt });
+        Ok(())
+    }
+}
+
+impl<Dst: WorkspaceStorable> Operation for NegativeDecayNoise<Dst> {
+    fn execute(&self, workspace: &mut Workspace) -> DensityResult<()> {
+        let chunk_pos = workspace.current_pos;
+        let dst = workspace.get_buffer_mut(self.dst)?;
+        dst.pos_iter_mut().for_each(|(pos, v)| { 
+            let noise = self.noise.noise(chunk_pos.chunk_block(pos));
+            *v = if noise.is_sign_negative() {
+                noise / self.amt
+            } else {
+                noise
+            }
         });
         Ok(())
     }

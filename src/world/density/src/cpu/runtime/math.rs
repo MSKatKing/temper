@@ -6,7 +6,7 @@ use crate::cpu::runtime::{DensityResult, Operation};
 use crate::cpu::workspace::{GetDstSrc, Workspace, WorkspaceStorable};
 use std::fmt::Debug;
 use std::ops::RangeInclusive;
-use temper_core::math::lerp;
+use temper_core::math::{clamped_map_f32, lerp};
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -184,18 +184,13 @@ impl<Dst: WorkspaceStorable> Operation for YClampedGradient<Dst> {
     fn execute(&self, workspace: &mut Workspace) -> DensityResult<()> {
         let dst = workspace.get_buffer_mut(self.dst)?;
         dst.pos_iter_mut().for_each(|(pos, v)| {
-            if pos.y() > *self.y_range.end() {
-                *v = *self.value_range.end()
-            } else {
-                *v = lerp(
-                    (pos.y() as f64 - *self.y_range.start() as f64)
-                        / (self.y_range.end() - self.y_range.start()) as f64,
-                    [
-                        *self.value_range.start() as f64,
-                        *self.value_range.end() as f64,
-                    ],
-                ) as f32;
-            }
+            *v = clamped_map_f32(
+                pos.y() as f32,
+                *self.y_range.start() as f32,
+                *self.y_range.end() as f32,
+                *self.value_range.start(),
+                *self.value_range.end(),
+            );
         });
         Ok(())
     }

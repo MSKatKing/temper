@@ -90,3 +90,22 @@ pub fn lerp3_f32_simd(a: [x86_64::__m256; 3], p: x86_64::__m256) -> x86_64::__m2
 
     _mm256_fmadd_ps_fallback(a[2], x86_64::_mm256_sub_ps(y1, y0), y0)
 }
+
+pub fn clamped_lerp(value: f64, min: f64, max: f64) -> f64 {
+    lerp(value.clamp(0.0, 1.0), [min, max])
+}
+
+#[inline(always)]
+pub fn clamped_lerp_f32(value: f32, min: f32, max: f32) -> f32 {
+    lerp_f32(value.clamp(0.0, 1.0), [min, max])
+}
+
+#[inline(always)]
+pub fn inverse_lerp_f32(value: f32, min: f32, max: f32) -> f32 {
+    (value - min) / (max - min)
+}
+
+#[inline(always)]
+pub fn clamped_map_f32(value: f32, from_min: f32, from_max: f32, to_min: f32, to_max: f32) -> f32 {
+    clamped_lerp_f32(inverse_lerp_f32(value, from_min, from_max), to_min, to_max)
+}
