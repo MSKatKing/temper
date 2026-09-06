@@ -20,13 +20,15 @@ pub struct Interpolated(pub Box<dyn DensityFunction>);
 
 impl DensityFunction for CacheAllInCell {
     fn wrap(&self) -> Box<dyn WrappedDensityFunction + '_> {
-        Box::new(wrapped::CacheAllInCell(self.0.wrap()))
+        // Box::new(wrapped::CacheAllInCell(self.0.wrap()))
+        self.0.wrap()
     }
 }
 
 impl DensityFunction for CacheOnce {
     fn wrap(&self) -> Box<dyn WrappedDensityFunction + '_> {
-        Box::new(wrapped::CacheOnce(self.0.wrap()))
+        // Box::new(wrapped::CacheOnce(self.0.wrap()))
+        self.0.wrap()
     }
 }
 
@@ -52,10 +54,11 @@ impl DensityFunction for FlatCache {
 
 impl DensityFunction for Interpolated {
     fn wrap(&self) -> Box<dyn WrappedDensityFunction + '_> {
-        Box::new(wrapped::Interpolated {
-            inner: self.0.wrap(),
-            last_pos: BlockPos::of(i32::MAX, i32::MAX, i32::MAX),
-            data: [0.0; 8],
-        })
+        // Box::new(wrapped::Interpolated {
+        //     inner: self.0.wrap(),
+        //     last_pos: BlockPos::of(i32::MAX, i32::MAX, i32::MAX),
+        //     data: [0.0; 8],
+        // })
+        self.0.wrap()
     }
 }

@@ -10,6 +10,7 @@ mod marker;
 mod math;
 mod noise;
 pub mod wrapped;
+mod spline;
 
 pub type BoxedDensityFunction = Box<dyn DensityFunction>;
 

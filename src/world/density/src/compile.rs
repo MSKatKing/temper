@@ -1,5 +1,5 @@
 use crate::conditional::{IntervalSelect, RangeChoice};
-use crate::json::{DensityFunction, DensityFunctionArgument};
+use crate::json::{DensityFunction, DensityFunctionArgument, DensitySpline, ValueOrSpline};
 use crate::mapped::{Axis, Gradient, Tiling};
 use crate::marker::{Cache2d, CacheAllInCell, CacheOnce, FlatCache, Interpolated};
 use crate::math::{
@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use temper_core::random::{PositionalRandom, RandomSource};
 use temper_noise::params::NoiseParameter;
 use temper_noise::{BlendedNoise, NormalNoise};
+use crate::spline::Spline;
 
 pub struct Compiler<'a> {
     externals: &'a HashMap<String, DensityFunctionArgument>,
@@ -179,7 +180,9 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             to_value: *to_value,
         }),
         DensityFunction::Squeeze { input } => Box::new(Squeeze(compile_arg(compiler, rand, input))),
-        DensityFunction::Spline { .. } => Box::new(Constant(0.0)),
+        DensityFunction::Spline { spline } => {
+            Box::new(compile_spline(compiler, rand, spline))
+        },
         DensityFunction::HalfNegative { input } => {
             Box::new(HalfNegative(compile_arg(compiler, rand, input)))
         }
@@ -215,5 +218,22 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
         DensityFunction::BlendOffset => Box::new(Constant(0.0)),
         DensityFunction::BlendDensity { input } => compile_arg(compiler, rand, input),
         _ => todo!("{:?}", func),
+    }
+}
+
+fn compile_spline<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compiler, rand: &mut P, spline: &DensitySpline) -> Spline {
+    let coordinate = compile_arg(compiler, rand, &spline.coordinate);
+    let locations = spline.points.iter().map(|v| v.location).collect::<Vec<_>>();
+    let derivatives = spline.points.iter().map(|v| v.derivative).collect::<Vec<_>>();
+    let values = spline.points.iter().map(|v| match &v.value {
+        ValueOrSpline::Value(v) => Spline::Constant { value: *v },
+        ValueOrSpline::Spline(s) => compile_spline(compiler, rand, s),
+    }).collect::<Vec<_>>();
+
+    Spline::Multipoint {
+        coordinate,
+        locations,
+        derivatives,
+        values,
     }
 }
