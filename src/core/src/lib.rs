@@ -10,3 +10,4 @@ pub mod dimension;
 pub mod mq;
 pub mod pos;
 pub mod math;
+pub mod random;
