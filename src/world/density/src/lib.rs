@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use temper_core::pos::{BlockPos, ChunkBlockPos, ChunkPos};
 use crate::compile::CompiledDensityFunction;
 
-mod json;
+pub mod json;
 mod marker;
 mod math;
 mod noise;
@@ -27,7 +27,7 @@ impl Default for CacheStorage {
 }
 
 pub struct DensityFunctionContext {
-    block_pos: BlockPos,
+    pub block_pos: BlockPos,
     cache_storage: Vec<CacheStorage>,
 }
 
@@ -52,7 +52,7 @@ impl DensityFunctionContext {
     }
 }
 
-pub trait DensityFunction: Debug {
+pub trait DensityFunction: Debug + Send + Sync {
     fn compute(&self, ctx: &mut DensityFunctionContext) -> f64;
 }
 

@@ -12,20 +12,13 @@ use crate::math::{Abs, Add, Clamp, Cube, Div, HalfNegative, Max, Min, Mul, Negat
 use crate::noise::{Noise, OldBlendedNoise, Shift, ShiftA, ShiftB};
 
 pub struct CompiledDensityFunction {
-    root: BoxedDensityFunction,
+    pub root: BoxedDensityFunction,
     pub(super) num_ctx: usize,
 }
 
 pub struct Compiler<'a> {
     num_ctx: usize,
     externals: &'a HashMap<String, DensityFunctionArgument>,
-}
-
-impl CompiledDensityFunction {
-    pub fn execute(&self, pos: BlockPos) -> f64 {
-        let mut ctx = DensityFunctionContext::new(pos, self);
-        self.root.compute(&mut ctx)
-    }
 }
 
 impl Compiler<'_> {

@@ -1,0 +1,37 @@
+{
+  "type": "minecraft:interpolated",
+  "argument": {
+    "type": "minecraft:add",
+    "argument1": {
+      "type": "minecraft:y_clamped_gradient",
+      "from_y": 32,
+      "to_y": 96,
+      "from_value": 2.5,
+      "to_value": -2.5
+    },
+    "argument2": {
+      "type": "minecraft:add",
+      "argument1": {
+        "type": "minecraft:cache_2d",
+        "argument": {
+          "type": "minecraft:clamp",
+          "input": {
+            "type": "minecraft:shift",
+            "argument": "minecraft:surface"
+          },
+          "min": -1,
+          "max": 1
+        }
+      },
+      "argument2": {
+        "type": "minecraft:flat_cache",
+        "argument": {
+          "type": "minecraft:clamp",
+          "input": "minecraft:overworld/base_3d_noise",
+          "min": -1,
+          "max": 1
+        }
+      }
+    }
+  }
+}
