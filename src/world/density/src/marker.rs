@@ -1,6 +1,6 @@
+use crate::DensityFunction;
 use crate::wrapped;
 use crate::wrapped::WrappedDensityFunction;
-use crate::DensityFunction;
 use temper_core::pos::BlockPos;
 
 #[derive(Debug)]

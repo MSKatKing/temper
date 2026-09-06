@@ -2,13 +2,13 @@ use crate::wrapped::WrappedDensityFunction;
 use std::fmt::Debug;
 use temper_core::pos::BlockPos;
 
+pub mod compile;
+mod conditional;
 pub mod json;
+mod mapped;
 mod marker;
 mod math;
 mod noise;
-mod mapped;
-mod conditional;
-pub mod compile;
 pub mod wrapped;
 
 pub type BoxedDensityFunction = Box<dyn DensityFunction>;
@@ -19,9 +19,7 @@ pub struct DensityFunctionContext {
 
 impl DensityFunctionContext {
     pub fn new(pos: BlockPos) -> Self {
-        Self {
-            block_pos: pos,
-        }
+        Self { block_pos: pos }
     }
 
     pub fn block_pos(&self) -> &BlockPos {

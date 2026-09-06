@@ -1,6 +1,6 @@
-use std::ops::Range;
-use crate::{BoxedDensityFunction, DensityFunction, DensityFunctionContext};
 use crate::wrapped::WrappedDensityFunction;
+use crate::{BoxedDensityFunction, DensityFunction, DensityFunctionContext};
+use std::ops::Range;
 
 #[derive(Debug)]
 pub struct IntervalSelect {
@@ -46,10 +46,13 @@ impl WrappedDensityFunction for WrappedIntervalSelect<'_> {
     fn compute(&mut self, ctx: &DensityFunctionContext) -> f64 {
         let input = self.input.compute(ctx);
 
-        let mut idx = 0;
-        while input > self.thresholds[idx] { idx += 1; }
+        for (i, threshold) in self.thresholds.iter().enumerate() {
+            if input < *threshold {
+                return self.functions[i].compute(ctx);
+            }
+        }
 
-        self.functions[idx].compute(ctx)
+        self.functions.last_mut().unwrap().compute(ctx)
     }
 }
 

@@ -29,7 +29,8 @@ pub trait TemperMathExt: Sized {
     ) -> Self;
 
     fn clamped_map(self, from_min: Self, from_max: Self, to_min: Self, to_max: Self) -> Self {
-        self.inverse_lerp(from_min, from_max).clamped_lerp(to_min, to_max)
+        self.inverse_lerp(from_min, from_max)
+            .clamped_lerp(to_min, to_max)
     }
 }
 

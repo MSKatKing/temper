@@ -1,8 +1,8 @@
+use crate::wrapped::WrappedDensityFunction;
+use crate::{BoxedDensityFunction, DensityFunction, DensityFunctionContext};
 use std::ops::{Div, Rem};
 use temper_core::math::TemperMathExt;
 use temper_core::pos::BlockPos;
-use crate::{BoxedDensityFunction, DensityFunction, DensityFunctionContext};
-use crate::wrapped::WrappedDensityFunction;
 
 #[derive(Debug)]
 pub enum Axis {
@@ -29,6 +29,7 @@ pub struct Gradient {
 }
 
 #[derive(Debug)]
+#[expect(dead_code)]
 pub struct Lerp {
     pub alpha: BoxedDensityFunction,
     pub first: BoxedDensityFunction,
@@ -36,6 +37,7 @@ pub struct Lerp {
 }
 
 #[derive(Debug)]
+#[expect(dead_code)]
 pub struct WrappedLerp<'a> {
     alpha: Box<dyn WrappedDensityFunction + 'a>,
     first: Box<dyn WrappedDensityFunction + 'a>,
@@ -66,7 +68,8 @@ impl WrappedDensityFunction for &'_ Gradient {
 
         match self.tiling {
             Tiling::ClampToEdge => {
-                let rel = coord.clamp(self.from_coord as f64, self.to_coord as f64) - self.from_coord as f64;
+                let rel = coord.clamp(self.from_coord as f64, self.to_coord as f64)
+                    - self.from_coord as f64;
                 self.from_value + rel * coord_factor
             }
             Tiling::MirroredRepeat => {
@@ -100,9 +103,8 @@ impl DensityFunction for Lerp {
 
 impl WrappedDensityFunction for WrappedLerp<'_> {
     fn compute(&mut self, ctx: &DensityFunctionContext) -> f64 {
-        self.alpha.compute(ctx).lerp(
-            self.first.compute(ctx),
-            self.second.compute(ctx),
-        )
+        self.alpha
+            .compute(ctx)
+            .lerp(self.first.compute(ctx), self.second.compute(ctx))
     }
 }

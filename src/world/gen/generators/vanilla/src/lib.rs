@@ -1,24 +1,30 @@
+use gen_core::{
+    ChunkGenerator, GenStage, GenerationError, GeneratorId, StageDependencies, StageInput,
+    StageSpec,
+};
+use include_dir::{Dir, include_dir};
 use std::collections::HashMap;
-use include_dir::{include_dir, Dir};
-use gen_core::{ChunkGenerator, GenStage, GenerationError, GeneratorId, StageDependencies, StageInput, StageSpec};
-use temper_core::pos::ChunkBlockPos;
-use temper_core::random::{RandomSource, XoroshiroRandomSource};
 use temper_core::block_state_id::BlockStateId;
 use temper_core::math::TemperMathExt;
+use temper_core::pos::{ChunkBlockPos, ChunkPos};
+use temper_core::random::{RandomSource, XoroshiroRandomSource};
 use temper_density::compile::Compiler;
+use temper_density::json::{DensityFunctionArgument, deserialize_function};
 use temper_density::{BoxedDensityFunction, DensityFunctionContext};
-use temper_density::json::{deserialize_function, DensityFunctionArgument};
 use temper_macros::block;
 
 pub struct VanillaGenerator {
-    rand: XoroshiroRandomSource,
+    _rand: XoroshiroRandomSource,
     final_density: BoxedDensityFunction,
+    default_block_state: BlockStateId,
+    default_fluid_state: BlockStateId,
 }
 
 impl VanillaGenerator {
     pub fn new(seed: u64) -> VanillaGenerator {
         const BASE: &str = include_str!("function.json");
-        const EXTERNAL: Dir = include_dir!("assets/generated/generated/data/minecraft/worldgen/density_function");
+        const EXTERNAL: Dir =
+            include_dir!("assets/generated/generated/data/minecraft/worldgen/density_function");
 
         let mut rand = XoroshiroRandomSource::new(seed);
         let func = deserialize_function(BASE).unwrap();
@@ -33,9 +39,13 @@ impl VanillaGenerator {
 
                 if let Some(file) = entry.as_file() {
                     let path = file.path().display().to_string();
-                    let name = format!("minecraft:{}", path.strip_suffix(".json").unwrap_or(path.as_str()));
+                    let name = format!(
+                        "minecraft:{}",
+                        path.strip_suffix(".json").unwrap_or(path.as_str())
+                    );
 
-                    let func = deserialize_function(file.contents_utf8().unwrap()).unwrap_or_else(|e| panic!("{}: {}", name, e));
+                    let func = deserialize_function(file.contents_utf8().unwrap())
+                        .unwrap_or_else(|e| panic!("{}: {}", name, e));
 
                     external.insert(name, func);
                 }
@@ -46,8 +56,10 @@ impl VanillaGenerator {
         let compiled = Compiler::compile(&mut rand.fork_positional(), &external, func);
 
         Self {
-            rand,
+            _rand: rand,
             final_density: compiled,
+            default_block_state: block!("stone"),
+            default_fluid_state: block!("water", { level: 0 }),
         }
     }
 }
@@ -63,16 +75,9 @@ impl ChunkGenerator for VanillaGenerator {
 
     fn stage_spec(&self, stage: GenStage) -> Option<StageSpec> {
         match stage {
-            GenStage::EMPTY => Some(StageSpec::new(
-                stage,
-                "empty",
-                StageDependencies::NONE,
-            )),
-            GenStage::SURFACE => Some(StageSpec::new(
-                stage,
-                "surface",
-                StageDependencies::NONE,
-            )),
+            GenStage::EMPTY => Some(StageSpec::new(stage, "empty", StageDependencies::NONE)),
+            GenStage::NOISE => Some(StageSpec::new(stage, "noise", StageDependencies::NONE)),
+            GenStage::SURFACE => Some(StageSpec::new(stage, "surface", StageDependencies::only_own(GenStage::NOISE))),
             _ => None,
         }
     }
@@ -80,98 +85,99 @@ impl ChunkGenerator for VanillaGenerator {
     fn advance_stage(&self, input: StageInput<'_>) -> Result<(), GenerationError> {
         match input.stage {
             GenStage::EMPTY => Ok(()),
+            GenStage::NOISE => self.fill_noise(input),
             GenStage::SURFACE => self.generate_surface(input),
-            _ => Ok(())
+            _ => Ok(()),
         }
     }
 }
 
 impl VanillaGenerator {
-    fn generate_surface(&self, input: StageInput) -> Result<(), GenerationError> {
-        let stone = block!("stone");
-
+    fn fill_noise(&self, input: StageInput) -> Result<(), GenerationError> {
         for y in -4..4 {
-            input.target.fill_section(y, block!("water", { level: 0 }))
+            input.target.fill_section(y, self.default_fluid_state)
         }
 
-        let cell_height = 4;
-        let cell_width = 4;
+        let cell_size_xz = 1;
+        let cell_size_y = 2;
+
+        let cell_height = cell_size_y + 1;
+        let cell_width = cell_size_xz + 1;
+
+        let cell_width_blocks = 1 << cell_width;
+        let cell_height_blocks = 1 << cell_height;
 
         let mut ctx = DensityFunctionContext::new(input.pos.block_offset(0, 0, 0));
         let mut wrapped = self.final_density.wrap();
 
-        for y_cell in (-64 / cell_height)..(320 / cell_height) {
-            let y_pos = y_cell * cell_height;
+        let chunk_pos = input.pos;
+        let mut compute_corner = move |x: i32, y: i32, z: i32| {
+            ctx.block_pos = chunk_pos.block_offset(x, y, z);
+            wrapped.compute(&ctx)
+        };
 
-            for z_cell in 0..(16 / cell_width) {
-                let z_pos = z_cell * cell_width;
+        for y_cell in 0..(384 >> cell_height) {
+            let y_pos = (y_cell << cell_height) - 64;
+
+            for z_cell in 0..(16 >> cell_width) {
+                let z_pos = z_cell << cell_width;
 
                 let mut p000;
                 let mut p001;
                 let mut p010;
                 let mut p011;
-                let mut p100 = {
-                    ctx.block_pos = input.pos.block_offset(0, y_pos, z_pos);
-                    wrapped.compute(&mut ctx)
-                };
-                let mut p101 = {
-                    ctx.block_pos = input.pos.block_offset(0, y_pos + cell_height, z_pos);
-                    wrapped.compute(&mut ctx)
-                };
-                let mut p110 = {
-                    ctx.block_pos = input.pos.block_offset(0, y_pos, z_pos + cell_width);
-                    wrapped.compute(&mut ctx)
-                };
-                let mut p111 = {
-                    ctx.block_pos = input.pos.block_offset(0, y_pos + cell_height, z_pos + cell_width);
-                    wrapped.compute(&mut ctx)
-                };
+                let mut p100 = compute_corner(0, y_pos, z_pos);
+                let mut p101 = compute_corner(0, y_pos + cell_height_blocks, z_pos);
+                let mut p110 = compute_corner(0, y_pos, z_pos + cell_width_blocks);
+                let mut p111 =
+                    compute_corner(0, y_pos + cell_height_blocks, z_pos + cell_width_blocks);
 
-                for x_cell in 0..(16 / cell_width) {
-                    let x_pos = x_cell * cell_width;
+                for x_cell in 0..(16 >> cell_width) {
+                    let x_pos = x_cell << cell_width;
 
                     p000 = p100;
                     p001 = p101;
                     p010 = p110;
                     p011 = p111;
 
-                    p100 = {
-                        ctx.block_pos = input.pos.block_offset(x_pos + cell_width, y_pos, z_pos);
-                        wrapped.compute(&mut ctx)
-                    };
-                    p101 = {
-                        ctx.block_pos = input.pos.block_offset(x_pos + cell_width, y_pos + cell_height, z_pos);
-                        wrapped.compute(&mut ctx)
-                    };
-                    p110 = {
-                        ctx.block_pos = input.pos.block_offset(x_pos + cell_width, y_pos, z_pos + cell_width);
-                        wrapped.compute(&mut ctx)
-                    };
-                    p111 = {
-                        ctx.block_pos = input.pos.block_offset(x_pos + cell_width, y_pos + cell_height, z_pos + cell_width);
-                        wrapped.compute(&mut ctx)
-                    };
+                    p100 = compute_corner(x_pos + cell_width_blocks, y_pos, z_pos);
+                    p101 = compute_corner(
+                        x_pos + cell_width_blocks,
+                        y_pos + cell_height_blocks,
+                        z_pos,
+                    );
+                    p110 =
+                        compute_corner(x_pos + cell_width_blocks, y_pos, z_pos + cell_width_blocks);
+                    p111 = compute_corner(
+                        x_pos + cell_width_blocks,
+                        y_pos + cell_height_blocks,
+                        z_pos + cell_width_blocks,
+                    );
 
-                    for y in 0..cell_height {
-                        let t0 = y as f64 / cell_height as f64;
+                    for y in 0..cell_height_blocks {
+                        let t0 = y as f64 / cell_height_blocks as f64;
                         let y00 = t0.lerp(p000, p001);
                         let y01 = t0.lerp(p010, p011);
                         let y10 = t0.lerp(p100, p101);
                         let y11 = t0.lerp(p110, p111);
 
-                        for z in 0..cell_width {
-                            let t1 = z as f64 / cell_width as f64;
+                        for z in 0..cell_width_blocks {
+                            let t1 = z as f64 / cell_width_blocks as f64;
                             let z0 = t1.lerp(y00, y01);
                             let z1 = t1.lerp(y10, y11);
 
-                            for x in 0..cell_width {
-                                let t2 = x as f64 / cell_width as f64;
+                            for x in 0..cell_width_blocks {
+                                let t2 = x as f64 / cell_width_blocks as f64;
                                 let val = t2.lerp(z0, z1);
 
                                 if val > 0.0 {
                                     input.target.set_block_without_heightmap(
-                                        ChunkBlockPos::new((x_pos + x) as _, (y_pos + y) as _, (z_pos + z) as _),
-                                        stone
+                                        ChunkBlockPos::new(
+                                            (x_pos + x) as _,
+                                            (y_pos + y) as _,
+                                            (z_pos + z) as _,
+                                        ),
+                                        self.default_block_state,
                                     )
                                 }
                             }
@@ -182,6 +188,45 @@ impl VanillaGenerator {
         }
 
         input.target.recalculate_heightmap();
+
+        Ok(())
+    }
+
+    fn generate_surface(&self, input: StageInput) -> Result<(), GenerationError> {
+        let grass = block!("grass_block", { snowy: false });
+        let dirt = block!("dirt");
+        let sand = block!("sand");
+
+        for x in 0..16 {
+            'outer: for z in 0..16 {
+                for y in (-64..320).rev() {
+                    let above = ChunkBlockPos::new(x, (y + 1).min(319), z);
+                    let pos = ChunkBlockPos::new(x, y, z);
+
+                    if input.target.get_block(pos) == self.default_block_state {
+                        let (top_block, bottom_block) = if input.target.get_block(above) == self.default_fluid_state {
+                            (sand, sand)
+                        } else {
+                            (grass, dirt)
+                        };
+
+                        input.target.set_block_without_heightmap(pos, top_block);
+
+                        let below = ChunkBlockPos::new(x, y - 1, z);
+                        if input.target.get_block(below) == self.default_block_state {
+                            input.target.set_block_without_heightmap(below, bottom_block);
+
+                            let below = ChunkBlockPos::new(x, y - 2, z);
+                            if input.target.get_block(below) == self.default_block_state {
+                                input.target.set_block_without_heightmap(below, bottom_block);
+                            }
+                        }
+
+                        continue 'outer;
+                    }
+                }
+            }
+        }
 
         Ok(())
     }

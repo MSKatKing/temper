@@ -1,7 +1,7 @@
+use crate::wrapped::WrappedDensityFunction;
+use crate::{BoxedDensityFunction, DensityFunction, DensityFunctionContext};
 use bevy_math::DVec3;
 use temper_noise::{BlendedNoise, NormalNoise};
-use crate::{BoxedDensityFunction, DensityFunction, DensityFunctionContext};
-use crate::wrapped::WrappedDensityFunction;
 
 #[derive(Debug)]
 pub struct Noise {
@@ -50,17 +50,28 @@ impl DensityFunction for Noise {
 
 impl WrappedDensityFunction for WrappedNoise<'_> {
     fn compute(&mut self, ctx: &DensityFunctionContext) -> f64 {
-        let shift_x = self.shift_x.as_mut().map(|v| v.compute(ctx)).unwrap_or_default();
-        let shift_y = self.shift_y.as_mut().map(|v| v.compute(ctx)).unwrap_or_default();
-        let shift_z = self.shift_z.as_mut().map(|v| v.compute(ctx)).unwrap_or_default();
+        let shift_x = self
+            .shift_x
+            .as_mut()
+            .map(|v| v.compute(ctx))
+            .unwrap_or_default();
+        let shift_y = self
+            .shift_y
+            .as_mut()
+            .map(|v| v.compute(ctx))
+            .unwrap_or_default();
+        let shift_z = self
+            .shift_z
+            .as_mut()
+            .map(|v| v.compute(ctx))
+            .unwrap_or_default();
 
         let pos = ctx.block_pos();
-        let pos = DVec3::new(
-            pos.pos.x as f64 * self.xz_scale + shift_x,
-            pos.pos.y as f64 * self.y_scale + shift_y,
-            pos.pos.z as f64 * self.xz_scale + shift_z,
-        );
-        self.noise.noise(pos)
+        self.noise.noise(DVec3::new(
+            (pos.pos.x as f64 + shift_x) * self.xz_scale,
+            (pos.pos.y as f64 + shift_y) * self.y_scale,
+            (pos.pos.z as f64 + shift_z) * self.xz_scale,
+        ))
     }
 }
 
