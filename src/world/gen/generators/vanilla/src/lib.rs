@@ -5,14 +5,14 @@ use temper_core::pos::ChunkBlockPos;
 use temper_core::random::{RandomSource, XoroshiroRandomSource};
 use temper_core::block_state_id::BlockStateId;
 use temper_core::math::TemperMathExt;
-use temper_density::compile::{CompiledDensityFunction, Compiler};
-use temper_density::DensityFunctionContext;
+use temper_density::compile::Compiler;
+use temper_density::{BoxedDensityFunction, DensityFunctionContext};
 use temper_density::json::{deserialize_function, DensityFunctionArgument};
 use temper_macros::block;
 
 pub struct VanillaGenerator {
     rand: XoroshiroRandomSource,
-    final_density: CompiledDensityFunction,
+    final_density: BoxedDensityFunction,
 }
 
 impl VanillaGenerator {
@@ -94,10 +94,12 @@ impl VanillaGenerator {
             input.target.fill_section(y, block!("water", { level: 0 }))
         }
 
-        let cell_height = 8;
+        let cell_height = 4;
         let cell_width = 4;
 
-        let mut ctx = DensityFunctionContext::new(input.pos.block_offset(0, 0, 0), &self.final_density);
+        let mut ctx = DensityFunctionContext::new(input.pos.block_offset(0, 0, 0));
+        let mut wrapped = self.final_density.wrap();
+
         for y_cell in (-64 / cell_height)..(320 / cell_height) {
             let y_pos = y_cell * cell_height;
 
@@ -110,19 +112,19 @@ impl VanillaGenerator {
                 let mut p011;
                 let mut p100 = {
                     ctx.block_pos = input.pos.block_offset(0, y_pos, z_pos);
-                    self.final_density.root.compute(&mut ctx)
+                    wrapped.compute(&mut ctx)
                 };
                 let mut p101 = {
                     ctx.block_pos = input.pos.block_offset(0, y_pos + cell_height, z_pos);
-                    self.final_density.root.compute(&mut ctx)
+                    wrapped.compute(&mut ctx)
                 };
                 let mut p110 = {
                     ctx.block_pos = input.pos.block_offset(0, y_pos, z_pos + cell_width);
-                    self.final_density.root.compute(&mut ctx)
+                    wrapped.compute(&mut ctx)
                 };
                 let mut p111 = {
                     ctx.block_pos = input.pos.block_offset(0, y_pos + cell_height, z_pos + cell_width);
-                    self.final_density.root.compute(&mut ctx)
+                    wrapped.compute(&mut ctx)
                 };
 
                 for x_cell in 0..(16 / cell_width) {
@@ -135,35 +137,35 @@ impl VanillaGenerator {
 
                     p100 = {
                         ctx.block_pos = input.pos.block_offset(x_pos + cell_width, y_pos, z_pos);
-                        self.final_density.root.compute(&mut ctx)
+                        wrapped.compute(&mut ctx)
                     };
                     p101 = {
                         ctx.block_pos = input.pos.block_offset(x_pos + cell_width, y_pos + cell_height, z_pos);
-                        self.final_density.root.compute(&mut ctx)
+                        wrapped.compute(&mut ctx)
                     };
                     p110 = {
                         ctx.block_pos = input.pos.block_offset(x_pos + cell_width, y_pos, z_pos + cell_width);
-                        self.final_density.root.compute(&mut ctx)
+                        wrapped.compute(&mut ctx)
                     };
                     p111 = {
                         ctx.block_pos = input.pos.block_offset(x_pos + cell_width, y_pos + cell_height, z_pos + cell_width);
-                        self.final_density.root.compute(&mut ctx)
+                        wrapped.compute(&mut ctx)
                     };
 
                     for y in 0..cell_height {
-                        let t0 = y as f64 / 8.0;
+                        let t0 = y as f64 / cell_height as f64;
                         let y00 = t0.lerp(p000, p001);
                         let y01 = t0.lerp(p010, p011);
                         let y10 = t0.lerp(p100, p101);
                         let y11 = t0.lerp(p110, p111);
 
                         for z in 0..cell_width {
-                            let t1 = z as f64 * 0.25;
+                            let t1 = z as f64 / cell_width as f64;
                             let z0 = t1.lerp(y00, y01);
                             let z1 = t1.lerp(y10, y11);
 
                             for x in 0..cell_width {
-                                let t2 = x as f64 * 0.25;
+                                let t2 = x as f64 / cell_width as f64;
                                 let val = t2.lerp(z0, z1);
 
                                 if val > 0.0 {
@@ -174,18 +176,6 @@ impl VanillaGenerator {
                                 }
                             }
                         }
-                    }
-                }
-            }
-        }
-        for y in -64..320 {
-            for z in 0..16 {
-                for x in 0..16 {
-                    ctx.block_pos = input.pos.block_offset(x, y, z);
-
-                    let val = self.final_density.root.compute(&mut ctx);
-                    if val > 0.0 {
-                        input.target.set_block_without_heightmap(ChunkBlockPos::new(x as _, y as _, z as _), stone)
                     }
                 }
             }

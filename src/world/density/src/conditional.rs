@@ -1,11 +1,19 @@
 use std::ops::Range;
 use crate::{BoxedDensityFunction, DensityFunction, DensityFunctionContext};
+use crate::wrapped::WrappedDensityFunction;
 
 #[derive(Debug)]
 pub struct IntervalSelect {
     pub input: BoxedDensityFunction,
     pub thresholds: Vec<f64>,
     pub functions: Vec<BoxedDensityFunction>,
+}
+
+#[derive(Debug)]
+pub struct WrappedIntervalSelect<'a> {
+    input: Box<dyn WrappedDensityFunction + 'a>,
+    thresholds: &'a [f64],
+    functions: Vec<Box<dyn WrappedDensityFunction + 'a>>,
 }
 
 #[derive(Debug)]
@@ -16,21 +24,50 @@ pub struct RangeChoice {
     pub when_out_range: BoxedDensityFunction,
 }
 
+#[derive(Debug)]
+pub struct WrappedRangeChoice<'a> {
+    input: Box<dyn WrappedDensityFunction + 'a>,
+    range: &'a Range<f64>,
+    when_in_range: Box<dyn WrappedDensityFunction + 'a>,
+    when_out_range: Box<dyn WrappedDensityFunction + 'a>,
+}
+
 impl DensityFunction for IntervalSelect {
-    fn compute(&self, ctx: &mut DensityFunctionContext) -> f64 {
+    fn wrap(&self) -> Box<dyn WrappedDensityFunction + '_> {
+        Box::new(WrappedIntervalSelect {
+            input: self.input.wrap(),
+            thresholds: &self.thresholds,
+            functions: self.functions.iter().map(|v| v.wrap()).collect(),
+        })
+    }
+}
+
+impl WrappedDensityFunction for WrappedIntervalSelect<'_> {
+    fn compute(&mut self, ctx: &DensityFunctionContext) -> f64 {
         let input = self.input.compute(ctx);
-        
+
         let mut idx = 0;
         while input > self.thresholds[idx] { idx += 1; }
-        
+
         self.functions[idx].compute(ctx)
     }
 }
 
 impl DensityFunction for RangeChoice {
-    fn compute(&self, ctx: &mut DensityFunctionContext) -> f64 {
+    fn wrap(&self) -> Box<dyn WrappedDensityFunction + '_> {
+        Box::new(WrappedRangeChoice {
+            input: self.input.wrap(),
+            range: &self.range,
+            when_in_range: self.when_in_range.wrap(),
+            when_out_range: self.when_out_range.wrap(),
+        })
+    }
+}
+
+impl WrappedDensityFunction for WrappedRangeChoice<'_> {
+    fn compute(&mut self, ctx: &DensityFunctionContext) -> f64 {
         let input = self.input.compute(ctx);
-        
+
         if self.range.contains(&input) {
             self.when_in_range.compute(ctx)
         } else {

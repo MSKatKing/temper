@@ -2,6 +2,7 @@ use std::ops::{Div, Rem};
 use temper_core::math::TemperMathExt;
 use temper_core::pos::BlockPos;
 use crate::{BoxedDensityFunction, DensityFunction, DensityFunctionContext};
+use crate::wrapped::WrappedDensityFunction;
 
 #[derive(Debug)]
 pub enum Axis {
@@ -34,6 +35,13 @@ pub struct Lerp {
     pub second: BoxedDensityFunction,
 }
 
+#[derive(Debug)]
+pub struct WrappedLerp<'a> {
+    alpha: Box<dyn WrappedDensityFunction + 'a>,
+    first: Box<dyn WrappedDensityFunction + 'a>,
+    second: Box<dyn WrappedDensityFunction + 'a>,
+}
+
 impl Axis {
     fn get_coord(&self, pos: &BlockPos) -> f64 {
         match self {
@@ -45,7 +53,13 @@ impl Axis {
 }
 
 impl DensityFunction for Gradient {
-    fn compute(&self, ctx: &mut DensityFunctionContext) -> f64 {
+    fn wrap(&self) -> Box<dyn WrappedDensityFunction + '_> {
+        Box::new(self)
+    }
+}
+
+impl WrappedDensityFunction for &'_ Gradient {
+    fn compute(&mut self, ctx: &DensityFunctionContext) -> f64 {
         let coord = self.axis.get_coord(ctx.block_pos());
         let coord_range = self.to_coord as f64 - self.from_coord as f64;
         let coord_factor = (self.to_value - self.from_value) / coord_range;
@@ -75,7 +89,17 @@ impl DensityFunction for Gradient {
 }
 
 impl DensityFunction for Lerp {
-    fn compute(&self, ctx: &mut DensityFunctionContext) -> f64 {
+    fn wrap(&self) -> Box<dyn WrappedDensityFunction + '_> {
+        Box::new(WrappedLerp {
+            alpha: self.alpha.wrap(),
+            first: self.first.wrap(),
+            second: self.second.wrap(),
+        })
+    }
+}
+
+impl WrappedDensityFunction for WrappedLerp<'_> {
+    fn compute(&mut self, ctx: &DensityFunctionContext) -> f64 {
         self.alpha.compute(ctx).lerp(
             self.first.compute(ctx),
             self.second.compute(ctx),

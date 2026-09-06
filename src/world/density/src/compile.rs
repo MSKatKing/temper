@@ -1,44 +1,26 @@
-use std::collections::HashMap;
-use temper_core::pos::BlockPos;
-use temper_core::random::{PositionalRandom, RandomSource};
-use temper_noise::{BlendedNoise, NormalNoise};
-use temper_noise::params::NoiseParameter;
-use crate::{BoxedDensityFunction, Constant, DensityFunctionContext};
 use crate::conditional::{IntervalSelect, RangeChoice};
 use crate::json::{DensityFunction, DensityFunctionArgument};
 use crate::mapped::{Axis, Gradient, Tiling};
 use crate::marker::{Cache2d, CacheAllInCell, CacheOnce, FlatCache, Interpolated};
-use crate::math::{Abs, Add, Clamp, Cube, Div, HalfNegative, Max, Min, Mul, Negate, QuarterNegative, Reciprocal, Round, Square, Squeeze, Sub, Truncate};
+use crate::math::{Abs, Add, Clamp, Cube, Div, HalfNegative, Max, Min, Mul, Negate, QuarterNegative, Reciprocal, Square, Squeeze, Sub};
 use crate::noise::{Noise, OldBlendedNoise, Shift, ShiftA, ShiftB};
-
-pub struct CompiledDensityFunction {
-    pub root: BoxedDensityFunction,
-    pub(super) num_ctx: usize,
-}
+use crate::{BoxedDensityFunction, Constant};
+use std::collections::HashMap;
+use temper_core::random::{PositionalRandom, RandomSource};
+use temper_noise::params::NoiseParameter;
+use temper_noise::{BlendedNoise, NormalNoise};
 
 pub struct Compiler<'a> {
-    num_ctx: usize,
     externals: &'a HashMap<String, DensityFunctionArgument>,
 }
 
 impl Compiler<'_> {
-    pub fn compile<R: RandomSource, P: PositionalRandom<R>>(rand: &mut P, externals: &HashMap<String, DensityFunctionArgument>, func: DensityFunctionArgument) -> CompiledDensityFunction {
+    pub fn compile<R: RandomSource, P: PositionalRandom<R>>(rand: &mut P, externals: &HashMap<String, DensityFunctionArgument>, func: DensityFunctionArgument) -> BoxedDensityFunction {
         let mut this = Compiler {
-            num_ctx: 0,
             externals,
         };
 
-        let compiled = compile_arg(&mut this, rand, &func);
-
-        CompiledDensityFunction {
-            root: compiled,
-            num_ctx: this.num_ctx,
-        }
-    }
-
-    fn get_next_ctx(&mut self) -> usize {
-        self.num_ctx += 1;
-        self.num_ctx - 1
+        compile_arg(&mut this, rand, &func)
     }
 }
 
@@ -65,16 +47,16 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
 ) -> BoxedDensityFunction {
     match func {
         DensityFunction::Cache2d { input } => {
-            Box::new(Cache2d(compile_arg(compiler, rand, input), compiler.get_next_ctx()))
+            Box::new(Cache2d(compile_arg(compiler, rand, input)))
         },
         DensityFunction::CacheAllInCell { input } => {
             Box::new(CacheAllInCell(compile_arg(compiler, rand, input)))
         },
         DensityFunction::CacheOnce { input } => {
-            Box::new(CacheOnce(compile_arg(compiler, rand, input), compiler.get_next_ctx()))
+            Box::new(CacheOnce(compile_arg(compiler, rand, input)))
         },
         DensityFunction::FlatCache { input } => {
-            Box::new(FlatCache(compile_arg(compiler, rand, input), compiler.get_next_ctx()))
+            Box::new(FlatCache(compile_arg(compiler, rand, input)))
         },
         DensityFunction::Interpolated { input } => {
             Box::new(Interpolated(compile_arg(compiler, rand, input)))
