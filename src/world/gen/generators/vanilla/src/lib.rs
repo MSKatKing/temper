@@ -18,6 +18,7 @@ pub struct VanillaGenerator {
     final_density: BoxedDensityFunction,
     default_block_state: BlockStateId,
     default_fluid_state: BlockStateId,
+    water_level: i16,
 }
 
 impl VanillaGenerator {
@@ -60,6 +61,7 @@ impl VanillaGenerator {
             final_density: compiled,
             default_block_state: block!("stone"),
             default_fluid_state: block!("water", { level: 0 }),
+            water_level: 63,
         }
     }
 }
@@ -94,8 +96,16 @@ impl ChunkGenerator for VanillaGenerator {
 
 impl VanillaGenerator {
     fn fill_noise(&self, input: StageInput) -> Result<(), GenerationError> {
-        for y in -4..4 {
-            input.target.fill_section(y, self.default_fluid_state)
+        for y in -4..(self.water_level >> 4) {
+            input.target.fill_section(y as i8, self.default_fluid_state)
+        }
+
+        for y in ((self.water_level >> 4) << 4)..self.water_level {
+            for x in 0..16 {
+                for z in 0..16 {
+                    input.target.set_block_without_heightmap(ChunkBlockPos::new(x, y, z), self.default_fluid_state)
+                }
+            }
         }
 
         let cell_size_xz = 1;

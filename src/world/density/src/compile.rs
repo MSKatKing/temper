@@ -72,7 +72,7 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
         } => Box::new(Noise {
             noise: NormalNoise::new(
                 &mut rand
-                    .spawn_from_hash(noise.strip_prefix("minecraft:").unwrap_or(noise.as_str())),
+                    .spawn_from_hash(noise.as_str()),
                 NoiseParameter::get_by_name(noise).expect("unknown noise"),
             ),
             xz_scale: *xz_scale,
@@ -95,15 +95,15 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             *smear_scale_multiplier,
         ))),
         DensityFunction::Shift { noise } => Box::new(Shift(NormalNoise::new(
-            &mut rand.spawn_from_hash(noise.strip_prefix("minecraft:").unwrap_or(noise.as_str())),
+            &mut rand.spawn_from_hash(noise.as_str()),
             NoiseParameter::get_by_name(noise).expect("unknown noise"),
         ))),
         DensityFunction::ShiftA { noise } => Box::new(ShiftA(NormalNoise::new(
-            &mut rand.spawn_from_hash(noise.strip_prefix("minecraft:").unwrap_or(noise.as_str())),
+            &mut rand.spawn_from_hash(noise.as_str()),
             NoiseParameter::get_by_name(noise).expect("unknown noise"),
         ))),
         DensityFunction::ShiftB { noise } => Box::new(ShiftB(NormalNoise::new(
-            &mut rand.spawn_from_hash(noise.strip_prefix("minecraft:").unwrap_or(noise.as_str())),
+            &mut rand.spawn_from_hash(noise.as_str()),
             NoiseParameter::get_by_name(noise).expect("unknown noise"),
         ))),
         DensityFunction::ShiftedNoise {
@@ -116,7 +116,7 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
         } => Box::new(Noise {
             noise: NormalNoise::new(
                 &mut rand
-                    .spawn_from_hash(noise.strip_prefix("minecraft:").unwrap_or(noise.as_str())),
+                    .spawn_from_hash(noise.as_str()),
                 NoiseParameter::get_by_name(noise).expect("unknown noise"),
             ),
             xz_scale: *xz_scale,
