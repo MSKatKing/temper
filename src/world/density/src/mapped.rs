@@ -19,19 +19,19 @@ pub enum Tiling {
 
 #[derive(Debug)]
 pub struct Gradient {
-    axis: Axis,
-    tiling: Tiling,
-    from_coord: i32,
-    to_coord: i32,
-    from_value: f64,
-    to_value: f64,
+    pub axis: Axis,
+    pub tiling: Tiling,
+    pub from_coord: i32,
+    pub to_coord: i32,
+    pub from_value: f64,
+    pub to_value: f64,
 }
 
 #[derive(Debug)]
 pub struct Lerp {
-    alpha: BoxedDensityFunction,
-    first: BoxedDensityFunction,
-    second: BoxedDensityFunction,
+    pub alpha: BoxedDensityFunction,
+    pub first: BoxedDensityFunction,
+    pub second: BoxedDensityFunction,
 }
 
 impl Axis {

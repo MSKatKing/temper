@@ -2,7 +2,7 @@ use temper_core::pos::BlockPos;
 use crate::{DensityFunction, DensityFunctionContext};
 
 #[derive(Debug)]
-pub struct CacheAllInCell(Box<dyn DensityFunction>);
+pub struct CacheAllInCell(pub Box<dyn DensityFunction>);
 
 #[derive(Debug)]
 pub struct CacheOnce(pub Box<dyn DensityFunction>, pub usize);
