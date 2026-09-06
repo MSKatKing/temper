@@ -1,6 +1,9 @@
+use crate::random::{
+    seed_from_hash, seed_from_pos, u128_high, u128_low, u64_to_u128, upgrade_seed_mixed,
+    PositionalRandom, RandomSource,
+};
 use std::borrow::Borrow;
 use std::ops::Not;
-use crate::random::{seed_from_hash, seed_from_pos, u128_high, u128_low, u64_to_u128, upgrade_seed_mixed, PositionalRandom, RandomSource};
 
 pub struct XoroshiroRandomSource {
     seed: u128,

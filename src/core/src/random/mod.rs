@@ -1,8 +1,8 @@
 mod xoroshiro;
 
+use crate::pos::BlockPos;
 use std::borrow::Borrow;
 use std::ops::RangeInclusive;
-use crate::pos::BlockPos;
 
 pub use xoroshiro::*;
 

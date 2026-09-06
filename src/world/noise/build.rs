@@ -77,14 +77,21 @@ fn main() {
 
 fn traverse_directory(
     path: impl AsRef<Path>,
-    param_map: &mut HashMap<String, NoiseParameter>
+    param_map: &mut HashMap<String, NoiseParameter>,
 ) -> Result<(), (std::io::Error, String)> {
     let path = path.as_ref();
 
-    for entry in path.read_dir().map_err(|e| (e, path.to_string_lossy().to_string()))? {
+    for entry in path
+        .read_dir()
+        .map_err(|e| (e, path.to_string_lossy().to_string()))?
+    {
         let entry = entry.map_err(|e| (e, path.to_string_lossy().to_string()))?;
 
-        if entry.metadata().map_err(|e| (e, path.to_string_lossy().to_string()))?.is_dir() {
+        if entry
+            .metadata()
+            .map_err(|e| (e, path.to_string_lossy().to_string()))?
+            .is_dir()
+        {
             traverse_directory(entry.path(), param_map)?;
             continue;
         }
@@ -98,16 +105,18 @@ fn traverse_directory(
         let item = item.strip_suffix(".json").unwrap_or(item.as_ref());
         let item = item.replace("\\", "/");
 
-        let file = fs::read_to_string(&entry_path)
-            .map_err(|e| (std::io::Error::new(std::io::ErrorKind::Other, e), entry.path().to_string_lossy().to_string()))?;
-        let param = serde_json::from_str(&file)
-            .map_err(|err| (
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    err
-                ),
-                entry.path().to_string_lossy().to_string()
-            ))?;
+        let file = fs::read_to_string(&entry_path).map_err(|e| {
+            (
+                std::io::Error::other(e),
+                entry.path().to_string_lossy().to_string(),
+            )
+        })?;
+        let param = serde_json::from_str(&file).map_err(|err| {
+            (
+                std::io::Error::new(std::io::ErrorKind::InvalidData, err),
+                entry.path().to_string_lossy().to_string(),
+            )
+        })?;
 
         param_map.insert(item, param);
     }
