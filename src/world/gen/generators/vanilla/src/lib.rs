@@ -1,3 +1,4 @@
+use std::arch::x86_64::{_mm256_cmp_pd_mask, _mm256_set1_pd, _mm256_setr_pd, _CMP_GT_OQ, _mm256_setzero_pd};
 use gen_core::{
     ChunkGenerator, GenStage, GenerationError, GeneratorId, StageDependencies, StageInput,
     StageSpec,
@@ -5,8 +6,8 @@ use gen_core::{
 use include_dir::{Dir, include_dir};
 use std::collections::HashMap;
 use temper_core::block_state_id::BlockStateId;
-use temper_core::math::TemperMathExt;
-use temper_core::pos::{ChunkBlockPos, ChunkPos};
+use temper_core::math::{TemperMathExt, TemperMathExtUnsafe};
+use temper_core::pos::{ChunkBlockPos};
 use temper_core::random::{RandomSource, XoroshiroRandomSource};
 use temper_density::compile::Compiler;
 use temper_density::json::{DensityFunctionArgument, deserialize_function};
@@ -164,31 +165,78 @@ impl VanillaGenerator {
                         z_pos + cell_width_blocks,
                     );
 
-                    for y in 0..cell_height_blocks {
-                        let t0 = y as f64 / cell_height_blocks as f64;
-                        let y00 = t0.lerp(p000, p001);
-                        let y01 = t0.lerp(p010, p011);
-                        let y10 = t0.lerp(p100, p101);
-                        let y11 = t0.lerp(p110, p111);
+                    if is_x86_feature_detected!("avx2") {
+                        unsafe {
+                            let p000 = _mm256_set1_pd(p000);
+                            let p001 = _mm256_set1_pd(p001);
+                            let p010 = _mm256_set1_pd(p010);
+                            let p011 = _mm256_set1_pd(p011);
+                            let p100 = _mm256_set1_pd(p100);
+                            let p101 = _mm256_set1_pd(p101);
+                            let p110 = _mm256_set1_pd(p110);
+                            let p111 = _mm256_set1_pd(p111);
 
-                        for z in 0..cell_width_blocks {
-                            let t1 = z as f64 / cell_width_blocks as f64;
-                            let z0 = t1.lerp(y00, y01);
-                            let z1 = t1.lerp(y10, y11);
+                            let x = _mm256_setr_pd(
+                                0.0,
+                                0.25,
+                                0.5,
+                                0.75,
+                            );
+                            let zero = _mm256_setzero_pd();
 
-                            for x in 0..cell_width_blocks {
-                                let t2 = x as f64 / cell_width_blocks as f64;
-                                let val = t2.lerp(z0, z1);
+                            for y in 0..cell_height_blocks {
+                                let t0 = _mm256_set1_pd(y as f64 / cell_height_blocks as f64);
+                                let y00 = t0.lerp(p000, p001);
+                                let y01 = t0.lerp(p010, p011);
+                                let y10 = t0.lerp(p100, p101);
+                                let y11 = t0.lerp(p110, p111);
 
-                                if val > 0.0 {
-                                    input.target.set_block_without_heightmap(
-                                        ChunkBlockPos::new(
-                                            (x_pos + x) as _,
-                                            (y_pos + y) as _,
-                                            (z_pos + z) as _,
-                                        ),
-                                        self.default_block_state,
-                                    )
+                                for z in 0..cell_width_blocks {
+                                    let t1 = _mm256_set1_pd(z as f64 / cell_width_blocks as f64);
+                                    let z0 = t1.lerp(y00, y01);
+                                    let z1 = t1.lerp(y10, y11);
+
+                                    let val = x.lerp(z0, z1);
+                                    let m0 = _mm256_cmp_pd_mask::<{ _CMP_GT_OQ }>(val, zero);
+
+                                    for x in 0..4 {
+                                        let mask = 1 << x;
+
+                                        let pos = ChunkBlockPos::new(x_pos as u8 + x, (y_pos + y) as i16, (z_pos + z) as u8);
+                                        if m0 & mask != 0 {
+                                            input.target.set_block_without_heightmap(pos, self.default_block_state)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        for y in 0..cell_height_blocks {
+                            let t0 = y as f64 / cell_height_blocks as f64;
+                            let y00 = t0.lerp(p000, p001);
+                            let y01 = t0.lerp(p010, p011);
+                            let y10 = t0.lerp(p100, p101);
+                            let y11 = t0.lerp(p110, p111);
+
+                            for z in 0..cell_width_blocks {
+                                let t1 = z as f64 / cell_width_blocks as f64;
+                                let z0 = t1.lerp(y00, y01);
+                                let z1 = t1.lerp(y10, y11);
+
+                                for x in 0..cell_width_blocks {
+                                    let t2 = x as f64 / cell_width_blocks as f64;
+                                    let val = t2.lerp(z0, z1);
+
+                                    if val > 0.0 {
+                                        input.target.set_block_without_heightmap(
+                                            ChunkBlockPos::new(
+                                                (x_pos + x) as _,
+                                                (y_pos + y) as _,
+                                                (z_pos + z) as _,
+                                            ),
+                                            self.default_block_state,
+                                        )
+                                    }
                                 }
                             }
                         }
