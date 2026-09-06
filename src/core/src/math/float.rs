@@ -16,6 +16,10 @@ impl TemperMathExt for f32 {
         self.clamp(0.0, 1.0).lerp(p0, p1)
     }
 
+    fn inverse_lerp(self, p0: Self, p1: Self) -> Self {
+        (self - p0) / (p1 - p0)
+    }
+
     fn lerp2(t0: Self, t1: Self, p00: Self, p01: Self, p10: Self, p11: Self) -> Self {
         t1.lerp(t0.lerp(p00, p01), t0.lerp(p10, p11))
     }
