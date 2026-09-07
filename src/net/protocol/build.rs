@@ -315,7 +315,7 @@ use bevy_ecs::world::World;
 pub fn handle_packet<R: std::io::Read>(
     packet_id: u8,
     entity: bevy_ecs::entity::Entity,
-    player_name: String,
+    player_name: &str,
     cursor: &mut R,
     packet_sender: Arc<PacketSender>,
 ) -> Result<(), crate::errors::NetError> {{
