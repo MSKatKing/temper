@@ -437,7 +437,7 @@ pub async fn handle_connection(
         match handle_packet(
             packet_skele.id,
             entity,
-            player_name.clone(),
+            player_name.as_str(),
             &mut packet_skele.data,
             packet_sender.clone(),
         )
