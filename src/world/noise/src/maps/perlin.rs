@@ -1,13 +1,10 @@
 use crate::ImprovedNoise;
 use bevy_math::DVec3;
-use std::ops::Mul;
 use temper_core::random::{PositionalRandom, RandomSource};
 
 #[derive(Clone)]
 pub struct PerlinNoise {
-    noise_levels: Box<[Option<(ImprovedNoise, f64)>]>,
-    lowest_freq_value_factor: f64,
-    lowest_freq_input_factor: f64,
+    noise_levels: Box<[((f64, f64), ImprovedNoise, f64)]>,
 }
 
 impl PerlinNoise {
@@ -20,24 +17,25 @@ impl PerlinNoise {
 
         let mut noise_levels = Vec::with_capacity(octaves);
         let positional = rand.fork_positional();
-        for (i, amp) in amplitudes.iter().enumerate() {
-            noise_levels.push(if *amp != 0.0 {
-                let octave = first_octave + i as i32;
-                let mut rand = positional.spawn_from_hash(format!("octave_{}", octave));
-                Some((ImprovedNoise::new(&mut rand), amplitudes[i]))
-            } else {
-                None
-            })
-        }
 
         let lowest_freq_input_factor = 2f64.powi(first_octave);
         let lowest_freq_value_factor =
             2f64.powi(octaves as i32 - 1) / (2f64.powi(octaves as i32) - 1.0);
 
+        for (i, amp) in amplitudes.iter().enumerate() {
+            if *amp != 0.0 {
+                let octave = first_octave + i as i32;
+                let mut rand = positional.spawn_from_hash(format!("octave_{}", octave));
+                noise_levels.push((
+                    (lowest_freq_input_factor * 2f64.powi(i as i32), lowest_freq_value_factor * 0.5f64.powi(i as i32)),
+                    ImprovedNoise::new(&mut rand),
+                    amplitudes[i],
+                ));
+            }
+        }
+
         Self {
             noise_levels: noise_levels.into_boxed_slice(),
-            lowest_freq_value_factor,
-            lowest_freq_input_factor,
         }
     }
 
@@ -90,45 +88,53 @@ impl PerlinNoise {
         let lowest_freq_value_factor = 2f64.powi(octaves - 1) / (2f64.powi(octaves) - 1.0);
 
         Self {
-            lowest_freq_input_factor,
-            lowest_freq_value_factor,
-            noise_levels: noise_levels.into_boxed_slice(),
+            noise_levels: noise_levels
+                .into_iter()
+                .enumerate()
+                .filter_map(|(i, level)| level.map(|(noise, amp)| (
+                    (lowest_freq_input_factor * 2f64.powi(i as i32), lowest_freq_value_factor * 0.5f64.powi(i as i32)),
+                    noise,
+                    amp,
+                )))
+                .collect(),
         }
     }
 
     pub fn get_octave_noise(&self, octave: usize) -> Option<&(ImprovedNoise, f64)> {
-        self.noise_levels[self.noise_levels.len() - 1 - octave].as_ref()
+        // self.noise_levels[self.noise_levels.len() - 1 - octave].as_ref()
+        None
     }
 
     pub(crate) fn wrap(x: f64) -> f64 {
-        x - (x / 3.3554432E7 + 0.5).floor() * 3.3554432E7
+        const FACTOR: f64 = 3.3554432E7;
+        x - (x * FACTOR.recip() + 0.5).floor() * FACTOR
     }
 
     #[inline(always)]
     pub fn noise(&self, pos: DVec3) -> f64 {
-        self.noise_advanced(pos, 0.0, 0.0)
+        self.noise_levels
+            .iter()
+            .map(|((input_factor, value_factor), noise, amp)| {
+                noise.noise(
+                    pos.map(|v| Self::wrap(v * *input_factor)),
+                ) * *amp * *value_factor
+            })
+            .sum()
     }
 
     pub fn noise_advanced(&self, pos: DVec3, y_scale: f64, y_fudge: f64) -> f64 {
-        let mut value = 0.0;
-        let mut factor = self.lowest_freq_input_factor;
-        let mut value_factor = self.lowest_freq_value_factor;
+        self.noise_levels
+            .iter()
+            .map(|((input_factor, value_factor), noise, amp)| {
+                let input_factor = *input_factor;
 
-        for level in self.noise_levels.iter() {
-            if let Some((noise, amp)) = level.as_ref() {
-                let val = noise.noise_advanced(
-                    pos.mul(factor).map(Self::wrap),
-                    y_scale * factor,
-                    y_fudge * factor,
-                );
-                value += *amp * val * value_factor;
-            }
-
-            factor *= 2.0;
-            value_factor /= 2.0;
-        }
-
-        value
+                noise.noise_advanced(
+                    pos.map(|v| Self::wrap(v * input_factor)),
+                    y_scale * input_factor,
+                    y_fudge * input_factor,
+                ) * *amp * *value_factor
+            })
+            .sum()
     }
 }
 

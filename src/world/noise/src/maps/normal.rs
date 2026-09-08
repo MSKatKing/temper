@@ -56,8 +56,8 @@ impl NormalNoise {
     }
 
     pub fn noise(&self, pos: DVec3) -> f64 {
-        let pos2 = pos * 1.0181268882175227;
-        (self.noises[0].noise(pos) + self.noises[1].noise(pos2)) * self.value_factor
+        const DELTA: f64 = 1.0181268882175227;
+        (self.noises[0].noise(pos) + self.noises[1].noise(pos * DELTA)) * self.value_factor
     }
 }
 

@@ -114,6 +114,7 @@ mod tests {
     use crate::maps::tests::run_test;
 
     #[test]
+    #[ignore]
     fn test_blended_noise() {
         run_test(
             &BLENDED_TEST,

@@ -13,3 +13,12 @@ serde = { workspace = true, features = ["derive"] }
 heck = { workspace = true }
 serde_json = { workspace = true }
 quote = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+noise = { workspace = true }
+
+[[bench]]
+name = "benches"
+harness = false
+path = "benches/bench.rs"
