@@ -1,7 +1,6 @@
-use crate::wrapped::WrappedDensityFunction;
-use crate::{BoxedDensityFunction, DensityFunction, DensityFunctionContext};
+use crate::wrapped::{push_op, FlattenedDensityFunction};
+use crate::{BoxedDensityFunction, DensityFunction};
 use std::ops::{Div, Rem};
-use temper_core::math::TemperMathExt;
 use temper_core::pos::BlockPos;
 
 #[derive(Debug)]
@@ -36,14 +35,6 @@ pub struct Lerp {
     pub second: BoxedDensityFunction,
 }
 
-#[derive(Debug)]
-#[expect(dead_code)]
-pub struct WrappedLerp<'a> {
-    alpha: Box<dyn WrappedDensityFunction + 'a>,
-    first: Box<dyn WrappedDensityFunction + 'a>,
-    second: Box<dyn WrappedDensityFunction + 'a>,
-}
-
 impl Axis {
     fn get_coord(&self, pos: &BlockPos) -> f64 {
         match self {
@@ -55,14 +46,14 @@ impl Axis {
 }
 
 impl DensityFunction for Gradient {
-    fn wrap(&self) -> Box<dyn WrappedDensityFunction + '_> {
-        Box::new(self)
+    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
+        push_op(ops, |_| FlattenedDensityFunction::Gradient(self))
     }
 }
 
-impl WrappedDensityFunction for &'_ Gradient {
-    fn compute(&mut self, ctx: &DensityFunctionContext) -> f64 {
-        let coord = self.axis.get_coord(ctx.block_pos());
+impl Gradient {
+    pub fn sample(&self, pos: BlockPos) -> f64 {
+        let coord = self.axis.get_coord(&pos);
         let coord_range = self.to_coord as f64 - self.from_coord as f64;
         let coord_factor = (self.to_value - self.from_value) / coord_range;
 
@@ -92,19 +83,13 @@ impl WrappedDensityFunction for &'_ Gradient {
 }
 
 impl DensityFunction for Lerp {
-    fn wrap(&self) -> Box<dyn WrappedDensityFunction + '_> {
-        Box::new(WrappedLerp {
-            alpha: self.alpha.wrap(),
-            first: self.first.wrap(),
-            second: self.second.wrap(),
+    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
+        push_op(ops, |ops| {
+            FlattenedDensityFunction::Lerp(crate::wrapped::mapped::Lerp {
+                alpha: self.alpha.wrap(ops),
+                first: self.first.wrap(ops),
+                second: self.second.wrap(ops),
+            })
         })
-    }
-}
-
-impl WrappedDensityFunction for WrappedLerp<'_> {
-    fn compute(&mut self, ctx: &DensityFunctionContext) -> f64 {
-        self.alpha
-            .compute(ctx)
-            .lerp(self.first.compute(ctx), self.second.compute(ctx))
     }
 }

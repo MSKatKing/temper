@@ -12,6 +12,7 @@ use temper_core::random::{RandomSource, XoroshiroRandomSource};
 use temper_density::compile::Compiler;
 use temper_density::json::{DensityFunctionArgument, deserialize_function};
 use temper_density::{BoxedDensityFunction, DensityFunctionContext};
+use temper_density::wrapped::WrappedDensityFunction;
 use temper_macros::block;
 
 pub struct VanillaGenerator {
@@ -125,13 +126,11 @@ impl VanillaGenerator {
         let cell_width_blocks = 1 << cell_width;
         let cell_height_blocks = 1 << cell_height;
 
-        let mut ctx = DensityFunctionContext::new(input.pos.block_offset(0, 0, 0));
-        let mut wrapped = self.final_density.wrap();
+        let mut wrapped = WrappedDensityFunction::wrap(&self.final_density);
 
         let chunk_pos = input.pos;
         let mut compute_corner = move |x: i32, y: i32, z: i32| {
-            ctx.block_pos = chunk_pos.block_offset(x, y, z);
-            wrapped.compute(&ctx)
+            wrapped.execute(chunk_pos.block_offset(x, y, z))
         };
 
         for y_cell in 0..(384 >> cell_height) {

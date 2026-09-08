@@ -1,4 +1,4 @@
-use crate::wrapped::WrappedDensityFunction;
+use crate::wrapped::FlattenedDensityFunction;
 use std::fmt::Debug;
 use temper_core::pos::BlockPos;
 
@@ -29,20 +29,12 @@ impl DensityFunctionContext {
 }
 
 pub trait DensityFunction: Debug + Send + Sync {
-    fn wrap(&self) -> Box<dyn WrappedDensityFunction + '_>;
+    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize;
 }
 
-#[derive(Debug)]
-pub struct Constant(pub f64);
-
-impl DensityFunction for Constant {
-    fn wrap(&self) -> Box<dyn WrappedDensityFunction + '_> {
-        Box::new(self)
-    }
-}
-
-impl WrappedDensityFunction for &'_ Constant {
-    fn compute(&mut self, _: &DensityFunctionContext) -> f64 {
-        self.0
+impl DensityFunction for f64 {
+    fn wrap(&self, ops: &mut Vec<FlattenedDensityFunction>) -> usize {
+        ops.push(FlattenedDensityFunction::Constant(*self));
+        ops.len() - 1
     }
 }

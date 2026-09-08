@@ -8,7 +8,7 @@ use crate::math::{
 };
 use crate::noise::{Noise, OldBlendedNoise, Shift, ShiftA, ShiftB};
 use crate::spline::Spline;
-use crate::{BoxedDensityFunction, Constant};
+use crate::BoxedDensityFunction;
 use std::collections::HashMap;
 use temper_core::random::{PositionalRandom, RandomSource};
 use temper_noise::params::NoiseParameter;
@@ -36,7 +36,7 @@ fn compile_arg<R: RandomSource, P: PositionalRandom<R>>(
     arg: &DensityFunctionArgument,
 ) -> BoxedDensityFunction {
     match arg {
-        DensityFunctionArgument::Constant(val) => Box::new(Constant(*val)),
+        DensityFunctionArgument::Constant(val) => Box::new(*val),
         DensityFunctionArgument::Function(val) => compile(compiler, rand, val.as_ref()),
         DensityFunctionArgument::External(val) => compile_arg(
             compiler,
@@ -134,7 +134,7 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             min: *min,
             max: *max,
         }),
-        DensityFunction::Constant { value } => Box::new(Constant(*value)),
+        DensityFunction::Constant { value } => Box::new(*value),
         DensityFunction::Cube { input } => Box::new(Cube(compile_arg(compiler, rand, input))),
         DensityFunction::Div { left, right } => Box::new(Div {
             left: compile_arg(compiler, rand, left),
@@ -209,9 +209,9 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             when_out_range: compile_arg(compiler, rand, when_out_of_range),
             range: (*min_inclusive)..(*max_exclusive),
         }),
-        DensityFunction::Beardifier => Box::new(Constant(0.0)),
-        DensityFunction::BlendAlpha => Box::new(Constant(1.0)),
-        DensityFunction::BlendOffset => Box::new(Constant(0.0)),
+        DensityFunction::Beardifier => Box::new(0.0f64),
+        DensityFunction::BlendAlpha => Box::new(1.0f64),
+        DensityFunction::BlendOffset => Box::new(0.0f64),
         DensityFunction::BlendDensity { input } => compile_arg(compiler, rand, input),
         _ => todo!("{:?}", func),
     }

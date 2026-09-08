@@ -1,77 +1,69 @@
-use crate::DensityFunctionContext;
 use crate::wrapped::WrappedDensityFunction;
 use temper_core::pos::BlockPos;
 
-#[derive(Debug)]
-pub struct CacheAllInCell<'a>(pub(crate) Box<dyn WrappedDensityFunction + 'a>);
-
-#[derive(Debug)]
-pub struct CacheOnce<'a>(pub(crate) Box<dyn WrappedDensityFunction + 'a>);
-
-#[derive(Debug)]
-pub struct Cache2d<'a> {
-    pub(crate) inner: Box<dyn WrappedDensityFunction + 'a>,
-    pub(crate) last_pos: BlockPos,
-    pub(crate) last_value: f64,
+pub struct CacheData {
+    last_pos: BlockPos,
+    last_value: f64,
 }
 
-#[derive(Debug)]
-pub struct FlatCache<'a> {
-    pub(crate) inner: Box<dyn WrappedDensityFunction + 'a>,
-    pub(crate) last_pos: BlockPos,
-    pub(crate) last_value: f64,
-}
-
-#[derive(Debug)]
-#[expect(dead_code)]
-pub struct Interpolated<'a> {
-    pub(crate) inner: Box<dyn WrappedDensityFunction + 'a>,
-    pub(crate) last_pos: BlockPos,
-    pub(crate) data: [f64; 8],
-}
-
-impl WrappedDensityFunction for CacheAllInCell<'_> {
-    fn compute(&mut self, ctx: &DensityFunctionContext) -> f64 {
-        self.0.compute(ctx)
-    }
-}
-
-impl WrappedDensityFunction for CacheOnce<'_> {
-    fn compute(&mut self, ctx: &DensityFunctionContext) -> f64 {
-        self.0.compute(ctx)
-    }
-}
-
-impl WrappedDensityFunction for Cache2d<'_> {
-    fn compute(&mut self, ctx: &DensityFunctionContext) -> f64 {
-        let pos = ctx.block_pos();
-        let pos = BlockPos::of(pos.pos.x, 0, pos.pos.z);
-
-        if pos != self.last_pos {
-            self.last_pos = pos;
-            self.last_value = self.inner.compute(ctx);
+impl Default for CacheData {
+    fn default() -> Self {
+        Self {
+            last_pos: BlockPos::of(i32::MAX, i32::MAX, i32::MAX),
+            last_value: 0.0,
         }
-
-        self.last_value
     }
 }
 
-impl WrappedDensityFunction for FlatCache<'_> {
-    fn compute(&mut self, ctx: &DensityFunctionContext) -> f64 {
-        let pos = ctx.block_pos();
-        let pos = BlockPos::of(pos.pos.x >> 2, 0, pos.pos.z >> 2);
+pub enum MarkerDensityFunction {
+    CacheAllInCell,
+    Interpolated,
+    CacheOnce(CacheData),
+    Cache2d(CacheData),
+    FlatCache(CacheData),
+}
 
-        if pos != self.last_pos {
-            self.last_pos = pos;
-            self.last_value = self.inner.compute(ctx);
+impl MarkerDensityFunction {
+    pub fn execute(&mut self, inner: usize, func: &WrappedDensityFunction) -> f64 {
+        match self {
+            Self::CacheAllInCell => func.execute_inner(inner),
+            Self::Interpolated => func.execute_inner(inner),
+            Self::CacheOnce(data) => {
+                if func.pos != data.last_pos {
+                    data.last_pos = func.pos;
+                    data.last_value = func.execute_inner(inner);
+                }
+
+                data.last_value
+            }
+            Self::Cache2d(data) => {
+                let pos = BlockPos::of(
+                    func.pos.pos.x,
+                    0,
+                    func.pos.pos.z,
+                );
+
+                if pos != data.last_pos {
+                    data.last_pos = pos;
+                    data.last_value = func.execute_inner(inner);
+                }
+
+                data.last_value
+            }
+            Self::FlatCache(data) => {
+                let pos = BlockPos::of(
+                    func.pos.pos.x & !3,
+                    0,
+                    func.pos.pos.z & !3,
+                );
+
+                if pos != data.last_pos {
+                    data.last_pos = pos;
+                    data.last_value = func.execute_inner(inner);
+                }
+
+                data.last_value
+            }
         }
-
-        self.last_value
-    }
-}
-
-impl WrappedDensityFunction for Interpolated<'_> {
-    fn compute(&mut self, ctx: &DensityFunctionContext) -> f64 {
-        self.inner.compute(ctx)
     }
 }

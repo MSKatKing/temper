@@ -1,7 +1,5 @@
 use crate::DensityFunction;
-use crate::wrapped;
-use crate::wrapped::WrappedDensityFunction;
-use temper_core::pos::BlockPos;
+use crate::wrapped::{push_op, CacheData, FlattenedDensityFunction, MarkerDensityFunction};
 
 #[derive(Debug)]
 pub struct CacheAllInCell(pub Box<dyn DensityFunction>);
@@ -19,46 +17,41 @@ pub struct FlatCache(pub Box<dyn DensityFunction>);
 pub struct Interpolated(pub Box<dyn DensityFunction>);
 
 impl DensityFunction for CacheAllInCell {
-    fn wrap(&self) -> Box<dyn WrappedDensityFunction + '_> {
-        // Box::new(wrapped::CacheAllInCell(self.0.wrap()))
-        self.0.wrap()
+    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
+        self.0.wrap(ops)
     }
 }
 
 impl DensityFunction for CacheOnce {
-    fn wrap(&self) -> Box<dyn WrappedDensityFunction + '_> {
-        // Box::new(wrapped::CacheOnce(self.0.wrap()))
-        self.0.wrap()
+    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
+        self.0.wrap(ops)
     }
 }
 
 impl DensityFunction for Cache2d {
-    fn wrap(&self) -> Box<dyn WrappedDensityFunction + '_> {
-        Box::new(wrapped::Cache2d {
-            inner: self.0.wrap(),
-            last_pos: BlockPos::of(i32::MAX, i32::MAX, i32::MAX),
-            last_value: 0.0,
+    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a >>) -> usize {
+        push_op(ops, |ops| {
+            FlattenedDensityFunction::Marker {
+                op: MarkerDensityFunction::Cache2d(CacheData::default()),
+                arg: self.0.wrap(ops)
+            }
         })
     }
 }
 
 impl DensityFunction for FlatCache {
-    fn wrap(&self) -> Box<dyn WrappedDensityFunction + '_> {
-        Box::new(wrapped::FlatCache {
-            inner: self.0.wrap(),
-            last_pos: BlockPos::of(i32::MAX, i32::MAX, i32::MAX),
-            last_value: 0.0,
+    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
+        push_op(ops, |ops| {
+            FlattenedDensityFunction::Marker {
+                op: MarkerDensityFunction::FlatCache(CacheData::default()),
+                arg: self.0.wrap(ops)
+            }
         })
     }
 }
 
 impl DensityFunction for Interpolated {
-    fn wrap(&self) -> Box<dyn WrappedDensityFunction + '_> {
-        // Box::new(wrapped::Interpolated {
-        //     inner: self.0.wrap(),
-        //     last_pos: BlockPos::of(i32::MAX, i32::MAX, i32::MAX),
-        //     data: [0.0; 8],
-        // })
-        self.0.wrap()
+    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
+        self.0.wrap(ops)
     }
 }
