@@ -6,7 +6,8 @@ use temper_core::random::RandomSource;
 
 #[derive(Clone)]
 pub struct NormalNoise {
-    noises: [PerlinNoise; 2],
+    first: PerlinNoise,
+    second: PerlinNoise,
     value_factor: f64,
     __param: &'static NoiseParameter,
 }
@@ -29,10 +30,8 @@ impl NormalNoise {
         first_octave: i32,
         amplitudes: &[f64],
     ) -> NormalNoise {
-        let noises = [
-            PerlinNoise::new(rand, first_octave, amplitudes),
-            PerlinNoise::new(rand, first_octave, amplitudes),
-        ];
+        let first = PerlinNoise::new(rand, first_octave, amplitudes);
+        let second = PerlinNoise::new(rand, first_octave, amplitudes);
 
         let min_octave = amplitudes
             .iter()
@@ -49,15 +48,17 @@ impl NormalNoise {
             / (0.1 * (1.0 + 1.0 / (max_octave.wrapping_sub(min_octave) + 1) as f64));
 
         NormalNoise {
-            noises,
+            first,
+            second,
             value_factor,
             __param: &Self::CUSTOM,
         }
     }
 
+    #[inline(always)]
     pub fn noise(&self, pos: DVec3) -> f64 {
         const DELTA: f64 = 1.0181268882175227;
-        (self.noises[0].noise(pos) + self.noises[1].noise(pos * DELTA)) * self.value_factor
+        (self.first.noise(pos) + self.second.noise(pos * DELTA)) * self.value_factor
     }
 }
 

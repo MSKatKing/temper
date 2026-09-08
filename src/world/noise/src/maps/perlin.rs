@@ -3,8 +3,16 @@ use bevy_math::DVec3;
 use temper_core::random::{PositionalRandom, RandomSource};
 
 #[derive(Clone)]
+struct PerlinNoiseLevel {
+    input_factor: f64,
+    value_factor: f64,
+    amplitude: f64,
+    noise: ImprovedNoise,
+}
+
+#[derive(Clone)]
 pub struct PerlinNoise {
-    noise_levels: Box<[((f64, f64), ImprovedNoise, f64)]>,
+    noise_levels: Box<[PerlinNoiseLevel]>,
 }
 
 impl PerlinNoise {
@@ -26,11 +34,12 @@ impl PerlinNoise {
             if *amp != 0.0 {
                 let octave = first_octave + i as i32;
                 let mut rand = positional.spawn_from_hash(format!("octave_{}", octave));
-                noise_levels.push((
-                    (lowest_freq_input_factor * 2f64.powi(i as i32), lowest_freq_value_factor * 0.5f64.powi(i as i32)),
-                    ImprovedNoise::new(&mut rand),
-                    amplitudes[i],
-                ));
+                noise_levels.push(PerlinNoiseLevel {
+                    input_factor: lowest_freq_input_factor * 2f64.powi(i as i32),
+                    value_factor: lowest_freq_value_factor * 0.5f64.powi(i as i32),
+                    amplitude: *amp,
+                    noise: ImprovedNoise::new(&mut rand),
+                });
             }
         }
 
@@ -91,18 +100,21 @@ impl PerlinNoise {
             noise_levels: noise_levels
                 .into_iter()
                 .enumerate()
-                .filter_map(|(i, level)| level.map(|(noise, amp)| (
-                    (lowest_freq_input_factor * 2f64.powi(i as i32), lowest_freq_value_factor * 0.5f64.powi(i as i32)),
-                    noise,
-                    amp,
-                )))
+                .filter_map(|(i, level)| {
+                    level.map(|(noise, amp)| PerlinNoiseLevel {
+                        input_factor: lowest_freq_input_factor * 2f64.powi(i as i32),
+                        value_factor: lowest_freq_value_factor * 0.5f64.powi(i as i32),
+                        amplitude: amp,
+                        noise,
+                    })
+                })
                 .collect(),
         }
     }
 
     pub fn get_octave_noise(&self, octave: usize) -> (&ImprovedNoise, &f64) {
-        let (_, noise, amp) = &self.noise_levels[self.noise_levels.len() - 1 - octave];
-        (noise, amp)
+        let level = &self.noise_levels[self.noise_levels.len() - 1 - octave];
+        (&level.noise, &level.amplitude)
     }
 
     pub(crate) fn wrap(x: f64) -> f64 {
@@ -114,10 +126,12 @@ impl PerlinNoise {
     pub fn noise(&self, pos: DVec3) -> f64 {
         self.noise_levels
             .iter()
-            .map(|((input_factor, value_factor), noise, amp)| {
-                noise.noise(
-                    pos.map(|v| Self::wrap(v * *input_factor)),
-                ) * *amp * *value_factor
+            .map(|level| {
+                level
+                    .noise
+                    .noise(pos.map(|v| Self::wrap(v * level.input_factor)))
+                    * level.amplitude
+                    * level.value_factor
             })
             .sum()
     }
@@ -125,14 +139,13 @@ impl PerlinNoise {
     pub fn noise_advanced(&self, pos: DVec3, y_scale: f64, y_fudge: f64) -> f64 {
         self.noise_levels
             .iter()
-            .map(|((input_factor, value_factor), noise, amp)| {
-                let input_factor = *input_factor;
-
-                noise.noise_advanced(
-                    pos.map(|v| Self::wrap(v * input_factor)),
-                    y_scale * input_factor,
-                    y_fudge * input_factor,
-                ) * *amp * *value_factor
+            .map(|level| {
+                level.noise.noise_advanced(
+                    pos.map(|v| Self::wrap(v * level.input_factor)),
+                    y_scale * level.input_factor,
+                    y_fudge * level.input_factor,
+                ) * level.amplitude
+                    * level.value_factor
             })
             .sum()
     }

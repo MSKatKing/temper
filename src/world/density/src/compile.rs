@@ -7,12 +7,12 @@ use crate::math::{
     Square, Squeeze, Sub,
 };
 use crate::noise::{Noise, OldBlendedNoise, Shift, ShiftA, ShiftB};
+use crate::spline::Spline;
 use crate::{BoxedDensityFunction, Constant};
 use std::collections::HashMap;
 use temper_core::random::{PositionalRandom, RandomSource};
 use temper_noise::params::NoiseParameter;
 use temper_noise::{BlendedNoise, NormalNoise};
-use crate::spline::Spline;
 
 pub struct Compiler<'a> {
     externals: &'a HashMap<String, DensityFunctionArgument>,
@@ -71,8 +71,7 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             y_scale,
         } => Box::new(Noise {
             noise: NormalNoise::new(
-                &mut rand
-                    .spawn_from_hash(noise.as_str()),
+                &mut rand.spawn_from_hash(noise.as_str()),
                 NoiseParameter::get_by_name(noise).expect("unknown noise"),
             ),
             xz_scale: *xz_scale,
@@ -115,8 +114,7 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             shift_z,
         } => Box::new(Noise {
             noise: NormalNoise::new(
-                &mut rand
-                    .spawn_from_hash(noise.as_str()),
+                &mut rand.spawn_from_hash(noise.as_str()),
                 NoiseParameter::get_by_name(noise).expect("unknown noise"),
             ),
             xz_scale: *xz_scale,
@@ -180,9 +178,7 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             to_value: *to_value,
         }),
         DensityFunction::Squeeze { input } => Box::new(Squeeze(compile_arg(compiler, rand, input))),
-        DensityFunction::Spline { spline } => {
-            Box::new(compile_spline(compiler, rand, spline))
-        },
+        DensityFunction::Spline { spline } => Box::new(compile_spline(compiler, rand, spline)),
         DensityFunction::HalfNegative { input } => {
             Box::new(HalfNegative(compile_arg(compiler, rand, input)))
         }
@@ -221,14 +217,26 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
     }
 }
 
-fn compile_spline<R: RandomSource, P: PositionalRandom<R>>(compiler: &mut Compiler, rand: &mut P, spline: &DensitySpline) -> Spline {
+fn compile_spline<R: RandomSource, P: PositionalRandom<R>>(
+    compiler: &mut Compiler,
+    rand: &mut P,
+    spline: &DensitySpline,
+) -> Spline {
     let coordinate = compile_arg(compiler, rand, &spline.coordinate);
     let locations = spline.points.iter().map(|v| v.location).collect::<Vec<_>>();
-    let derivatives = spline.points.iter().map(|v| v.derivative).collect::<Vec<_>>();
-    let values = spline.points.iter().map(|v| match &v.value {
-        ValueOrSpline::Value(v) => Spline::Constant { value: *v },
-        ValueOrSpline::Spline(s) => compile_spline(compiler, rand, s),
-    }).collect::<Vec<_>>();
+    let derivatives = spline
+        .points
+        .iter()
+        .map(|v| v.derivative)
+        .collect::<Vec<_>>();
+    let values = spline
+        .points
+        .iter()
+        .map(|v| match &v.value {
+            ValueOrSpline::Value(v) => Spline::Constant { value: *v },
+            ValueOrSpline::Spline(s) => compile_spline(compiler, rand, s),
+        })
+        .collect::<Vec<_>>();
 
     Spline::Multipoint {
         coordinate,

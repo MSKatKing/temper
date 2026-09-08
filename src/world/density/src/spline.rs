@@ -35,7 +35,7 @@ impl WrappedSpline<'_> {
                 coordinate,
                 locations,
                 values,
-                derivatives
+                derivatives,
             } => {
                 let input = coordinate.compute(ctx);
                 let start = Self::find_interval_start(locations, input);
@@ -63,21 +63,25 @@ impl WrappedSpline<'_> {
                 let a = d1 * (x2 - x1) - (y2 - y1);
                 let b = -d2 * (x2 - x1) + (y2 - y1);
                 t.lerp(y1, y2) + t * (1.0 - t) * t.lerp(a, b)
-            },
+            }
             WrappedSpline::Constant { value } => *value,
         }
     }
 
     fn linear_extend(&self, input: f64, value: f64, index: usize) -> f64 {
         match self {
-            WrappedSpline::Multipoint { locations, derivatives, .. } => {
+            WrappedSpline::Multipoint {
+                locations,
+                derivatives,
+                ..
+            } => {
                 let derivative = derivatives[index];
                 if derivative == 0.0 {
                     value
                 } else {
                     value + derivative * (input - locations[index])
                 }
-            },
+            }
             WrappedSpline::Constant { value } => *value,
         }
     }
@@ -110,14 +114,12 @@ impl Spline {
                 values,
                 locations,
                 derivatives,
-                coordinate
-            } => {
-                WrappedSpline::Multipoint {
-                    locations,
-                    derivatives,
-                    coordinate: coordinate.wrap(),
-                    values: values.iter().map(|v| v.wrap()).collect(),
-                }
+                coordinate,
+            } => WrappedSpline::Multipoint {
+                locations,
+                derivatives,
+                coordinate: coordinate.wrap(),
+                values: values.iter().map(|v| v.wrap()).collect(),
             },
             Spline::Constant { value } => WrappedSpline::Constant { value: *value },
         }

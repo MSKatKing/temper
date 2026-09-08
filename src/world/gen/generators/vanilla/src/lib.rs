@@ -1,13 +1,15 @@
-use std::arch::x86_64::{_mm256_cmp_pd_mask, _mm256_set1_pd, _mm256_setr_pd, _CMP_GT_OQ, _mm256_setzero_pd};
 use gen_core::{
     ChunkGenerator, GenStage, GenerationError, GeneratorId, StageDependencies, StageInput,
     StageSpec,
 };
 use include_dir::{Dir, include_dir};
+use std::arch::x86_64::{
+    _CMP_GT_OQ, _mm256_cmp_pd_mask, _mm256_set1_pd, _mm256_setr_pd, _mm256_setzero_pd,
+};
 use std::collections::HashMap;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::math::{TemperMathExt, TemperMathExtUnsafe};
-use temper_core::pos::{ChunkBlockPos};
+use temper_core::pos::ChunkBlockPos;
 use temper_core::random::{RandomSource, XoroshiroRandomSource};
 use temper_density::compile::Compiler;
 use temper_density::json::{DensityFunctionArgument, deserialize_function};
@@ -80,7 +82,11 @@ impl ChunkGenerator for VanillaGenerator {
         match stage {
             GenStage::EMPTY => Some(StageSpec::new(stage, "empty", StageDependencies::NONE)),
             GenStage::NOISE => Some(StageSpec::new(stage, "noise", StageDependencies::NONE)),
-            GenStage::SURFACE => Some(StageSpec::new(stage, "surface", StageDependencies::only_own(GenStage::NOISE))),
+            GenStage::SURFACE => Some(StageSpec::new(
+                stage,
+                "surface",
+                StageDependencies::only_own(GenStage::NOISE),
+            )),
             _ => None,
         }
     }
@@ -104,7 +110,10 @@ impl VanillaGenerator {
         for y in ((self.water_level >> 4) << 4)..self.water_level {
             for x in 0..16 {
                 for z in 0..16 {
-                    input.target.set_block_without_heightmap(ChunkBlockPos::new(x, y, z), self.default_fluid_state)
+                    input.target.set_block_without_heightmap(
+                        ChunkBlockPos::new(x, y, z),
+                        self.default_fluid_state,
+                    )
                 }
             }
         }
@@ -176,12 +185,7 @@ impl VanillaGenerator {
                             let p110 = _mm256_set1_pd(p110);
                             let p111 = _mm256_set1_pd(p111);
 
-                            let x = _mm256_setr_pd(
-                                0.0,
-                                0.25,
-                                0.5,
-                                0.75,
-                            );
+                            let x = _mm256_setr_pd(0.0, 0.25, 0.5, 0.75);
                             let zero = _mm256_setzero_pd();
 
                             for y in 0..cell_height_blocks {
@@ -202,9 +206,16 @@ impl VanillaGenerator {
                                     for x in 0..4 {
                                         let mask = 1 << x;
 
-                                        let pos = ChunkBlockPos::new(x_pos as u8 + x, (y_pos + y) as i16, (z_pos + z) as u8);
+                                        let pos = ChunkBlockPos::new(
+                                            x_pos as u8 + x,
+                                            (y_pos + y) as i16,
+                                            (z_pos + z) as u8,
+                                        );
                                         if m0 & mask != 0 {
-                                            input.target.set_block_without_heightmap(pos, self.default_block_state)
+                                            input.target.set_block_without_heightmap(
+                                                pos,
+                                                self.default_block_state,
+                                            )
                                         }
                                     }
                                 }
@@ -262,21 +273,26 @@ impl VanillaGenerator {
                     let pos = ChunkBlockPos::new(x, y, z);
 
                     if input.target.get_block(pos) == self.default_block_state {
-                        let (top_block, bottom_block) = if input.target.get_block(above) == self.default_fluid_state {
-                            (sand, sand)
-                        } else {
-                            (grass, dirt)
-                        };
+                        let (top_block, bottom_block) =
+                            if input.target.get_block(above) == self.default_fluid_state {
+                                (sand, sand)
+                            } else {
+                                (grass, dirt)
+                            };
 
                         input.target.set_block_without_heightmap(pos, top_block);
 
                         let below = ChunkBlockPos::new(x, y - 1, z);
                         if input.target.get_block(below) == self.default_block_state {
-                            input.target.set_block_without_heightmap(below, bottom_block);
+                            input
+                                .target
+                                .set_block_without_heightmap(below, bottom_block);
 
                             let below = ChunkBlockPos::new(x, y - 2, z);
                             if input.target.get_block(below) == self.default_block_state {
-                                input.target.set_block_without_heightmap(below, bottom_block);
+                                input
+                                    .target
+                                    .set_block_without_heightmap(below, bottom_block);
                             }
                         }
 

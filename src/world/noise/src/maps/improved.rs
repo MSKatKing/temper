@@ -37,11 +37,7 @@ impl ImprovedNoise {
         let pos_f = pos.floor();
         let pos_r = pos - pos_f;
 
-        self.sample_and_lerp(
-            pos_f.as_isizevec3(),
-            pos_r,
-            pos_r.y,
-        )
+        self.sample_and_lerp(pos_f.as_isizevec3(), pos_r, pos_r.y)
     }
 
     pub fn noise_advanced(&self, pos: DVec3, y_scale: f64, y_fudge: f64) -> f64 {
@@ -69,8 +65,11 @@ impl ImprovedNoise {
     }
 
     fn sample_and_lerp(&self, pos: ISizeVec3, pos_r: DVec3, yr_original: f64) -> f64 {
-        let x: [usize; 2] = std::array::from_fn(|i| self.p[i.wrapping_add_signed(pos.x) & 0xFF] as usize);
-        let xy: [usize; 4] = std::array::from_fn(|i| self.p[(x[i & 1] + (i >> 1)).wrapping_add_signed(pos.y) & 0xFF] as usize);
+        let x: [usize; 2] =
+            std::array::from_fn(|i| self.p[i.wrapping_add_signed(pos.x) & 0xFF] as usize);
+        let xy: [usize; 4] = std::array::from_fn(|i| {
+            self.p[(x[i & 1] + (i >> 1)).wrapping_add_signed(pos.y) & 0xFF] as usize
+        });
         let [d000, d001, d010, d011, d100, d101, d110, d111] = std::array::from_fn(|i| {
             Self::grad_dot(
                 self.p[(xy[i & 3] + (i >> 2)).wrapping_add_signed(pos.z) & 0xFF] as usize,

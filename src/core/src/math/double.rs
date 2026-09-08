@@ -63,7 +63,10 @@ impl TemperMathExtUnsafe for __m256d {
 
     #[target_feature(enable = "avx2")]
     unsafe fn smooth_step(self) -> Self {
-        let a = _mm256_add_pd(_mm256_mul_pd(self, _mm256_set1_pd(6.0)), _mm256_set1_pd(-15.0));
+        let a = _mm256_add_pd(
+            _mm256_mul_pd(self, _mm256_set1_pd(6.0)),
+            _mm256_set1_pd(-15.0),
+        );
         let b = _mm256_add_pd(_mm256_mul_pd(self, a), _mm256_set1_pd(10.0));
 
         _mm256_mul_pd(self.cube(), b)
