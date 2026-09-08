@@ -3,9 +3,7 @@ use gen_core::{
     StageSpec,
 };
 use include_dir::{Dir, include_dir};
-use std::arch::x86_64::{
-    _CMP_GT_OQ, _mm256_cmp_pd_mask, _mm256_set1_pd, _mm256_setr_pd, _mm256_setzero_pd,
-};
+use std::arch::x86_64::{_mm256_set1_pd, _mm256_setr_pd, _mm256_storeu_pd};
 use std::collections::HashMap;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::math::{TemperMathExt, TemperMathExtUnsafe};
@@ -174,7 +172,7 @@ impl VanillaGenerator {
                         z_pos + cell_width_blocks,
                     );
 
-                    if is_x86_feature_detected!("avx2") {
+                    if is_x86_feature_detected!("fma") && is_x86_feature_detected!("avx2") {
                         unsafe {
                             let p000 = _mm256_set1_pd(p000);
                             let p001 = _mm256_set1_pd(p001);
@@ -186,7 +184,6 @@ impl VanillaGenerator {
                             let p111 = _mm256_set1_pd(p111);
 
                             let x = _mm256_setr_pd(0.0, 0.25, 0.5, 0.75);
-                            let zero = _mm256_setzero_pd();
 
                             for y in 0..cell_height_blocks {
                                 let t0 = _mm256_set1_pd(y as f64 / cell_height_blocks as f64);
@@ -201,17 +198,17 @@ impl VanillaGenerator {
                                     let z1 = t1.lerp(y10, y11);
 
                                     let val = x.lerp(z0, z1);
-                                    let m0 = _mm256_cmp_pd_mask::<{ _CMP_GT_OQ }>(val, zero);
+                                    let mut values = [0.0; 4];
+                                    _mm256_storeu_pd(values.as_mut_ptr(), val);
 
                                     for x in 0..4 {
-                                        let mask = 1 << x;
-
                                         let pos = ChunkBlockPos::new(
                                             x_pos as u8 + x,
                                             (y_pos + y) as i16,
                                             (z_pos + z) as u8,
                                         );
-                                        if m0 & mask != 0 {
+
+                                        if values[x as usize] > 0.0 {
                                             input.target.set_block_without_heightmap(
                                                 pos,
                                                 self.default_block_state,

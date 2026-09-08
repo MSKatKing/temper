@@ -61,29 +61,24 @@ impl TemperMathExtUnsafe for __m256d {
         _mm256_div_pd(_mm256_set1_pd(1.0), self)
     }
 
-    #[target_feature(enable = "avx2")]
+    #[target_feature(enable = "avx2", enable = "fma")]
     unsafe fn smooth_step(self) -> Self {
-        let a = _mm256_add_pd(
-            _mm256_mul_pd(self, _mm256_set1_pd(6.0)),
-            _mm256_set1_pd(-15.0),
-        );
-        let b = _mm256_add_pd(_mm256_mul_pd(self, a), _mm256_set1_pd(10.0));
-
+        let a = _mm256_fmadd_pd(self, _mm256_set1_pd(6.0), _mm256_set1_pd(-15.0));
+        let b = _mm256_fmadd_pd(self, a, _mm256_set1_pd(10.0));
         _mm256_mul_pd(self.cube(), b)
     }
 
-    #[target_feature(enable = "avx2")]
+    #[target_feature(enable = "avx2", enable = "fma")]
     unsafe fn lerp(self, p0: Self, p1: Self) -> Self {
-        let a = _mm256_sub_pd(p1, p0);
-        _mm256_add_pd(p0, _mm256_mul_pd(self, a))
+        _mm256_fmadd_pd(self, _mm256_sub_pd(p1, p0), p0)
     }
 
-    #[target_feature(enable = "avx2")]
+    #[target_feature(enable = "avx2", enable = "fma")]
     unsafe fn lerp2(t0: Self, t1: Self, p00: Self, p01: Self, p10: Self, p11: Self) -> Self {
         t1.lerp(t0.lerp(p00, p01), t0.lerp(p10, p11))
     }
 
-    #[target_feature(enable = "avx2")]
+    #[target_feature(enable = "avx2", enable = "fma")]
     unsafe fn lerp3(
         t0: Self,
         t1: Self,
@@ -101,16 +96,5 @@ impl TemperMathExtUnsafe for __m256d {
             __m256d::lerp2(t0, t1, p000, p001, p010, p011),
             __m256d::lerp2(t0, t1, p100, p101, p110, p111),
         )
-    }
-}
-
-#[cfg(target_arch = "x86_64")]
-#[target_feature(enable = "avx2")]
-pub fn _mm256_fma_fallback_pd(a: __m256d, b: __m256d, c: __m256d) -> __m256d {
-    if is_x86_feature_detected!("fma") {
-        // SAFETY: required features are present if we made it here
-        unsafe { _mm256_fmadd_pd(a, b, c) }
-    } else {
-        _mm256_add_pd(_mm256_mul_pd(a, b), c)
     }
 }
