@@ -100,9 +100,9 @@ impl PerlinNoise {
         }
     }
 
-    pub fn get_octave_noise(&self, octave: usize) -> Option<&(ImprovedNoise, f64)> {
-        // self.noise_levels[self.noise_levels.len() - 1 - octave].as_ref()
-        None
+    pub fn get_octave_noise(&self, octave: usize) -> (&ImprovedNoise, &f64) {
+        let (_, noise, amp) = &self.noise_levels[self.noise_levels.len() - 1 - octave];
+        (noise, amp)
     }
 
     pub(crate) fn wrap(x: f64) -> f64 {

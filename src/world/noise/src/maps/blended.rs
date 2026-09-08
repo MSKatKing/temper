@@ -66,13 +66,12 @@ impl BlendedNoise {
         let mut pow = 1.0;
 
         for i in 0..8 {
-            if let Some((noise, _)) = &self.main_noise.get_octave_noise(i) {
-                main_noise_value += noise.noise_advanced(
-                    main.map(|v| PerlinNoise::wrap(v * pow)),
-                    main_smear * pow,
-                    main_y * pow,
-                ) / pow;
-            }
+            let (noise, _) = &self.main_noise.get_octave_noise(i);
+            main_noise_value += noise.noise_advanced(
+                main.map(|v| PerlinNoise::wrap(v * pow)),
+                main_smear * pow,
+                main_y * pow,
+            ) / pow;
 
             pow /= 2.0;
         }
@@ -86,11 +85,11 @@ impl BlendedNoise {
             let w = limit.map(|v| PerlinNoise::wrap(v * pow));
             let y_scale_pow = limit_smear * pow;
 
-            if !is_max && let Some((noise, _)) = self.min_limit_noise.get_octave_noise(i) {
+            if !is_max && let (noise, _) = self.min_limit_noise.get_octave_noise(i) {
                 blend_min += noise.noise_advanced(w, y_scale_pow, limit_y * pow) / pow;
             }
 
-            if !is_min && let Some((noise, _)) = self.max_limit_noise.get_octave_noise(i) {
+            if !is_min && let (noise, _) = self.max_limit_noise.get_octave_noise(i) {
                 blend_max += noise.noise_advanced(w, y_scale_pow, limit_y * pow) / pow;
             }
 
@@ -114,7 +113,6 @@ mod tests {
     use crate::maps::tests::run_test;
 
     #[test]
-    #[ignore]
     fn test_blended_noise() {
         run_test(
             &BLENDED_TEST,
