@@ -9,10 +9,9 @@ pub struct Lerp {
 
 impl Lerp {
     pub fn compute(&self, func: &WrappedDensityFunction) -> f64 {
-        func.execute_inner(self.alpha)
-            .lerp(
-                func.execute_inner(self.first),
-                func.execute_inner(self.second),
-            )
+        func.execute_inner(self.alpha).lerp(
+            func.execute_inner(self.first),
+            func.execute_inner(self.second),
+        )
     }
 }

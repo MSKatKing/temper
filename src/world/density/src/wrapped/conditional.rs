@@ -1,5 +1,5 @@
-use std::ops::Range;
 use crate::wrapped::WrappedDensityFunction;
+use std::ops::Range;
 
 pub enum ConditionalDensityFunction<'a> {
     IntervalSelect {
@@ -10,7 +10,7 @@ pub enum ConditionalDensityFunction<'a> {
         range: &'a Range<f64>,
         when_in_range: usize,
         when_out_range: usize,
-    }
+    },
 }
 
 impl ConditionalDensityFunction<'_> {
@@ -22,10 +22,10 @@ impl ConditionalDensityFunction<'_> {
             } => {
                 for (i, threshold) in thresholds.iter().enumerate() {
                     if input < *threshold {
-                        return func.execute_inner(functions[i])
+                        return func.execute_inner(functions[i]);
                     }
                 }
-                
+
                 func.execute_inner(*functions.last().unwrap())
             }
             Self::RangeChoice {

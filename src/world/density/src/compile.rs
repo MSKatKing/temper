@@ -1,3 +1,4 @@
+use crate::BoxedDensityFunction;
 use crate::conditional::{IntervalSelect, RangeChoice};
 use crate::json::{DensityFunction, DensityFunctionArgument, DensitySpline, ValueOrSpline};
 use crate::mapped::{Axis, Gradient, Tiling};
@@ -8,7 +9,6 @@ use crate::math::{
 };
 use crate::noise::{Noise, OldBlendedNoise, Shift, ShiftA, ShiftB};
 use crate::spline::Spline;
-use crate::BoxedDensityFunction;
 use std::collections::HashMap;
 use temper_core::random::{PositionalRandom, RandomSource};
 use temper_noise::params::NoiseParameter;

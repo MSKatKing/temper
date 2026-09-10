@@ -1,5 +1,5 @@
 use crate::DensityFunction;
-use crate::wrapped::{push_op, CacheData, FlattenedDensityFunction, MarkerDensityFunction};
+use crate::wrapped::{CacheData, FlattenedDensityFunction, MarkerDensityFunction, push_op};
 
 #[derive(Debug)]
 pub struct CacheAllInCell(pub Box<dyn DensityFunction>);
@@ -29,23 +29,19 @@ impl DensityFunction for CacheOnce {
 }
 
 impl DensityFunction for Cache2d {
-    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a >>) -> usize {
-        push_op(ops, |ops| {
-            FlattenedDensityFunction::Marker {
-                op: MarkerDensityFunction::Cache2d(CacheData::default()),
-                arg: self.0.wrap(ops)
-            }
+    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
+        push_op(ops, |ops| FlattenedDensityFunction::Marker {
+            op: MarkerDensityFunction::Cache2d(CacheData::default()),
+            arg: self.0.wrap(ops),
         })
     }
 }
 
 impl DensityFunction for FlatCache {
     fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-        push_op(ops, |ops| {
-            FlattenedDensityFunction::Marker {
-                op: MarkerDensityFunction::FlatCache(CacheData::default()),
-                arg: self.0.wrap(ops)
-            }
+        push_op(ops, |ops| FlattenedDensityFunction::Marker {
+            op: MarkerDensityFunction::FlatCache(CacheData::default()),
+            arg: self.0.wrap(ops),
         })
     }
 }

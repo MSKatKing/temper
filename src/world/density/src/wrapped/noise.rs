@@ -1,6 +1,6 @@
+use crate::wrapped::WrappedDensityFunction;
 use bevy_math::DVec3;
 use temper_noise::{BlendedNoise, NormalNoise};
-use crate::wrapped::WrappedDensityFunction;
 
 pub enum NoiseDensityFunction<'a> {
     Noise {
@@ -31,20 +31,16 @@ impl NoiseDensityFunction<'_> {
                 let shift_x = shift_x.map(|v| func.execute_inner(v)).unwrap_or_default();
                 let shift_y = shift_y.map(|v| func.execute_inner(v)).unwrap_or_default();
                 let shift_z = shift_z.map(|v| func.execute_inner(v)).unwrap_or_default();
-                
+
                 let pos = func.pos;
                 noise.noise(DVec3::new(
                     (pos.pos.x as f64 * xz_scale) + shift_x,
                     (pos.pos.y as f64 * y_scale) + shift_y,
                     (pos.pos.z as f64 * xz_scale) + shift_z,
                 ))
-            },
-            Self::BlendedNosie(noise) => {
-                noise.noise(func.pos.pos.as_dvec3())
             }
-            Self::Shift(noise) => {
-                noise.noise(func.pos.pos.as_dvec3() * 0.25) * 4.0
-            }
+            Self::BlendedNosie(noise) => noise.noise(func.pos.pos.as_dvec3()),
+            Self::Shift(noise) => noise.noise(func.pos.pos.as_dvec3() * 0.25) * 4.0,
             Self::ShiftA(noise) => {
                 noise.noise(DVec3::new(
                     func.pos.pos.x as f64 * 0.25,
@@ -56,7 +52,7 @@ impl NoiseDensityFunction<'_> {
                 noise.noise(DVec3::new(
                     func.pos.pos.z as f64 * 0.25,
                     func.pos.pos.x as f64 * 0.25,
-                    0.0
+                    0.0,
                 )) * 4.0
             }
         }

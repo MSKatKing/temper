@@ -1,23 +1,22 @@
-pub mod marker;
-pub mod unary;
 pub mod binary;
-pub mod spline;
-pub mod mapped;
 pub mod conditional;
+pub mod mapped;
+pub mod marker;
 pub mod noise;
+pub mod spline;
+pub mod unary;
 
-use std::cell::RefCell;
 pub use marker::*;
 
-use crate::wrapped::binary::BinaryDensityFunction;
-use crate::wrapped::spline::FlattenedSpline;
-use crate::wrapped::unary::UnaryDensityFunction;
 use crate::BoxedDensityFunction;
-use temper_core::pos::BlockPos;
 use crate::mapped::Gradient;
+use crate::wrapped::binary::BinaryDensityFunction;
 use crate::wrapped::conditional::ConditionalDensityFunction;
 use crate::wrapped::mapped::Lerp;
 use crate::wrapped::noise::NoiseDensityFunction;
+use crate::wrapped::spline::FlattenedSpline;
+use crate::wrapped::unary::UnaryDensityFunction;
+use temper_core::pos::BlockPos;
 
 pub struct WrappedDensityFunction<'a> {
     functions: Box<[FlattenedDensityFunction<'a>]>,
@@ -50,7 +49,7 @@ pub enum FlattenedDensityFunction<'a> {
 }
 
 impl WrappedDensityFunction<'_> {
-    pub fn wrap(func: &BoxedDensityFunction) -> WrappedDensityFunction {
+    pub fn wrap(func: &BoxedDensityFunction) -> WrappedDensityFunction<'_> {
         let mut ops = Vec::new();
         func.wrap(&mut ops);
 
@@ -77,45 +76,26 @@ impl FlattenedDensityFunction<'_> {
     fn execute(&mut self, func: &WrappedDensityFunction) -> f64 {
         match self {
             FlattenedDensityFunction::Constant(val) => *val,
-            FlattenedDensityFunction::Unary {
-                op,
-                arg,
-            } => op.execute(
-                func.execute_inner(*arg),
-            ),
-            FlattenedDensityFunction::Binary {
-                op,
-                lhs,
-                rhs,
-            } => {
-                op.execute(
-                    func.execute_inner(*lhs),
-                    func.execute_inner(*rhs),
-                )
+            FlattenedDensityFunction::Unary { op, arg } => op.execute(func.execute_inner(*arg)),
+            FlattenedDensityFunction::Binary { op, lhs, rhs } => {
+                op.execute(func.execute_inner(*lhs), func.execute_inner(*rhs))
             }
             FlattenedDensityFunction::Spline(spline) => spline.sample(func),
-            FlattenedDensityFunction::Marker {
-                op,
-                arg,
-            } => op.execute(
-                *arg,
-                func
-            ),
+            FlattenedDensityFunction::Marker { op, arg } => op.execute(*arg, func),
             FlattenedDensityFunction::Gradient(gradient) => gradient.sample(func.pos),
             FlattenedDensityFunction::Lerp(lerp) => lerp.compute(func),
-            FlattenedDensityFunction::Conditional {
-                op,
-                input,
-            } => op.compute(
-                func.execute_inner(*input),
-                func
-            ),
+            FlattenedDensityFunction::Conditional { op, input } => {
+                op.compute(func.execute_inner(*input), func)
+            }
             FlattenedDensityFunction::Noise(noise) => noise.sample(func),
         }
     }
 }
 
-pub fn push_op<'a>(ops: &mut Vec<FlattenedDensityFunction<'a>>, f: impl FnOnce(&mut Vec<FlattenedDensityFunction<'a>>) -> FlattenedDensityFunction<'a>) -> usize {
+pub fn push_op<'a>(
+    ops: &mut Vec<FlattenedDensityFunction<'a>>,
+    f: impl FnOnce(&mut Vec<FlattenedDensityFunction<'a>>) -> FlattenedDensityFunction<'a>,
+) -> usize {
     let idx = ops.len();
     // SAFETY: we replace the data before returning
     ops.push(unsafe { std::mem::zeroed() });

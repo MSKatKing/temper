@@ -37,11 +37,7 @@ impl MarkerDensityFunction {
                 data.last_value
             }
             Self::Cache2d(data) => {
-                let pos = BlockPos::of(
-                    func.pos.pos.x,
-                    0,
-                    func.pos.pos.z,
-                );
+                let pos = BlockPos::of(func.pos.pos.x, 0, func.pos.pos.z);
 
                 if pos != data.last_pos {
                     data.last_pos = pos;
@@ -51,11 +47,7 @@ impl MarkerDensityFunction {
                 data.last_value
             }
             Self::FlatCache(data) => {
-                let pos = BlockPos::of(
-                    func.pos.pos.x & !3,
-                    0,
-                    func.pos.pos.z & !3,
-                );
+                let pos = BlockPos::of(func.pos.pos.x & !3, 0, func.pos.pos.z & !3);
 
                 if pos != data.last_pos {
                     data.last_pos = pos;

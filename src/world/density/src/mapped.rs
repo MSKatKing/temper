@@ -1,4 +1,4 @@
-use crate::wrapped::{push_op, FlattenedDensityFunction};
+use crate::wrapped::{FlattenedDensityFunction, push_op};
 use crate::{BoxedDensityFunction, DensityFunction};
 use std::ops::{Div, Rem};
 use temper_core::pos::BlockPos;

@@ -1,5 +1,5 @@
 use crate::wrapped::conditional::ConditionalDensityFunction;
-use crate::wrapped::{push_op, FlattenedDensityFunction};
+use crate::wrapped::{FlattenedDensityFunction, push_op};
 use crate::{BoxedDensityFunction, DensityFunction};
 use std::ops::Range;
 
@@ -20,29 +20,25 @@ pub struct RangeChoice {
 
 impl DensityFunction for IntervalSelect {
     fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-        push_op(ops, |ops| {
-            FlattenedDensityFunction::Conditional {
-                op: ConditionalDensityFunction::IntervalSelect {
-                    thresholds: &self.thresholds,
-                    functions: self.functions.iter().map(|v| v.wrap(ops)).collect(),
-                },
-                input: self.input.wrap(ops),
-            }
+        push_op(ops, |ops| FlattenedDensityFunction::Conditional {
+            op: ConditionalDensityFunction::IntervalSelect {
+                thresholds: &self.thresholds,
+                functions: self.functions.iter().map(|v| v.wrap(ops)).collect(),
+            },
+            input: self.input.wrap(ops),
         })
     }
 }
 
 impl DensityFunction for RangeChoice {
     fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-        push_op(ops, |ops| {
-            FlattenedDensityFunction::Conditional {
-                op: ConditionalDensityFunction::RangeChoice {
-                    range: &self.range,
-                    when_in_range: self.when_in_range.wrap(ops),
-                    when_out_range: self.when_out_range.wrap(ops),
-                },
-                input: self.input.wrap(ops),
-            }
+        push_op(ops, |ops| FlattenedDensityFunction::Conditional {
+            op: ConditionalDensityFunction::RangeChoice {
+                range: &self.range,
+                when_in_range: self.when_in_range.wrap(ops),
+                when_out_range: self.when_out_range.wrap(ops),
+            },
+            input: self.input.wrap(ops),
         })
     }
 }

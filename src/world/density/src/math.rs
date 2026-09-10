@@ -1,6 +1,6 @@
 use crate::wrapped::binary::BinaryDensityFunction;
 use crate::wrapped::unary::UnaryDensityFunction;
-use crate::wrapped::{push_op, FlattenedDensityFunction};
+use crate::wrapped::{FlattenedDensityFunction, push_op};
 use crate::{BoxedDensityFunction, DensityFunction};
 
 macro_rules! math_function {

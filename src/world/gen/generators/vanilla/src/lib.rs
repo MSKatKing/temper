@@ -3,15 +3,14 @@ use gen_core::{
     StageSpec,
 };
 use include_dir::{Dir, include_dir};
-use std::arch::x86_64::{_mm256_set1_pd, _mm256_setr_pd, _mm256_storeu_pd};
 use std::collections::HashMap;
 use temper_core::block_state_id::BlockStateId;
-use temper_core::math::{TemperMathExt, TemperMathExtUnsafe};
-use temper_core::pos::ChunkBlockPos;
+use temper_core::math::TemperMathExt;
+use temper_core::pos::{ChunkBlockPos, ChunkPos};
 use temper_core::random::{RandomSource, XoroshiroRandomSource};
+use temper_density::BoxedDensityFunction;
 use temper_density::compile::Compiler;
 use temper_density::json::{DensityFunctionArgument, deserialize_function};
-use temper_density::{BoxedDensityFunction, DensityFunctionContext};
 use temper_density::wrapped::WrappedDensityFunction;
 use temper_macros::block;
 
@@ -117,130 +116,108 @@ impl VanillaGenerator {
             }
         }
 
+        for y in -64..-54 {
+            for x in 0..16 {
+                for z in 0..16 {
+                    input.target.set_block_without_heightmap(
+                        ChunkBlockPos::new(x, y, z),
+                        block!("lava", { level: 0 }),
+                    )
+                }
+            }
+        }
+
         let cell_size_xz = 1;
         let cell_size_y = 2;
 
         let cell_height = cell_size_y + 1;
         let cell_width = cell_size_xz + 1;
 
+        let cell_count_xz = 16usize >> cell_width;
+        let cell_count_y = 384usize >> cell_height;
+
         let cell_width_blocks = 1 << cell_width;
         let cell_height_blocks = 1 << cell_height;
 
         let mut wrapped = WrappedDensityFunction::wrap(&self.final_density);
 
-        let chunk_pos = input.pos;
-        let mut compute_corner = move |x: i32, y: i32, z: i32| {
-            wrapped.execute(chunk_pos.block_offset(x, y, z))
-        };
+        let size_z = cell_count_xz + 1;
+        let size_y = cell_count_y + 1;
+        let mut slice0 = vec![0.0; size_z * size_y].into_boxed_slice();
+        let mut slice1 = vec![0.0; size_z * size_y].into_boxed_slice();
 
-        for x_cell in 0..(16 >> cell_width) {
+        fill_slice(
+            &mut slice0,
+            &input.pos,
+            0,
+            cell_count_xz,
+            cell_count_y,
+            cell_width,
+            cell_height,
+            &mut wrapped,
+        );
+
+        for x_cell in 0..cell_count_xz {
             let x_pos = x_cell << cell_width;
+            fill_slice(
+                &mut slice1,
+                &input.pos,
+                x_cell + 1,
+                cell_count_xz,
+                cell_count_y,
+                cell_width,
+                cell_height,
+                &mut wrapped,
+            );
 
-            for z_cell in 0..(16 >> cell_width) {
+            for z_cell in 0..cell_count_xz {
                 let z_pos = z_cell << cell_width;
 
-                let mut p000;
-                let mut p001;
-                let mut p010;
-                let mut p011;
-                let mut p100 = compute_corner(x_pos, 320, z_pos);
-                let mut p101 = compute_corner(x_pos, 320, z_pos + cell_width_blocks);
-                let mut p110 = compute_corner(x_pos + cell_width_blocks, 320, z_pos);
-                let mut p111 = compute_corner(x_pos + cell_width_blocks, 320, z_pos + cell_width_blocks);
+                for y_cell in (0..cell_count_y).rev() {
+                    let y_pos = y_cell << cell_height;
 
-                for cell_y in (0..=(384 >> cell_height)).rev() {
-                    let y_pos = (cell_y << cell_height) - 64;
+                    let p000 = slice0[z_cell + y_cell * size_z];
+                    let p001 = slice0[z_cell + (y_cell + 1) * size_z];
+                    let p010 = slice0[z_cell + 1 + y_cell * size_z];
+                    let p011 = slice0[z_cell + 1 + (y_cell + 1) * size_z];
+                    let p100 = slice1[z_cell + y_cell * size_z];
+                    let p101 = slice1[z_cell + (y_cell + 1) * size_z];
+                    let p110 = slice1[z_cell + 1 + y_cell * size_z];
+                    let p111 = slice1[z_cell + 1 + (y_cell + 1) * size_z];
 
-                    p000 = p100;
-                    p001 = p101;
-                    p010 = p110;
-                    p011 = p111;
+                    for y in (0..cell_height_blocks).rev() {
+                        let t0 = y as f64 / cell_height_blocks as f64;
+                        let y00 = t0.lerp(p000, p001);
+                        let y01 = t0.lerp(p010, p011);
+                        let y10 = t0.lerp(p100, p101);
+                        let y11 = t0.lerp(p110, p111);
 
-                    p100 = compute_corner(x_pos, y_pos - cell_height_blocks, z_pos);
-                    p101 = compute_corner(x_pos, y_pos - cell_height_blocks, z_pos + cell_width_blocks);
-                    p110 = compute_corner(x_pos + cell_width_blocks, y_pos - cell_height_blocks, z_pos);
-                    p111 = compute_corner(x_pos + cell_width_blocks, y_pos - cell_height_blocks, z_pos + cell_width_blocks);
-
-                    if is_x86_feature_detected!("fma") && is_x86_feature_detected!("avx2") {
-                        unsafe {
-                            let p000 = _mm256_set1_pd(p000);
-                            let p001 = _mm256_set1_pd(p001);
-                            let p010 = _mm256_set1_pd(p010);
-                            let p011 = _mm256_set1_pd(p011);
-                            let p100 = _mm256_set1_pd(p100);
-                            let p101 = _mm256_set1_pd(p101);
-                            let p110 = _mm256_set1_pd(p110);
-                            let p111 = _mm256_set1_pd(p111);
-
-                            for z in 0..cell_width_blocks {
-                                let t0 = _mm256_set1_pd(z as f64 / cell_width_blocks as f64);
-                                let z00 = t0.lerp(p000, p001);
-                                let z01 = t0.lerp(p010, p011);
-                                let z10 = t0.lerp(p100, p101);
-                                let z11 = t0.lerp(p110, p111);
-
-                                for x in 0..cell_width_blocks {
-                                    let t1 = _mm256_set1_pd(x as f64 / cell_width_blocks as f64);
-                                    let x0 = t1.lerp(z00, z01);
-                                    let x1 = t1.lerp(z10, z11);
-
-                                    for block_y in (0..cell_size_y).rev() {
-                                        let y = (block_y << 2) as f64;
-
-                                        let t2 = _mm256_setr_pd(
-                                            (y + 3.0) / cell_height_blocks as f64,
-                                            (y + 2.0) / cell_height_blocks as f64,
-                                            (y + 1.0) / cell_height_blocks as f64,
-                                            y / cell_height_blocks as f64,
-                                        );
-                                        let val = t2.lerp(x0, x1);
-
-                                        let mut values = [0.0; 4];
-                                        _mm256_storeu_pd(values.as_mut_ptr(), val);
-
-                                        for i in 0..4 {
-                                            if values[i] > 0.0 {
-                                                input.target.set_block_without_heightmap(ChunkBlockPos::new(
-                                                    (x_pos + x) as _,
-                                                    (y_pos - ((block_y << 2) + (3 - i) as i32)) as i16,
-                                                    (z_pos + z) as _,
-                                                ), self.default_block_state)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } else {
                         for z in 0..cell_width_blocks {
-                            let t0 = z as f64 / cell_width_blocks as f64;
-                            let z00 = t0.lerp(p000, p001);
-                            let z01 = t0.lerp(p010, p011);
-                            let z10 = t0.lerp(p100, p101);
-                            let z11 = t0.lerp(p110, p111);
+                            let t1 = z as f64 / cell_width_blocks as f64;
+                            let z0 = t1.lerp(y00, y01);
+                            let z1 = t1.lerp(y10, y11);
 
                             for x in 0..cell_width_blocks {
-                                let t1 = x as f64 / cell_width_blocks as f64;
-                                let x0 = t1.lerp(z00, z01);
-                                let x1 = t1.lerp(z10, z11);
+                                let t2 = x as f64 / cell_width_blocks as f64;
+                                let val = t2.lerp(z0, z1);
 
-                                for y in (0..cell_height_blocks).rev() {
-                                    let t2 = y as f64 / cell_height_blocks as f64;
-                                    let val = t2.lerp(x0, x1);
-
-                                    if val > 0.0 {
-                                        input.target.set_block_without_heightmap(ChunkBlockPos::new(
-                                            (x_pos + x) as _,
-                                            (y_pos - y) as i16,
-                                            (z_pos + z) as _,
-                                        ), self.default_block_state)
-                                    }
+                                if val > 0.0 {
+                                    input.target.set_block_without_heightmap(
+                                        ChunkBlockPos::new(
+                                            (x_pos + x) as u8,
+                                            (y_pos + y) as i16 - 64,
+                                            (z_pos + z) as u8,
+                                        ),
+                                        self.default_block_state,
+                                    );
                                 }
                             }
                         }
                     }
                 }
             }
+
+            std::mem::swap(&mut slice0, &mut slice1);
         }
 
         input.target.recalculate_heightmap();
@@ -290,5 +267,30 @@ impl VanillaGenerator {
         }
 
         Ok(())
+    }
+}
+
+#[expect(clippy::too_many_arguments)]
+fn fill_slice(
+    slice: &mut [f64],
+    chunk_pos: &ChunkPos,
+    cell_x: usize,
+    cell_count_xz: usize,
+    cell_count_y: usize,
+    cell_width: i32,
+    cell_height: i32,
+    function: &mut WrappedDensityFunction,
+) {
+    let x_pos = (cell_x << cell_width) as i32;
+
+    for cell_z in 0..=cell_count_xz {
+        let z_pos = (cell_z << cell_width) as i32;
+
+        for cell_y in (0..=cell_count_y).rev() {
+            let y_pos = (cell_y << cell_height) as i32 - 64;
+
+            slice[cell_z + cell_y * (cell_count_xz + 1)] =
+                function.execute(chunk_pos.block_offset(x_pos, y_pos, z_pos));
+        }
     }
 }

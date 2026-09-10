@@ -1,5 +1,5 @@
-use temper_core::math::TemperMathExt;
 use crate::wrapped::WrappedDensityFunction;
+use temper_core::math::TemperMathExt;
 
 pub enum FlattenedSpline<'a> {
     Multipoint {
@@ -27,7 +27,7 @@ impl FlattenedSpline<'_> {
                     None => {
                         let value = values[0].sample(func);
                         Self::linear_extend(input, locations, derivatives, value, 0)
-                    },
+                    }
                     Some(x) if x == last_index => {
                         let value = values[last_index].sample(func);
                         Self::linear_extend(input, locations, derivatives, value, last_index)
@@ -50,7 +50,13 @@ impl FlattenedSpline<'_> {
         }
     }
 
-    fn linear_extend(input: f64, locations: &[f64], derivatives: &[f64], value: f64, index: usize) -> f64 {
+    fn linear_extend(
+        input: f64,
+        locations: &[f64],
+        derivatives: &[f64],
+        value: f64,
+        index: usize,
+    ) -> f64 {
         let derivative = derivatives[index];
 
         if derivative == 0.0 {
@@ -61,6 +67,8 @@ impl FlattenedSpline<'_> {
     }
 
     fn find_interval_start(locations: &[f64], input: f64) -> Option<usize> {
-        locations.partition_point(|&location| input >= location).checked_sub(1)
+        locations
+            .partition_point(|&location| input >= location)
+            .checked_sub(1)
     }
 }
