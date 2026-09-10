@@ -20,7 +20,7 @@ use crate::wrapped::mapped::Lerp;
 use crate::wrapped::noise::NoiseDensityFunction;
 
 pub struct WrappedDensityFunction<'a> {
-    functions: Box<[RefCell<FlattenedDensityFunction<'a>>]>,
+    functions: Box<[FlattenedDensityFunction<'a>]>,
     pos: BlockPos,
 }
 
@@ -55,7 +55,7 @@ impl WrappedDensityFunction<'_> {
         func.wrap(&mut ops);
 
         WrappedDensityFunction {
-            functions: ops.into_iter().map(|v| RefCell::new(v)).collect(),
+            functions: ops.into_boxed_slice(),
             pos: BlockPos::of(i32::MAX, i32::MAX, i32::MAX),
         }
     }
@@ -66,7 +66,10 @@ impl WrappedDensityFunction<'_> {
     }
 
     fn execute_inner(&self, idx: usize) -> f64 {
-        self.functions[idx].borrow_mut().execute(self)
+        let func = unsafe {
+            ((&raw const self.functions[idx]) as *mut FlattenedDensityFunction).as_mut_unchecked()
+        };
+        func.execute(self)
     }
 }
 

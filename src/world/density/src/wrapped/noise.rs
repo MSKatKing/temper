@@ -34,9 +34,9 @@ impl NoiseDensityFunction<'_> {
                 
                 let pos = func.pos;
                 noise.noise(DVec3::new(
-                    (pos.pos.x as f64 + shift_x) * xz_scale,
-                    (pos.pos.y as f64 + shift_y) * y_scale,
-                    (pos.pos.z as f64 + shift_z) * xz_scale,
+                    (pos.pos.x as f64 * xz_scale) + shift_x,
+                    (pos.pos.y as f64 * y_scale) + shift_y,
+                    (pos.pos.z as f64 * xz_scale) + shift_z,
                 ))
             },
             Self::BlendedNosie(noise) => {

@@ -37,17 +37,17 @@ impl UnaryDensityFunction {
                 arg / 2.0 - arg * arg * arg / 24.0
             }
             Self::HalfNegative => {
-                if arg.is_sign_negative() {
-                    arg * 0.5
-                } else {
+                if arg > 0.0 {
                     arg
+                } else {
+                    arg * 0.5
                 }
             }
             Self::QuarterNegative => {
-                if arg.is_sign_negative() {
-                    arg * 0.25
-                } else {
+                if arg > 0.0 {
                     arg
+                } else {
+                    arg * 0.25
                 }
             }
             Self::Clamp(min, max) => arg.clamp(*min, *max),
