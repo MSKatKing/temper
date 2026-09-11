@@ -34,8 +34,6 @@ pub trait DensityFunction: Debug + Send + Sync {
 
 impl DensityFunction for f64 {
     fn wrap(&self, ctx: &mut WrapContext) -> usize {
-        ctx.push_op(|_| {
-            FlattenedDensityFunction::Constant(*self)
-        })
+        ctx.push_op(|_| FlattenedDensityFunction::Constant(*self))
     }
 }

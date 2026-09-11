@@ -50,24 +50,18 @@ impl DensityFunction for OldBlendedNoise {
 
 impl DensityFunction for Shift {
     fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
-        ctx.push_op(|_| {
-            FlattenedDensityFunction::Noise(NoiseDensityFunction::Shift(&self.0))
-        })
+        ctx.push_op(|_| FlattenedDensityFunction::Noise(NoiseDensityFunction::Shift(&self.0)))
     }
 }
 
 impl DensityFunction for ShiftA {
     fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
-        ctx.push_op(|_| {
-            FlattenedDensityFunction::Noise(NoiseDensityFunction::ShiftA(&self.0))
-        })
+        ctx.push_op(|_| FlattenedDensityFunction::Noise(NoiseDensityFunction::ShiftA(&self.0)))
     }
 }
 
 impl DensityFunction for ShiftB {
     fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
-        ctx.push_op(|_| {
-            FlattenedDensityFunction::Noise(NoiseDensityFunction::ShiftB(&self.0))
-        })
+        ctx.push_op(|_| FlattenedDensityFunction::Noise(NoiseDensityFunction::ShiftB(&self.0)))
     }
 }

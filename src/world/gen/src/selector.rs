@@ -1,6 +1,6 @@
+use gen_core::ChunkGenerator;
 use std::sync::Arc;
 use tracing::warn;
-use gen_core::ChunkGenerator;
 
 pub fn generator_from_name(name: &str, seed: u64) -> Option<Arc<dyn ChunkGenerator>> {
     match (name.trim().to_ascii_lowercase().as_str(), seed) {
@@ -14,7 +14,7 @@ pub fn generator_from_name(name: &str, seed: u64) -> Option<Arc<dyn ChunkGenerat
         ("vanilla", _) => {
             warn!("The vanilla terrain generator is experimental! Use at your own risk!");
             Some(Arc::new(vanilla::VanillaGenerator::new(seed)))
-        },
+        }
         _ => None,
     }
 }

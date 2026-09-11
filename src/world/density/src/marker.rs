@@ -1,5 +1,5 @@
 use crate::DensityFunction;
-use crate::wrapped::{CacheData, FlatCacheData, FlattenedDensityFunction, MarkerDensityFunction, WrapContext};
+use crate::wrapped::{CacheData, FlattenedDensityFunction, MarkerDensityFunction, WrapContext};
 
 #[derive(Debug)]
 pub struct CacheAllInCell(pub Box<dyn DensityFunction>);
@@ -40,7 +40,7 @@ impl DensityFunction for Cache2d {
 impl DensityFunction for FlatCache {
     fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
         ctx.push_op(|ctx| FlattenedDensityFunction::Marker {
-            op: MarkerDensityFunction::FlatCache(FlatCacheData::new(ctx.size_xz, ctx.first_x, ctx.first_z)),
+            op: MarkerDensityFunction::FlatCache(CacheData::default()),
             arg: self.0.wrap(ctx),
         })
     }

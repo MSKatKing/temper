@@ -26,9 +26,16 @@ impl BlendedNoise {
     ) -> Self {
         let mut rand = XoroshiroRandomSource::new(0);
 
-        Self::new_seeded(&mut rand, xz_scale, y_scale, xz_factor, y_factor, smear_scale_multiplier)
+        Self::new_seeded(
+            &mut rand,
+            xz_scale,
+            y_scale,
+            xz_factor,
+            y_factor,
+            smear_scale_multiplier,
+        )
     }
-    
+
     pub fn new_seeded<R: RandomSource>(
         rand: &mut R,
         xz_scale: f64,
@@ -46,10 +53,7 @@ impl BlendedNoise {
                 rand,
                 &(-15..=0).into_iter().collect::<Vec<_>>(),
             ),
-            main_noise: PerlinNoise::new_legacy(
-                rand,
-                &(-7..=0).into_iter().collect::<Vec<_>>(),
-            ),
+            main_noise: PerlinNoise::new_legacy(rand, &(-7..=0).into_iter().collect::<Vec<_>>()),
             xz_factor,
             y_factor,
             smear_scale_multiplier,

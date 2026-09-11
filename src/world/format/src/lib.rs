@@ -323,7 +323,7 @@ impl Chunk {
                 .store(false, std::sync::atomic::Ordering::Relaxed);
         }
     }
-    
+
     /// Returns the ChunkHeight for this Chunk
     pub fn height(&self) -> &ChunkHeight {
         &self.height

@@ -140,7 +140,12 @@ impl VanillaGenerator {
         let cell_height_blocks = 1 << cell_height;
 
         let chunk_min = input.pos.block_offset(0, 0, 0);
-        let mut wrapped = WrappedDensityFunction::wrap(&self.final_density, cell_width_blocks, chunk_min.pos.x >> 2, chunk_min.pos.z >> 2);
+        let mut wrapped = WrappedDensityFunction::wrap(
+            &self.final_density,
+            cell_width_blocks,
+            chunk_min.pos.x >> 2,
+            chunk_min.pos.z >> 2,
+        );
 
         let size_z = cell_count_xz + 1;
         let size_y = cell_count_y + 1;

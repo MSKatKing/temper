@@ -80,11 +80,14 @@ impl Gradient {
                 let rel = coord - self.from_coord as f64;
                 self.from_value + rel.rem(coord_range).floor() * coord_factor
             }
-            Tiling::Legacy => {
-                coord
-                    .clamp(self.from_coord as f64, self.to_coord as f64)
-                    .clamped_map(self.from_coord as f64, self.to_coord as f64, self.from_value, self.to_value)
-            }
+            Tiling::Legacy => coord
+                .clamp(self.from_coord as f64, self.to_coord as f64)
+                .clamped_map(
+                    self.from_coord as f64,
+                    self.to_coord as f64,
+                    self.from_value,
+                    self.to_value,
+                ),
         }
     }
 }

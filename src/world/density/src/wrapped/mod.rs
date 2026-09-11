@@ -56,7 +56,12 @@ pub enum FlattenedDensityFunction<'a> {
 }
 
 impl WrappedDensityFunction<'_> {
-    pub fn wrap(func: &BoxedDensityFunction, size_xz: i32, first_x: i32, first_z: i32) -> WrappedDensityFunction<'_> {
+    pub fn wrap(
+        func: &BoxedDensityFunction,
+        size_xz: i32,
+        first_x: i32,
+        first_z: i32,
+    ) -> WrappedDensityFunction<'_> {
         let mut wrap_ctx = WrapContext {
             ops: Vec::new(),
             size_xz,
