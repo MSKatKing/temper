@@ -1,6 +1,6 @@
 use crate::wrapped::binary::BinaryDensityFunction;
 use crate::wrapped::unary::UnaryDensityFunction;
-use crate::wrapped::{FlattenedDensityFunction, push_op};
+use crate::wrapped::{FlattenedDensityFunction, WrapContext};
 use crate::{BoxedDensityFunction, DensityFunction};
 
 macro_rules! math_function {
@@ -13,12 +13,12 @@ macro_rules! math_function {
         }
 
         impl DensityFunction for $name {
-            fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-                push_op(ops, |ops| {
+            fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
+                ctx.push_op(|ctx| {
                     FlattenedDensityFunction::Binary {
                         op: BinaryDensityFunction::$op,
-                        lhs: self.left.wrap(ops),
-                        rhs: self.right.wrap(ops),
+                        lhs: self.left.wrap(ctx),
+                        rhs: self.right.wrap(ctx),
                     }
                 })
             }
@@ -30,11 +30,11 @@ macro_rules! math_function {
         pub struct $name(pub BoxedDensityFunction);
 
         impl DensityFunction for $name {
-            fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-                push_op(ops, |ops| {
+            fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
+                ctx.push_op(|ctx| {
                     FlattenedDensityFunction::Unary {
                         op: UnaryDensityFunction::$op,
-                        arg: self.0.wrap(ops),
+                        arg: self.0.wrap(ctx),
                     }
                 })
             }
@@ -51,11 +51,11 @@ macro_rules! math_function {
         }
 
         impl DensityFunction for $name {
-            fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-                push_op(ops, |ops| {
+            fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
+                ctx.push_op(|ctx| {
                     FlattenedDensityFunction::Unary {
                         op: UnaryDensityFunction::$op($(self.$field),*),
-                        arg: self.inner.wrap(ops),
+                        arg: self.inner.wrap(ctx),
                     }
                 })
             }

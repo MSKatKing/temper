@@ -1,5 +1,5 @@
 use crate::wrapped::spline::FlattenedSpline;
-use crate::wrapped::{FlattenedDensityFunction, push_op};
+use crate::wrapped::{FlattenedDensityFunction, WrapContext};
 use crate::{BoxedDensityFunction, DensityFunction};
 
 #[derive(Debug)]
@@ -16,7 +16,7 @@ pub enum Spline {
 }
 
 impl Spline {
-    fn wrap_type<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> FlattenedSpline<'a> {
+    fn wrap_type<'a>(&'a self, ctx: &mut WrapContext<'a>) -> FlattenedSpline<'a> {
         match self {
             Spline::Multipoint {
                 values,
@@ -26,8 +26,8 @@ impl Spline {
             } => FlattenedSpline::Multipoint {
                 locations,
                 derivatives,
-                coordinate: coordinate.wrap(ops),
-                values: values.iter().map(|v| v.wrap_type(ops)).collect(),
+                coordinate: coordinate.wrap(ctx),
+                values: values.iter().map(|v| v.wrap_type(ctx)).collect(),
             },
             Spline::Constant { value } => FlattenedSpline::Constant(*value),
         }
@@ -35,17 +35,17 @@ impl Spline {
 }
 
 impl DensityFunction for Spline {
-    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
+    fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
         match self {
             Spline::Constant { value } => {
-                push_op(ops, |_| FlattenedDensityFunction::Constant(*value))
+                ctx.push_op(|_| FlattenedDensityFunction::Constant(*value))
             }
             Spline::Multipoint {
                 coordinate,
                 locations,
                 values,
                 derivatives,
-            } => push_op(ops, |ops| {
+            } => ctx.push_op(|ops| {
                 FlattenedDensityFunction::Spline(FlattenedSpline::Multipoint {
                     coordinate: coordinate.wrap(ops),
                     locations,

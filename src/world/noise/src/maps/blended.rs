@@ -2,7 +2,7 @@ use crate::PerlinNoise;
 use bevy_math::DVec3;
 use std::fmt::{Debug, Formatter};
 use temper_core::math::TemperMathExt;
-use temper_core::random::XoroshiroRandomSource;
+use temper_core::random::{RandomSource, XoroshiroRandomSource};
 
 #[derive(Clone)]
 pub struct BlendedNoise {
@@ -26,17 +26,28 @@ impl BlendedNoise {
     ) -> Self {
         let mut rand = XoroshiroRandomSource::new(0);
 
+        Self::new_seeded(&mut rand, xz_scale, y_scale, xz_factor, y_factor, smear_scale_multiplier)
+    }
+    
+    pub fn new_seeded<R: RandomSource>(
+        rand: &mut R,
+        xz_scale: f64,
+        y_scale: f64,
+        xz_factor: f64,
+        y_factor: f64,
+        smear_scale_multiplier: f64,
+    ) -> Self {
         Self {
             min_limit_noise: PerlinNoise::new_legacy(
-                &mut rand,
+                rand,
                 &(-15..=0).into_iter().collect::<Vec<_>>(),
             ),
             max_limit_noise: PerlinNoise::new_legacy(
-                &mut rand,
+                rand,
                 &(-15..=0).into_iter().collect::<Vec<_>>(),
             ),
             main_noise: PerlinNoise::new_legacy(
-                &mut rand,
+                rand,
                 &(-7..=0).into_iter().collect::<Vec<_>>(),
             ),
             xz_factor,

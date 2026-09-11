@@ -1,5 +1,5 @@
 use crate::wrapped::noise::NoiseDensityFunction;
-use crate::wrapped::{FlattenedDensityFunction, push_op};
+use crate::wrapped::{FlattenedDensityFunction, WrapContext};
 use crate::{BoxedDensityFunction, DensityFunction};
 use temper_noise::{BlendedNoise, NormalNoise};
 
@@ -26,47 +26,47 @@ pub struct ShiftA(pub NormalNoise);
 pub struct ShiftB(pub NormalNoise);
 
 impl DensityFunction for Noise {
-    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-        push_op(ops, |ops| {
+    fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
+        ctx.push_op(|ctx| {
             FlattenedDensityFunction::Noise(NoiseDensityFunction::Noise {
                 noise: &self.noise,
                 xz_scale: self.xz_scale,
                 y_scale: self.y_scale,
-                shift_x: self.shift_x.as_ref().map(|v| v.wrap(ops)),
-                shift_y: self.shift_y.as_ref().map(|v| v.wrap(ops)),
-                shift_z: self.shift_z.as_ref().map(|v| v.wrap(ops)),
+                shift_x: self.shift_x.as_ref().map(|v| v.wrap(ctx)),
+                shift_y: self.shift_y.as_ref().map(|v| v.wrap(ctx)),
+                shift_z: self.shift_z.as_ref().map(|v| v.wrap(ctx)),
             })
         })
     }
 }
 
 impl DensityFunction for OldBlendedNoise {
-    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-        push_op(ops, |_| {
+    fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
+        ctx.push_op(|_| {
             FlattenedDensityFunction::Noise(NoiseDensityFunction::BlendedNosie(&self.0))
         })
     }
 }
 
 impl DensityFunction for Shift {
-    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-        push_op(ops, |_| {
+    fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
+        ctx.push_op(|_| {
             FlattenedDensityFunction::Noise(NoiseDensityFunction::Shift(&self.0))
         })
     }
 }
 
 impl DensityFunction for ShiftA {
-    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-        push_op(ops, |_| {
+    fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
+        ctx.push_op(|_| {
             FlattenedDensityFunction::Noise(NoiseDensityFunction::ShiftA(&self.0))
         })
     }
 }
 
 impl DensityFunction for ShiftB {
-    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-        push_op(ops, |_| {
+    fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
+        ctx.push_op(|_| {
             FlattenedDensityFunction::Noise(NoiseDensityFunction::ShiftB(&self.0))
         })
     }

@@ -23,6 +23,13 @@ pub struct WrappedDensityFunction<'a> {
     pos: BlockPos,
 }
 
+pub struct WrapContext<'a> {
+    ops: Vec<FlattenedDensityFunction<'a>>,
+    pub size_xz: i32,
+    pub first_x: i32,
+    pub first_z: i32,
+}
+
 pub enum FlattenedDensityFunction<'a> {
     Constant(f64),
     Unary {
@@ -49,12 +56,17 @@ pub enum FlattenedDensityFunction<'a> {
 }
 
 impl WrappedDensityFunction<'_> {
-    pub fn wrap(func: &BoxedDensityFunction) -> WrappedDensityFunction<'_> {
-        let mut ops = Vec::new();
-        func.wrap(&mut ops);
+    pub fn wrap(func: &BoxedDensityFunction, size_xz: i32, first_x: i32, first_z: i32) -> WrappedDensityFunction<'_> {
+        let mut wrap_ctx = WrapContext {
+            ops: Vec::new(),
+            size_xz,
+            first_x,
+            first_z,
+        };
+        func.wrap(&mut wrap_ctx);
 
         WrappedDensityFunction {
-            functions: ops.into_boxed_slice(),
+            functions: wrap_ctx.ops.into_boxed_slice(),
             pos: BlockPos::of(i32::MAX, i32::MAX, i32::MAX),
         }
     }
@@ -69,6 +81,21 @@ impl WrappedDensityFunction<'_> {
             ((&raw const self.functions[idx]) as *mut FlattenedDensityFunction).as_mut_unchecked()
         };
         func.execute(self)
+    }
+
+    fn execute_inner_at(&self, idx: usize, pos: BlockPos) -> f64 {
+        let old_pos = self.pos;
+        unsafe {
+            *(&raw const self.pos as *mut BlockPos).as_mut_unchecked() = pos;
+        }
+        let func = unsafe {
+            ((&raw const self.functions[idx]) as *mut FlattenedDensityFunction).as_mut_unchecked()
+        };
+        let out = func.execute(self);
+        unsafe {
+            *(&raw const self.pos as *mut BlockPos).as_mut_unchecked() = old_pos;
+        }
+        out
     }
 }
 
@@ -92,14 +119,12 @@ impl FlattenedDensityFunction<'_> {
     }
 }
 
-pub fn push_op<'a>(
-    ops: &mut Vec<FlattenedDensityFunction<'a>>,
-    f: impl FnOnce(&mut Vec<FlattenedDensityFunction<'a>>) -> FlattenedDensityFunction<'a>,
-) -> usize {
-    let idx = ops.len();
-    // SAFETY: we replace the data before returning
-    ops.push(unsafe { std::mem::zeroed() });
-    let data = f(ops);
-    ops[idx] = data;
-    idx
+impl<'a> WrapContext<'a> {
+    pub fn push_op(&mut self, f: impl FnOnce(&mut Self) -> FlattenedDensityFunction<'a>) -> usize {
+        let idx = self.ops.len();
+        // SAFETY: we replace the data before returning
+        self.ops.push(unsafe { std::mem::zeroed() });
+        self.ops[idx] = f(self);
+        idx
+    }
 }

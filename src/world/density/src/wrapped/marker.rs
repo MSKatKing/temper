@@ -6,6 +6,13 @@ pub struct CacheData {
     last_value: f64,
 }
 
+pub struct FlatCacheData {
+    size_xz: i32,
+    first_x: i32,
+    first_z: i32,
+    values: Option<Box<[f64]>>,
+}
+
 impl Default for CacheData {
     fn default() -> Self {
         Self {
@@ -15,12 +22,23 @@ impl Default for CacheData {
     }
 }
 
+impl FlatCacheData {
+    pub fn new(size_xz: i32, first_x: i32, first_z: i32) -> Self {
+        Self {
+            size_xz,
+            first_x,
+            first_z,
+            values: None,
+        }
+    }
+}
+
 pub enum MarkerDensityFunction {
     CacheAllInCell,
     Interpolated,
     CacheOnce(CacheData),
     Cache2d(CacheData),
-    FlatCache(CacheData),
+    FlatCache(FlatCacheData),
 }
 
 impl MarkerDensityFunction {
@@ -47,14 +65,38 @@ impl MarkerDensityFunction {
                 data.last_value
             }
             Self::FlatCache(data) => {
-                let pos = BlockPos::of(func.pos.pos.x & !3, 0, func.pos.pos.z & !3);
+                if let None = data.values {
+                    let mut values = vec![0.0; (data.size_xz * data.size_xz) as usize].into_boxed_slice();
 
-                if pos != data.last_pos {
-                    data.last_pos = pos;
-                    data.last_value = func.execute_inner(inner);
+                    for x in 0..data.size_xz {
+                        let quart_x = data.first_x + x;
+                        let block_x = quart_x << 2;
+
+                        for z in 0..data.size_xz {
+                            let quart_z = data.first_z + z;
+                            let block_z = quart_z << 2;
+
+                            values[(x + z * data.size_xz) as usize] = func.execute_inner_at(inner, BlockPos::of(block_x, 0, block_z));
+                        }
+                    }
+
+                    data.values = Some(values);
                 }
 
-                data.last_value
+                let Some(values) = &mut data.values else {
+                    unreachable!()
+                };
+
+                let quart_x = func.pos.pos.x >> 2;
+                let quart_z = func.pos.pos.z >> 2;
+                let x = quart_x - data.first_x;
+                let z = quart_z - data.first_z;
+
+                if x >= 0 && z >= 0 && x < data.size_xz && z < data.size_xz {
+                    values[(x + z * data.size_xz) as usize]
+                } else {
+                    func.execute_inner(inner)
+                }
             }
         }
     }

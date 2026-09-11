@@ -1,5 +1,5 @@
 use crate::DensityFunction;
-use crate::wrapped::{CacheData, FlattenedDensityFunction, MarkerDensityFunction, push_op};
+use crate::wrapped::{CacheData, FlatCacheData, FlattenedDensityFunction, MarkerDensityFunction, WrapContext};
 
 #[derive(Debug)]
 pub struct CacheAllInCell(pub Box<dyn DensityFunction>);
@@ -17,37 +17,37 @@ pub struct FlatCache(pub Box<dyn DensityFunction>);
 pub struct Interpolated(pub Box<dyn DensityFunction>);
 
 impl DensityFunction for CacheAllInCell {
-    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-        self.0.wrap(ops)
+    fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
+        self.0.wrap(ctx)
     }
 }
 
 impl DensityFunction for CacheOnce {
-    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-        self.0.wrap(ops)
+    fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
+        self.0.wrap(ctx)
     }
 }
 
 impl DensityFunction for Cache2d {
-    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-        push_op(ops, |ops| FlattenedDensityFunction::Marker {
+    fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
+        ctx.push_op(|ctx| FlattenedDensityFunction::Marker {
             op: MarkerDensityFunction::Cache2d(CacheData::default()),
-            arg: self.0.wrap(ops),
+            arg: self.0.wrap(ctx),
         })
     }
 }
 
 impl DensityFunction for FlatCache {
-    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-        push_op(ops, |ops| FlattenedDensityFunction::Marker {
-            op: MarkerDensityFunction::FlatCache(CacheData::default()),
-            arg: self.0.wrap(ops),
+    fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
+        ctx.push_op(|ctx| FlattenedDensityFunction::Marker {
+            op: MarkerDensityFunction::FlatCache(FlatCacheData::new(ctx.size_xz, ctx.first_x, ctx.first_z)),
+            arg: self.0.wrap(ctx),
         })
     }
 }
 
 impl DensityFunction for Interpolated {
-    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-        self.0.wrap(ops)
+    fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
+        self.0.wrap(ctx)
     }
 }

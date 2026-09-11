@@ -134,17 +134,20 @@ impl VanillaGenerator {
         let cell_width = cell_size_xz + 1;
 
         let cell_count_xz = 16usize >> cell_width;
-        let cell_count_y = 384usize >> cell_height;
+        let cell_count_y = (input.target.height().height as usize) >> cell_height;
 
         let cell_width_blocks = 1 << cell_width;
         let cell_height_blocks = 1 << cell_height;
 
-        let mut wrapped = WrappedDensityFunction::wrap(&self.final_density);
+        let chunk_min = input.pos.block_offset(0, 0, 0);
+        let mut wrapped = WrappedDensityFunction::wrap(&self.final_density, cell_width_blocks, chunk_min.pos.x >> 2, chunk_min.pos.z >> 2);
 
         let size_z = cell_count_xz + 1;
         let size_y = cell_count_y + 1;
         let mut slice0 = vec![0.0; size_z * size_y].into_boxed_slice();
         let mut slice1 = vec![0.0; size_z * size_y].into_boxed_slice();
+
+        let min_y = input.target.height().min_y;
 
         fill_slice(
             &mut slice0,
@@ -154,6 +157,7 @@ impl VanillaGenerator {
             cell_count_y,
             cell_width,
             cell_height,
+            min_y,
             &mut wrapped,
         );
 
@@ -167,6 +171,7 @@ impl VanillaGenerator {
                 cell_count_y,
                 cell_width,
                 cell_height,
+                min_y,
                 &mut wrapped,
             );
 
@@ -178,10 +183,10 @@ impl VanillaGenerator {
 
                     let p000 = slice0[z_cell + y_cell * size_z];
                     let p001 = slice0[z_cell + (y_cell + 1) * size_z];
-                    let p010 = slice0[z_cell + 1 + y_cell * size_z];
-                    let p011 = slice0[z_cell + 1 + (y_cell + 1) * size_z];
-                    let p100 = slice1[z_cell + y_cell * size_z];
-                    let p101 = slice1[z_cell + (y_cell + 1) * size_z];
+                    let p010 = slice1[z_cell + y_cell * size_z];
+                    let p011 = slice1[z_cell + (y_cell + 1) * size_z];
+                    let p100 = slice0[z_cell + 1 + y_cell * size_z];
+                    let p101 = slice0[z_cell + 1 + (y_cell + 1) * size_z];
                     let p110 = slice1[z_cell + 1 + y_cell * size_z];
                     let p111 = slice1[z_cell + 1 + (y_cell + 1) * size_z];
 
@@ -192,21 +197,21 @@ impl VanillaGenerator {
                         let y10 = t0.lerp(p100, p101);
                         let y11 = t0.lerp(p110, p111);
 
-                        for z in 0..cell_width_blocks {
-                            let t1 = z as f64 / cell_width_blocks as f64;
-                            let z0 = t1.lerp(y00, y01);
-                            let z1 = t1.lerp(y10, y11);
+                        for x in 0..cell_width_blocks {
+                            let t1 = x as f64 / cell_width_blocks as f64;
+                            let x0 = t1.lerp(y00, y01);
+                            let x1 = t1.lerp(y10, y11);
 
-                            for x in 0..cell_width_blocks {
-                                let t2 = x as f64 / cell_width_blocks as f64;
-                                let val = t2.lerp(z0, z1);
+                            for z in 0..cell_width_blocks {
+                                let t2 = z as f64 / cell_width_blocks as f64;
+                                let val = t2.lerp(x0, x1);
 
                                 if val > 0.0 {
                                     input.target.set_block_without_heightmap(
                                         ChunkBlockPos::new(
-                                            (x_pos + x) as u8,
-                                            (y_pos + y) as i16 - 64,
-                                            (z_pos + z) as u8,
+                                            (x_pos as i32 + x) as u8,
+                                            (y_pos + y) as i16 + min_y,
+                                            (z_pos as i32 + z) as u8,
                                         ),
                                         self.default_block_state,
                                     );
@@ -230,10 +235,13 @@ impl VanillaGenerator {
         let dirt = block!("dirt");
         let sand = block!("sand");
 
+        let min_y = input.target.height().min_y;
+        let max_y = min_y + input.target.height().height as i16;
+
         for x in 0..16 {
             'outer: for z in 0..16 {
-                for y in (-64..320).rev() {
-                    let above = ChunkBlockPos::new(x, (y + 1).min(319), z);
+                for y in (min_y..max_y).rev() {
+                    let above = ChunkBlockPos::new(x, (y + 1).min(max_y - 1), z);
                     let pos = ChunkBlockPos::new(x, y, z);
 
                     if input.target.get_block(pos) == self.default_block_state {
@@ -279,6 +287,7 @@ fn fill_slice(
     cell_count_y: usize,
     cell_width: i32,
     cell_height: i32,
+    min_y: i16,
     function: &mut WrappedDensityFunction,
 ) {
     let x_pos = (cell_x << cell_width) as i32;
@@ -286,11 +295,11 @@ fn fill_slice(
     for cell_z in 0..=cell_count_xz {
         let z_pos = (cell_z << cell_width) as i32;
 
-        for cell_y in (0..=cell_count_y).rev() {
-            let y_pos = (cell_y << cell_height) as i32 - 64;
+        for cell_y in 0..=cell_count_y {
+            let y_pos = (cell_y << cell_height) as i16 + min_y;
 
             slice[cell_z + cell_y * (cell_count_xz + 1)] =
-                function.execute(chunk_pos.block_offset(x_pos, y_pos, z_pos));
+                function.execute(chunk_pos.block_offset(x_pos, y_pos as i32, z_pos));
         }
     }
 }

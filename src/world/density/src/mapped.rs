@@ -1,6 +1,7 @@
-use crate::wrapped::{FlattenedDensityFunction, push_op};
+use crate::wrapped::{FlattenedDensityFunction, WrapContext};
 use crate::{BoxedDensityFunction, DensityFunction};
 use std::ops::{Div, Rem};
+use temper_core::math::TemperMathExt;
 use temper_core::pos::BlockPos;
 
 #[derive(Debug)]
@@ -15,6 +16,7 @@ pub enum Tiling {
     ClampToEdge,
     Repeat,
     MirroredRepeat,
+    Legacy,
 }
 
 #[derive(Debug)]
@@ -46,8 +48,8 @@ impl Axis {
 }
 
 impl DensityFunction for Gradient {
-    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-        push_op(ops, |_| FlattenedDensityFunction::Gradient(self))
+    fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
+        ctx.push_op(|_| FlattenedDensityFunction::Gradient(self))
     }
 }
 
@@ -78,17 +80,22 @@ impl Gradient {
                 let rel = coord - self.from_coord as f64;
                 self.from_value + rel.rem(coord_range).floor() * coord_factor
             }
+            Tiling::Legacy => {
+                coord
+                    .clamp(self.from_coord as f64, self.to_coord as f64)
+                    .clamped_map(self.from_coord as f64, self.to_coord as f64, self.from_value, self.to_value)
+            }
         }
     }
 }
 
 impl DensityFunction for Lerp {
-    fn wrap<'a>(&'a self, ops: &mut Vec<FlattenedDensityFunction<'a>>) -> usize {
-        push_op(ops, |ops| {
+    fn wrap<'a>(&'a self, ctx: &mut WrapContext<'a>) -> usize {
+        ctx.push_op(|ctx| {
             FlattenedDensityFunction::Lerp(crate::wrapped::mapped::Lerp {
-                alpha: self.alpha.wrap(ops),
-                first: self.first.wrap(ops),
-                second: self.second.wrap(ops),
+                alpha: self.alpha.wrap(ctx),
+                first: self.first.wrap(ctx),
+                second: self.second.wrap(ctx),
             })
         })
     }

@@ -86,7 +86,8 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             xz_factor,
             y_factor,
             smear_scale_multiplier,
-        } => Box::new(OldBlendedNoise(BlendedNoise::new_unseeded(
+        } => Box::new(OldBlendedNoise(BlendedNoise::new_seeded(
+            &mut rand.spawn_from_hash("minecraft:terrain"),
             *xz_scale,
             *y_scale,
             *xz_factor,
@@ -171,7 +172,7 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             to_value,
         } => Box::new(Gradient {
             axis: Axis::Y,
-            tiling: Tiling::ClampToEdge,
+            tiling: Tiling::Legacy,
             from_coord: *from_y,
             to_coord: *to_y,
             from_value: *from_value,
