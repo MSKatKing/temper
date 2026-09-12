@@ -1,6 +1,6 @@
 [package]
 name = "temper-messages"
-version = "0.1.0"
+version = { workspace = true }
 edition = "2021"
 description = "Defines all Bevy ECS messages for Temper."
 
