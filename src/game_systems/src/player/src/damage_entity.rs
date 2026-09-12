@@ -38,7 +38,7 @@ pub fn damage_entity(
                 if health.current > message.damage {
                     health.current -= message.damage;
                 } else {
-                    health.current = 0;
+                    health.current = 0.0;
                     kill_writer.write(KillEntity {
                         entity,
                         message: Some(
@@ -55,7 +55,7 @@ pub fn damage_entity(
 
                 if let Some(stream_writer) = stream_writer {
                     let health_packet = SetHealth {
-                        health: f32::from(health.current),
+                        health: health.current,
                         food: hunger.level.into(),
                         saturation: hunger.saturation,
                     };

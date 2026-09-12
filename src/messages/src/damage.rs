@@ -11,7 +11,7 @@ use temper_macros::match_block;
 pub struct DamageEvent {
     pub target: Entity,
     pub source: DamageSource,
-    pub damage: u16,
+    pub damage: f32,
     pub knockback: Option<f32>,
     pub knockback_source: Option<Position>,
 }

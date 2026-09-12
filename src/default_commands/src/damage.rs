@@ -36,7 +36,7 @@ impl CommandHandler for DamageCommand {
             damage_events.write(DamageEvent {
                 target: *target,
                 source: DamageSource::DivineSmiting { silent: false },
-                damage: *self.amount as u16,
+                damage: *self.amount as f32,
                 knockback: None,
                 knockback_source: None,
             });
