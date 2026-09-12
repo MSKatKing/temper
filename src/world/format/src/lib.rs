@@ -19,6 +19,7 @@ use temper_entities::entity_types::EntityTypeEnum;
 use temper_macros::{block, match_block};
 use type_hash::TypeHash;
 use uuid::Uuid;
+use temper_data::biomes::Biome;
 use vanilla_chunk_format::VanillaChunk;
 
 #[derive(Clone, Serialize, Deserialize, TypeHash)]
@@ -290,6 +291,22 @@ impl Chunk {
         assert!((section as usize) < self.sections.len());
 
         self.sections[section as usize].set_block(pos.section_block_pos(), id);
+    }
+
+    pub fn set_biome(&mut self, pos: ChunkBlockPos, biome: &Biome) {
+        let section = (pos.y() + -self.height.min_y) / 16;
+        assert!(section >= 0);
+        assert!((section as usize) < self.sections.len());
+
+        self.sections[section as usize].set_biome(pos.section_block_pos(), biome)
+    }
+
+    pub fn fill_biome(&mut self, biome: &Biome) {
+        for section in &mut self.sections {
+            section.fill_biome(biome);
+        }
+
+        self.mark_dirty()
     }
 
     /// Marks the chunk as dirty.

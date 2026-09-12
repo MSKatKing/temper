@@ -13,6 +13,7 @@ use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::SectionBlockPos;
 use temper_macros::{block, match_block};
 use type_hash::TypeHash;
+use temper_data::biomes::Biome;
 
 mod biome;
 mod direct;
@@ -189,6 +190,16 @@ impl ChunkSection {
     pub(crate) fn fill(&mut self, id: BlockStateId) {
         self.dirty.store(true, std::sync::atomic::Ordering::Relaxed);
         self.inner.fill(id);
+    }
+    
+    pub(crate) fn fill_biome(&mut self, biome: &Biome) {
+        self.dirty.store(true, std::sync::atomic::Ordering::Relaxed);
+        self.biome.fill_biome(BiomeType(biome.id as u8))
+    }
+    
+    pub(crate) fn set_biome(&mut self, pos: SectionBlockPos, biome: &Biome) {
+        self.dirty.store(true, std::sync::atomic::Ordering::Relaxed);
+        self.biome.set_biome(BiomeType(biome.id as u8), pos)
     }
 
     #[expect(unused)]

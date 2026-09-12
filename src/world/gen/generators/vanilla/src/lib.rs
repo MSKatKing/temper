@@ -8,6 +8,7 @@ use temper_core::block_state_id::BlockStateId;
 use temper_core::math::TemperMathExt;
 use temper_core::pos::{ChunkBlockPos, ChunkPos};
 use temper_core::random::{RandomSource, XoroshiroRandomSource};
+use temper_data::biomes::Biome;
 use temper_density::BoxedDensityFunction;
 use temper_density::compile::Compiler;
 use temper_density::json::{DensityFunctionArgument, deserialize_function};
@@ -79,7 +80,8 @@ impl ChunkGenerator for VanillaGenerator {
     fn stage_spec(&self, stage: GenStage) -> Option<StageSpec> {
         match stage {
             GenStage::EMPTY => Some(StageSpec::new(stage, "empty", StageDependencies::NONE)),
-            GenStage::NOISE => Some(StageSpec::new(stage, "noise", StageDependencies::NONE)),
+            GenStage::BIOMES => Some(StageSpec::new(stage, "biomes", StageDependencies::NONE)),
+            GenStage::NOISE => Some(StageSpec::new(stage, "noise", StageDependencies::only_own(GenStage::BIOMES))),
             GenStage::SURFACE => Some(StageSpec::new(
                 stage,
                 "surface",
@@ -92,6 +94,7 @@ impl ChunkGenerator for VanillaGenerator {
     fn advance_stage(&self, input: StageInput<'_>) -> Result<(), GenerationError> {
         match input.stage {
             GenStage::EMPTY => Ok(()),
+            GenStage::BIOMES => self.fill_biomes(input),
             GenStage::NOISE => self.fill_noise(input),
             GenStage::SURFACE => self.generate_surface(input),
             _ => Ok(()),
@@ -100,6 +103,12 @@ impl ChunkGenerator for VanillaGenerator {
 }
 
 impl VanillaGenerator {
+    fn fill_biomes(&self, input: StageInput) -> Result<(), GenerationError> {
+        input.target.fill_biome(&Biome::PLAINS);
+
+        Ok(())
+    }
+
     fn fill_noise(&self, input: StageInput) -> Result<(), GenerationError> {
         for y in -4..(self.water_level >> 4) {
             input.target.fill_section(y as i8, self.default_fluid_state)

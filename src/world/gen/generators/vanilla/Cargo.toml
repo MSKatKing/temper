@@ -10,3 +10,4 @@ temper-density = { path = "../../../density" }
 include_dir = { workspace = true }
 temper-assets = { workspace = true }
 temper-macros = { workspace = true }
+temper-data = { workspace = true }
