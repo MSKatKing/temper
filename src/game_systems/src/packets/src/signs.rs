@@ -18,7 +18,7 @@ use temper_protocol::{
 use temper_state::GlobalStateResource;
 use temper_text::{TextComponent, TextContent};
 use temper_world::Dimension;
-use temper_world_format::block_entities::{BlockEntityKind, SignBlockEntity};
+use temper_world_format::block_entities::BlockEntityKind;
 
 use tracing::{error, trace};
 
@@ -86,13 +86,12 @@ pub fn handle_sign_update(
             continue;
         };
 
-        if entry.kind != BlockEntityKind::Sign {
-            trace!("Sign update from {eid:?} for a non-sign block entity: {block_pos}");
-            continue;
-        }
-
-        let mut sign: SignBlockEntity = match serde_json::from_slice(&entry.blob) {
-            Ok(sign) => sign,
+        let mut sign = match entry.as_sign() {
+            Ok(Some(sign)) => sign,
+            Ok(None) => {
+                trace!("Sign update from {eid:?} for a non-sign block entity: {block_pos}");
+                continue;
+            }
             Err(err) => {
                 error!("Failed to read sign at {block_pos}: {err}");
                 continue;
@@ -118,15 +117,12 @@ pub fn handle_sign_update(
             })
             .collect();
 
-        let blob = match sign.to_blob() {
-            Ok(blob) => blob,
-            Err(err) => {
-                error!("Failed to write sign at {block_pos}: {err}");
-                continue;
-            }
-        };
         let protocol_id = entry.protocol_id;
-        entry.blob = blob.clone();
+        if let Err(err) = entry.set_sign(&sign) {
+            error!("Failed to write sign at {block_pos}: {err}");
+            continue;
+        }
+        let blob = entry.blob.clone();
 
         drop(entry);
         chunk.mark_dirty();
@@ -190,12 +186,11 @@ pub fn handle_sign_interact(
             continue;
         }
 
-        let sign: SignBlockEntity = match serde_json::from_slice(&entry.blob) {
-            Ok(sign) => sign,
-            Err(err) => {
-                error!("Failed to read sign at {block_pos}: {err}");
-                continue;
-            }
+        let Some(sign) = entry.as_sign().unwrap_or_else(|err| {
+            error!("Failed to read sign at {block_pos}: {err}");
+            None
+        }) else {
+            continue;
         };
 
         if sign.is_waxed {

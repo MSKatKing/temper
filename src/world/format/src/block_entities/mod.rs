@@ -17,6 +17,24 @@ pub struct BlockEntityData {
     pub blob: Vec<u8>,
 }
 
+impl BlockEntityData {
+    /// Reads the stored blob as a sign, if this entry is one.
+    pub fn as_sign(&self) -> Result<Option<SignBlockEntity>, WorldError> {
+        if self.kind != BlockEntityKind::Sign {
+            return Ok(None);
+        }
+        serde_json::from_slice(&self.blob)
+            .map(Some)
+            .map_err(|e| WorldError::BlockEntityDeserializeError(e.to_string()))
+    }
+
+    /// Replaces the stored blob with a sign's data.
+    pub fn set_sign(&mut self, sign: &SignBlockEntity) -> Result<(), WorldError> {
+        self.blob = sign.to_blob()?;
+        Ok(())
+    }
+}
+
 /// A block entity type stored in a chunk. The variant determines how the
 /// accompanying blob deserializes; the protocol ID for the wire comes from
 /// the blockstate via `temper_data`.

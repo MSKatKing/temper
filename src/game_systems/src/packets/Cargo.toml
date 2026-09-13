@@ -20,7 +20,6 @@ temper-permissions = { workspace = true }
 temper-config = { workspace = true }
 temper-blocks = { workspace = true }
 once_cell = { workspace = true }
-serde_json = { workspace = true }
 temper-macros = { workspace = true }
 temper-entities = { workspace = true }
 bevy_math = { workspace = true }
