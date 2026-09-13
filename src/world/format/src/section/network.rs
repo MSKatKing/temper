@@ -1,4 +1,4 @@
-use crate::section::biome::BiomeData;
+use crate::section::biome::{BiomeData, BiomeType};
 use crate::section::direct::DirectSection;
 use crate::section::paletted::PalettedSection;
 use crate::section::uniform::UniformSection;
@@ -119,9 +119,26 @@ impl<'section> From<&'section BiomeData> for PalettedContainer<'section> {
                 data_array: NetworkArray::new_owned(vec![]),
             },
             BiomeData::Mixed(data) => PalettedContainer {
-                bits_per_entry: 8,
+                bits_per_entry: 7,
                 palette: NetworkPalette::Direct {},
-                data_array: NetworkArray::new_borrowed(bytemuck::cast_slice(data)),
+                data_array: {
+                    let mut new_buffer = vec![
+                        0u64;
+                        (64 / (8 / 7))
+                            / size_of::<u64>()
+                    ];
+
+                    for block in 0..64 {
+                        PalettedSection::pack_value(
+                            &mut new_buffer,
+                            block,
+                            7,
+                            data[block].0,
+                        );
+                    }
+
+                    NetworkArray::new_owned(new_buffer)
+                },
             },
         }
     }

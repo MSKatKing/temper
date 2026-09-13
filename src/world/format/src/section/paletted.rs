@@ -104,7 +104,6 @@ impl PalettedSection {
     #[inline]
     // See https://minecraft.wiki/w/Java_Edition_protocol/Chunk_format#Data_Array_format for details on implementation
     pub(crate) fn pack_value(buffer: &mut [u64], idx: usize, bit_width: u8, value: u8) {
-        debug_assert!(bit_width.is_power_of_two());
         debug_assert!(bit_width <= 8);
         debug_assert!(
             u16::from(value) < (1u16 << bit_width),

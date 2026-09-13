@@ -21,6 +21,7 @@ use type_hash::TypeHash;
 use uuid::Uuid;
 use temper_data::biomes::Biome;
 use vanilla_chunk_format::VanillaChunk;
+use crate::vanilla_chunk_format::Section;
 
 #[derive(Clone, Serialize, Deserialize, TypeHash)]
 pub struct Chunk {
@@ -286,7 +287,7 @@ impl Chunk {
     /// Does what it says on the tin, sets blocks without updating the heightmaps. Remember to
     /// recalculate the heightmaps at the end.
     pub fn set_block_without_heightmap(&mut self, pos: ChunkBlockPos, id: BlockStateId) {
-        let section = (pos.y() + -self.height.min_y) / 16;
+        let section = (pos.y() + -self.height.min_y) >> 4;
         assert!(section >= 0);
         assert!((section as usize) < self.sections.len());
 
@@ -294,7 +295,7 @@ impl Chunk {
     }
 
     pub fn set_biome(&mut self, pos: ChunkBlockPos, biome: &Biome) {
-        let section = (pos.y() + -self.height.min_y) / 16;
+        let section = (pos.y() + -self.height.min_y) >> 4;
         assert!(section >= 0);
         assert!((section as usize) < self.sections.len());
 
@@ -344,6 +345,10 @@ impl Chunk {
     /// Returns the ChunkHeight for this Chunk
     pub fn height(&self) -> &ChunkHeight {
         &self.height
+    }
+    
+    pub fn section_iter_mut(&mut self) -> impl Iterator<Item = &mut ChunkSection> {
+        self.sections.iter_mut()
     }
 
     pub fn recalculate_heightmap(&mut self) {

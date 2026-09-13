@@ -1,69 +1,43 @@
+mod biomes;
+mod router;
+
 use gen_core::{
     ChunkGenerator, GenStage, GenerationError, GeneratorId, StageDependencies, StageInput,
     StageSpec,
 };
-use include_dir::{Dir, include_dir};
-use std::collections::HashMap;
+use rstar::RTree;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::math::TemperMathExt;
-use temper_core::pos::{ChunkBlockPos, ChunkPos};
+use temper_core::pos::{ChunkBlockPos, ChunkPos, SectionBlockPos};
 use temper_core::random::{RandomSource, XoroshiroRandomSource};
-use temper_data::biomes::Biome;
-use temper_density::BoxedDensityFunction;
-use temper_density::compile::Compiler;
-use temper_density::json::{DensityFunctionArgument, deserialize_function};
 use temper_density::wrapped::WrappedDensityFunction;
 use temper_macros::block;
+use crate::biomes::{quantize, BiomeParameters};
+use crate::router::{JsonNoiseRouter, NoiseRouter};
 
 pub struct VanillaGenerator {
     _rand: XoroshiroRandomSource,
-    final_density: BoxedDensityFunction,
+    router: NoiseRouter,
     default_block_state: BlockStateId,
     default_fluid_state: BlockStateId,
     water_level: i16,
+    biome_tree: RTree<BiomeParameters>,
 }
 
 impl VanillaGenerator {
     pub fn new(seed: u64) -> VanillaGenerator {
-        const BASE: &str = include_str!("function.json");
-        const EXTERNAL: Dir =
-            include_dir!("assets/generated/generated/data/minecraft/worldgen/density_function");
-
         let mut rand = XoroshiroRandomSource::new(seed);
-        let func = deserialize_function(BASE).unwrap();
 
-        let mut external = HashMap::new();
-        fn gather(external: &mut HashMap<String, DensityFunctionArgument>, root: &Dir) {
-            for entry in root.entries() {
-                if let Some(dir) = entry.as_dir() {
-                    gather(external, dir);
-                    continue;
-                }
-
-                if let Some(file) = entry.as_file() {
-                    let path = file.path().display().to_string();
-                    let name = format!(
-                        "minecraft:{}",
-                        path.strip_suffix(".json").unwrap_or(path.as_str())
-                    );
-
-                    let func = deserialize_function(file.contents_utf8().unwrap())
-                        .unwrap_or_else(|e| panic!("{}: {}", name, e));
-
-                    external.insert(name, func);
-                }
-            }
-        }
-
-        gather(&mut external, &EXTERNAL);
-        let compiled = Compiler::compile(&mut rand.fork_positional(), &external, func);
+        let tree = RTree::bulk_load(BiomeParameters::OVERWORLD.to_vec());
+        let router = JsonNoiseRouter::new().build(&mut rand.fork_positional());
 
         Self {
             _rand: rand,
-            final_density: compiled,
+            router,
             default_block_state: block!("stone"),
             default_fluid_state: block!("water", { level: 0 }),
             water_level: 63,
+            biome_tree: tree,
         }
     }
 }
@@ -104,7 +78,110 @@ impl ChunkGenerator for VanillaGenerator {
 
 impl VanillaGenerator {
     fn fill_biomes(&self, input: StageInput) -> Result<(), GenerationError> {
-        input.target.fill_biome(&Biome::PLAINS);
+        let cell_size_xz = 1;
+        let cell_width = cell_size_xz + 1;
+        let cell_width_blocks = 1 << cell_width;
+
+        let chunk_min = input.pos.block_offset(0, 0, 0);
+        let mut continentalness = WrappedDensityFunction::wrap(
+            &self.router.continents,
+            cell_width_blocks,
+            chunk_min.pos.x >> 2,
+            chunk_min.pos.z >> 2,
+        );
+        let mut erosion = WrappedDensityFunction::wrap(
+            &self.router.erosion,
+            cell_width_blocks,
+            chunk_min.pos.x >> 2,
+            chunk_min.pos.z >> 2,
+        );
+        let mut humidity = WrappedDensityFunction::wrap(
+            &self.router.vegetation,
+            cell_width_blocks,
+            chunk_min.pos.x >> 2,
+            chunk_min.pos.z >> 2,
+        );
+        let mut temperature = WrappedDensityFunction::wrap(
+            &self.router.temperature,
+            cell_width_blocks,
+            chunk_min.pos.x >> 2,
+            chunk_min.pos.z >> 2,
+        );
+        let mut weirdness = WrappedDensityFunction::wrap(
+            &self.router.ridges,
+            cell_width_blocks,
+            chunk_min.pos.x >> 2,
+            chunk_min.pos.z >> 2,
+        );
+        let mut depth = WrappedDensityFunction::wrap(
+            &self.router.depth,
+            cell_width_blocks,
+            chunk_min.pos.x >> 2,
+            chunk_min.pos.z >> 2,
+        );
+
+        let min_y = input.target.height().min_y as i32;
+        input.target
+            .section_iter_mut()
+            .enumerate()
+            .for_each(|(i, section)| {
+                let min_y = (i << 4) as i32 + min_y;
+
+                for x in 0..4 {
+                    let block_x = x << 2;
+
+                    for y in 0..4 {
+                        let block_y = min_y + (y << 2);
+
+                        for z in 0..4 {
+                            let block_z = z << 2;
+
+                            let pos = input.pos.block_offset(block_x, block_y, block_z);
+                            let biome = self.biome_tree.nearest_neighbor([
+                                quantize(continentalness.execute(pos)),
+                                quantize(erosion.execute(pos)),
+                                quantize(humidity.execute(pos)),
+                                quantize(temperature.execute(pos)),
+                                quantize(weirdness.execute(pos)),
+                                quantize(depth.execute(pos)),
+                            ]).unwrap();
+                            section.set_biome(SectionBlockPos::new(
+                                (x << 2) as u8,
+                                (y << 2) as u8,
+                                (z << 2) as u8,
+                            ), biome.biome)
+                        }
+                    }
+                }
+            });
+
+        // for x in 0..4 {
+        //     let block_x = x << 2;
+        //
+        //     for y in 0..(input.target.height().height as i32 >> 4) {
+        //         let block_y = (y << 2) + input.target.height().min_y as i32;
+        //
+        //         for z in 0..4 {
+        //             let block_z = z << 2;
+        //
+        //             let pos = input.pos.block_offset(block_x, block_y, block_z);
+        //             let biome = self.biome_tree.nearest_neighbor([
+        //                 quantize(continentalness.execute(pos)),
+        //                 quantize(erosion.execute(pos)),
+        //                 quantize(humidity.execute(pos)),
+        //                 quantize(temperature.execute(pos)),
+        //                 quantize(weirdness.execute(pos)),
+        //                 quantize(depth.execute(pos)),
+        //                 0,
+        //             ]).unwrap();
+        //             input.target.set_biome(ChunkBlockPos::new(
+        //                 block_x as _,
+        //                 block_y as _,
+        //                 block_z as _,
+        //             ), biome.biome);
+        //         }
+        //     }
+        // }
 
         Ok(())
     }
@@ -150,7 +227,7 @@ impl VanillaGenerator {
 
         let chunk_min = input.pos.block_offset(0, 0, 0);
         let mut wrapped = WrappedDensityFunction::wrap(
-            &self.final_density,
+            &self.router.final_density,
             cell_width_blocks,
             chunk_min.pos.x >> 2,
             chunk_min.pos.z >> 2,

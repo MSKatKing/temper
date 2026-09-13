@@ -133,7 +133,7 @@ impl ChunkSection {
             y,
             inner: ChunkSectionType::Uniform(UniformSection::new_with(id)),
             light: SectionLightData::default(),
-            biome: BiomeData::Uniform(BiomeType(5)),
+            biome: BiomeData::Uniform(BiomeType(Biome::PLAINS.id as u8)),
             dirty: Arc::new(AtomicBool::new(true)),
         }
     }
@@ -145,7 +145,7 @@ impl ChunkSection {
                 y,
                 inner: ChunkSectionType::Uniform(UniformSection::air()),
                 light: SectionLightData::default(),
-                biome: BiomeData::Uniform(BiomeType(5)),
+                biome: BiomeData::Uniform(BiomeType(Biome::PLAINS.id as u8)),
                 dirty: Arc::new(AtomicBool::new(true)),
             }
         } else if unique_blocks < 256 {
@@ -155,7 +155,7 @@ impl ChunkSection {
                     unique_blocks as _,
                 )),
                 light: SectionLightData::default(),
-                biome: BiomeData::Uniform(BiomeType(5)),
+                biome: BiomeData::Uniform(BiomeType(Biome::PLAINS.id as u8)),
                 dirty: Arc::new(AtomicBool::new(true)),
             }
         } else {
@@ -163,7 +163,7 @@ impl ChunkSection {
                 y,
                 inner: ChunkSectionType::Direct(DirectSection::default()),
                 light: SectionLightData::default(),
-                biome: BiomeData::Uniform(BiomeType(5)),
+                biome: BiomeData::Uniform(BiomeType(Biome::PLAINS.id as u8)),
                 dirty: Arc::new(AtomicBool::new(true)),
             }
         }
@@ -191,13 +191,13 @@ impl ChunkSection {
         self.dirty.store(true, std::sync::atomic::Ordering::Relaxed);
         self.inner.fill(id);
     }
-    
+
     pub(crate) fn fill_biome(&mut self, biome: &Biome) {
         self.dirty.store(true, std::sync::atomic::Ordering::Relaxed);
         self.biome.fill_biome(BiomeType(biome.id as u8))
     }
-    
-    pub(crate) fn set_biome(&mut self, pos: SectionBlockPos, biome: &Biome) {
+
+    pub fn set_biome(&mut self, pos: SectionBlockPos, biome: &Biome) {
         self.dirty.store(true, std::sync::atomic::Ordering::Relaxed);
         self.biome.set_biome(BiomeType(biome.id as u8), pos)
     }

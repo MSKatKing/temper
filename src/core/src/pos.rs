@@ -313,7 +313,11 @@ impl ChunkBlockPos {
 
     pub fn section_block_pos(&self) -> SectionBlockPos {
         SectionBlockPos {
-            pos: self.pos.rem_euclid((16, 16, 16).into()).as_u8vec3(),
+            pos: U8Vec3::new(
+                self.x(),
+                self.y().rem_euclid(16) as u8,
+                self.z(),
+            )
         }
     }
 
@@ -373,6 +377,12 @@ pub struct SectionBlockPos {
 }
 
 impl SectionBlockPos {
+    pub fn new(x: u8, y: u8, z: u8) -> Self {
+        Self {
+            pos: U8Vec3::new(x, y, z),
+        }
+    }
+
     /// Packed representation (big endian): 0x0yzx
     /// So the max value is 0xfff or 4095
     pub fn pack(&self) -> u16 {
