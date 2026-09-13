@@ -6,7 +6,7 @@ use temper_codec::encode::{NetEncode, NetEncodeOpts};
 use temper_general_purpose::simd::arrays;
 
 #[repr(u8)]
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum NbtTag {
     End = 0,
     Byte = 1,
