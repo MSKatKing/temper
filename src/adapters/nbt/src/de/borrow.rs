@@ -1,5 +1,5 @@
 use crate::de::converter::FromNbt;
-use crate::{NBTSerializable, NBTSerializeOptions};
+use crate::{NBTError, NBTSerializable, NBTSerializeOptions};
 use std::io::Write;
 use temper_codec::encode::errors::NetEncodeError;
 use temper_codec::encode::{NetEncode, NetEncodeOpts};
@@ -157,6 +157,22 @@ impl<'a> NbtTape<'a> {
 
     pub fn parse(&mut self) {
         self.parse_tag();
+    }
+
+    pub fn parse_network_root(&mut self) -> crate::Result<()> {
+        let tag = self.read_byte();
+        if tag != NbtTag::Compound as u8 {
+            return Err(NBTError::InvalidRootCompound(tag));
+        }
+
+        self.root = Some((
+            "",
+            NbtTapeElement::parse_from_nbt(
+                self,
+                NbtDeserializableOptions::TagType(NbtTag::Compound),
+            ),
+        ));
+        Ok(())
     }
 
     fn parse_tag(&mut self) {
