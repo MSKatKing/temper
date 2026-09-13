@@ -7,7 +7,6 @@ pub mod player;
 use dashmap::DashMap;
 pub use generation::WorldChunkGenerator;
 use std::fs::create_dir_all;
-use std::hash::{BuildHasher, Hasher};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use temper_config::ServerConfig;
@@ -62,14 +61,7 @@ impl World {
         let seed = if let Ok(seed) = config.world_gen.seed.parse::<u64>() {
             seed
         } else {
-            match config.world_gen.generator.as_str() {
-                "vanilla" => java_hash_code(config.world_gen.seed.as_str()).into(),
-                _ => {
-                    let mut hasher = WyHasherBuilder::default().build_hasher();
-                    hasher.write(&config.world_gen.seed.clone().into_bytes());
-                    hasher.finish()
-                }
-            }
+            java_hash_code(config.world_gen.seed.as_str()).into()
         };
 
         let chunks = ChunkStore::new(
