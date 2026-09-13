@@ -29,21 +29,18 @@ impl<T: NBTSerializable> NetEncode for NBT<T> {
 }
 
 impl<T: for<'a> FromNbt<'a>> NetDecode for NBT<T> {
-    fn decode<R: Read>(
-        reader: &mut R,
-        _opts: &NetDecodeOpts,
-    ) -> Result<Self, NetDecodeError> {
+    fn decode<R: Read>(reader: &mut R, _opts: &NetDecodeOpts) -> Result<Self, NetDecodeError> {
         let bytes = NbtBlob::decode(reader, &NetDecodeOpts::None)?;
         let mut tape = NbtTape::new(&bytes.0);
         tape.parse_network_root()
             .map_err(|_| NetDecodeError::ExternalError("NBT Parse Error".into()))?;
-        let root = tape
-            .root
-            .as_ref()
-            .map(|(_, element)| element)
-            .ok_or(NetDecodeError::ExternalError(
-                "NBT did not contain a root compound".into(),
-            ))?;
+        let root =
+            tape.root
+                .as_ref()
+                .map(|(_, element)| element)
+                .ok_or(NetDecodeError::ExternalError(
+                    "NBT did not contain a root compound".into(),
+                ))?;
 
         Ok(NBT {
             inner: T::from_nbt(&tape, root)

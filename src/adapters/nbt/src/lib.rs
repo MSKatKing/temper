@@ -1,10 +1,10 @@
 #![allow(unsafe_code)]
 
+pub mod blob;
 pub mod de;
 pub mod errors;
 mod nbt;
 pub mod ser;
-pub mod blob;
 
 pub type Result<T> = std::result::Result<T, NBTError>;
 

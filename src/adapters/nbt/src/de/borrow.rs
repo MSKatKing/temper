@@ -235,7 +235,7 @@ impl<'a> NbtTape<'a> {
                 for _ in 0..*size {
                     let nbt_element = NbtTapeElement::parse_from_nbt(
                         &mut tape,
-                        NbtDeserializableOptions::TagType(el_type.clone()),
+                        NbtDeserializableOptions::TagType(*el_type),
                     );
 
                     let element =
@@ -728,7 +728,7 @@ impl NbtTapeElement<'_> {
                 size,
                 elements_pos,
             } => {
-                writer.write_all(&[el_type.clone() as u8])?;
+                writer.write_all(&[*el_type as u8])?;
                 (*size as i32).serialize(writer, &NBTSerializeOptions::None);
 
                 // Rewind tape to the start of the list.
@@ -738,7 +738,7 @@ impl NbtTapeElement<'_> {
                 for _ in 0..*size {
                     let element = NbtTapeElement::parse_from_nbt(
                         tape,
-                        NbtDeserializableOptions::TagType(el_type.clone()),
+                        NbtDeserializableOptions::TagType(*el_type),
                     );
                     element.serialize_as_network(tape, writer, &NBTSerializeOptions::None)?;
                 }

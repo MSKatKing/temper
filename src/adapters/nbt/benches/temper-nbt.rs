@@ -97,11 +97,8 @@ fn hematite_nbt(data: &[u8]) {
 }
 
 fn temper_netdecode(data: &[u8]) {
-    let nbt = NBT::<structs::NetworkFixture>::decode(
-        &mut Cursor::new(data),
-        &NetDecodeOpts::None,
-    )
-    .unwrap();
+    let nbt = NBT::<structs::NetworkFixture>::decode(&mut Cursor::new(data), &NetDecodeOpts::None)
+        .unwrap();
     black_box(nbt);
 }
 
