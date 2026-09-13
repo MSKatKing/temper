@@ -1,4 +1,4 @@
-use crate::{FromNbt, NBTSerializable, NBTSerializeOptions, NbtTape};
+use crate::{blob::NbtBlob, FromNbt, NBTSerializable, NBTSerializeOptions, NbtTape};
 use std::fmt::Debug;
 use std::io::{Read, Write};
 use std::ops::{Deref, DerefMut};
@@ -33,9 +33,8 @@ impl<T: for<'a> FromNbt<'a>> NetDecode for NBT<T> {
         reader: &mut R,
         _opts: &NetDecodeOpts,
     ) -> Result<Self, NetDecodeError> {
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes)?;
-        let mut tape = NbtTape::new(&bytes);
+        let bytes = NbtBlob::decode(reader, &NetDecodeOpts::None)?;
+        let mut tape = NbtTape::new(&bytes.0);
         tape.parse_network_root()
             .map_err(|_| NetDecodeError::ExternalError("NBT Parse Error".into()))?;
         let root = tape
@@ -209,18 +208,20 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "read_to_end stream-boundary behavior is fixed separately"]
-    fn net_decode_stops_at_end_of_root_compound() {
-        let trailing = b"next-packet";
+    fn net_decode_leaves_next_byte_in_reader() {
+        let marker = 0x2a;
         let mut bytes = encode_network_fixture();
-        bytes.extend_from_slice(trailing);
+        bytes.push(marker);
         let mut reader = Cursor::new(bytes);
 
         let decoded = NBT::<NetworkFixture>::decode(&mut reader, &NetDecodeOpts::None)
             .expect("failed to decode network NBT");
 
         assert_eq!(*decoded, NetworkFixture::sample());
-        assert_eq!(&reader.get_ref()[reader.position() as usize..], trailing);
+        assert_eq!(
+            u8::decode(&mut reader, &NetDecodeOpts::None).expect("failed to read marker byte"),
+            marker
+        );
     }
 
     #[test]

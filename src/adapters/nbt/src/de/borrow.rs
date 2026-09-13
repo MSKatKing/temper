@@ -23,24 +23,30 @@ pub enum NbtTag {
     LongArray = 12,
 }
 
+impl NbtTag {
+    pub const fn from_byte(tag: u8) -> Option<Self> {
+        match tag {
+            0 => Some(NbtTag::End),
+            1 => Some(NbtTag::Byte),
+            2 => Some(NbtTag::Short),
+            3 => Some(NbtTag::Int),
+            4 => Some(NbtTag::Long),
+            5 => Some(NbtTag::Float),
+            6 => Some(NbtTag::Double),
+            7 => Some(NbtTag::ByteArray),
+            8 => Some(NbtTag::String),
+            9 => Some(NbtTag::List),
+            10 => Some(NbtTag::Compound),
+            11 => Some(NbtTag::IntArray),
+            12 => Some(NbtTag::LongArray),
+            _ => None,
+        }
+    }
+}
+
 impl From<u8> for NbtTag {
     fn from(tag: u8) -> Self {
-        match tag {
-            0 => NbtTag::End,
-            1 => NbtTag::Byte,
-            2 => NbtTag::Short,
-            3 => NbtTag::Int,
-            4 => NbtTag::Long,
-            5 => NbtTag::Float,
-            6 => NbtTag::Double,
-            7 => NbtTag::ByteArray,
-            8 => NbtTag::String,
-            9 => NbtTag::List,
-            10 => NbtTag::Compound,
-            11 => NbtTag::IntArray,
-            12 => NbtTag::LongArray,
-            _ => panic!("Invalid NbtTag: {tag}"),
-        }
+        Self::from_byte(tag).unwrap_or_else(|| panic!("Invalid NbtTag: {tag}"))
     }
 }
 
