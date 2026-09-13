@@ -46,7 +46,7 @@ fn send_ack(query: &Query<InteractQuery>, player: Entity, sequence: VarInt, cont
     if let Ok((_, conn, _, _)) = query.get(player)
         && let Err(e) = conn.send_packet_ref(&BlockChangeAck { sequence })
     {
-        error!("Failed to send BlockChangeAck ({context}): {:?}", e);
+        error!("Failed to send BlockChangeAck ({context}): {e:?}");
     }
 }
 

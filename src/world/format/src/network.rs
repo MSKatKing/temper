@@ -77,7 +77,7 @@ impl TryFrom<&Chunk> for Vec<BlockEntity> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{BlockEntityData, BlockEntityKind, SignBlockEntity, SignText};
+    use crate::block_entities::{BlockEntityData, BlockEntityKind, SignBlockEntity, SignText};
     use temper_core::pos::ChunkBlockPos;
     use temper_text::TextComponent;
 

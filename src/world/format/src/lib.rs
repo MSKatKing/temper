@@ -1,3 +1,4 @@
+pub mod block_entities;
 pub mod errors;
 pub mod heightmap;
 pub mod light;
@@ -6,6 +7,7 @@ mod palette;
 pub mod section;
 pub mod vanilla_chunk_format;
 
+use crate::block_entities::BlockEntityData;
 use crate::errors::WorldError;
 use crate::heightmap::Heightmaps;
 use crate::section::{AIR, ChunkSection};
@@ -16,9 +18,7 @@ use std::sync::atomic::AtomicBool;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::{ChunkBlockPos, ChunkHeight};
 use temper_entities::entity_types::EntityTypeEnum;
-use temper_macros::{NBTSerialize, block, match_block};
-use temper_nbt::{NBTSerializable, NBTSerializeOptions};
-use temper_text::TextComponent;
+use temper_macros::{block, match_block};
 use type_hash::TypeHash;
 use uuid::Uuid;
 use vanilla_chunk_format::VanillaChunk;
@@ -484,81 +484,13 @@ impl TryFrom<&VanillaChunk> for Chunk {
     }
 }
 
-/// A block entity stored in a chunk. `protocol_id` comes from the blockstate
-/// via `temper_data`'s generated `block_entity_type_for_state` at placement
-/// time, so it stays correct across version bumps without this crate
-/// depending on the block data.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct BlockEntityData {
-    pub kind: BlockEntityKind,
-    pub protocol_id: u16,
-    pub blob: Vec<u8>,
-}
-
-/// A block entity type stored in a chunk. The variant determines how the
-/// accompanying blob deserializes; the protocol ID for the wire comes from
-/// the blockstate via `temper_data`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum BlockEntityKind {
-    Sign,
-}
-
-impl BlockEntityKind {
-    /// Deserializes a stored blob and re-serializes it as network NBT for the wire.
-    ///
-    /// Blobs are JSON rather than bitcode like the rest of the chunk: `TextComponent`
-    /// uses `#[serde(flatten)]`, which serializes as a map with no known length, and
-    /// bitcode requires one. The blob is opaque to `Chunk` either way.
-    pub fn to_network_nbt(self, blob: &[u8]) -> Result<Vec<u8>, WorldError> {
-        let mut buf = Vec::new();
-        match self {
-            Self::Sign => {
-                let sign: SignBlockEntity = serde_json::from_slice(blob)
-                    .map_err(|e| WorldError::BlockEntityDeserializeError(e.to_string()))?;
-                NBTSerializable::serialize(&sign, &mut buf, &NBTSerializeOptions::Network);
-            }
-        }
-        Ok(buf)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, NBTSerialize)]
-pub struct SignText {
-    pub messages: Vec<TextComponent>,
-    pub color: String,
-    pub has_glowing_text: bool,
-}
-
-impl Default for SignText {
-    fn default() -> Self {
-        Self {
-            messages: vec![TextComponent::default(); 4],
-            color: "black".to_string(),
-            has_glowing_text: false,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, NBTSerialize)]
-pub struct SignBlockEntity {
-    pub is_waxed: bool,
-    pub front_text: SignText,
-    pub back_text: SignText,
-}
-
-impl SignBlockEntity {
-    pub fn to_blob(&self) -> Result<Vec<u8>, WorldError> {
-        serde_json::to_vec(self).map_err(|e| WorldError::BlockEntitySerializeError(e.to_string()))
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::BlockEntityKind;
     use crate::BlockStateId;
     use crate::Chunk;
-    use crate::SignBlockEntity;
-    use crate::SignText;
+    use crate::block_entities::BlockEntityKind;
+    use crate::block_entities::SignBlockEntity;
+    use crate::block_entities::SignText;
     use temper_core::pos::ChunkBlockPos;
     use temper_macros::block;
     use temper_text::TextComponent;

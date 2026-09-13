@@ -21,7 +21,7 @@ use temper_protocol::outgoing::block_change_ack::BlockChangeAck;
 use temper_protocol::outgoing::block_update::BlockUpdate;
 use temper_state::GlobalStateResource;
 use temper_text::{Color, NamedColor, TextComponentBuilder};
-use temper_world_format::{BlockEntityData, BlockEntityKind, SignBlockEntity};
+use temper_world_format::block_entities::{BlockEntityData, BlockEntityKind, SignBlockEntity};
 use tracing::{debug, error, trace};
 
 // TODO: in the future this should be reworked so that if a block update exits early the client is informed that the block never updated.
@@ -94,14 +94,11 @@ pub fn handle(
                     let block_pos: BlockPos = event.position.into();
                     if block_pos.pos.y >= 319 {
                         mq::queue(
-                            TextComponentBuilder::new(
-                                "Build limit is 319! Cannot place block here.".to_string(),
-                            )
-                            .color(Color::Named(NamedColor::Red))
-                            .bold()
-                            .build(),
+                            TextComponentBuilder::new("Sign text was too long.".to_string())
+                                .color(Color::Named(NamedColor::Red))
+                                .build(),
                             true,
-                            entity,
+                            eid,
                         );
                         trace!("Block placement out of bounds: {}", block_pos);
                         continue 'ev_loop;

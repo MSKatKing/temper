@@ -18,7 +18,7 @@ use temper_protocol::{
 use temper_state::GlobalStateResource;
 use temper_text::{TextComponent, TextContent};
 use temper_world::Dimension;
-use temper_world_format::{BlockEntityKind, SignBlockEntity};
+use temper_world_format::block_entities::{BlockEntityKind, SignBlockEntity};
 
 use tracing::{error, trace};
 
