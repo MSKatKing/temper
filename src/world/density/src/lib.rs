@@ -11,6 +11,9 @@ mod math;
 mod noise;
 mod spline;
 pub mod wrapped;
+mod opcode;
+mod error;
+mod runtime;
 
 pub type BoxedDensityFunction = Box<dyn DensityFunction>;
 
