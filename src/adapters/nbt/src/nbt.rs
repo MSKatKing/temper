@@ -32,7 +32,7 @@ impl<T: for<'a> FromNbt<'a>> NetDecode for NBT<T> {
     fn decode<R: Read>(
         reader: &mut R,
         _opts: &NetDecodeOpts,
-    ) -> std::result::Result<Self, NetDecodeError> {
+    ) -> Result<Self, NetDecodeError> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes)?;
         let tape = NbtTape::new(&bytes);
@@ -93,5 +93,137 @@ impl<T> Deref for NBT<T> {
 impl<T> DerefMut for NBT<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{NBTError, NbtTapeElement};
+    use std::io::Cursor;
+    use temper_codec::encode::NetEncodeOpts;
+    use tokio::io::{AsyncWrite, AsyncWriteExt};
+
+    #[derive(Clone, Debug, PartialEq)]
+    struct NetworkFixture {
+        name: String,
+        health: i32,
+        heights: Vec<i64>,
+    }
+
+    impl NetworkFixture {
+        fn sample() -> Self {
+            Self {
+                name: "temper".to_string(),
+                health: 20,
+                heights: vec![64, 72, 80],
+            }
+        }
+    }
+
+    impl NBTSerializable for NetworkFixture {
+        fn serialize<W: Write>(&self, writer: &mut W, options: &NBTSerializeOptions<'_>) {
+            match options {
+                NBTSerializeOptions::None | NBTSerializeOptions::Flatten => {}
+                NBTSerializeOptions::Network => {
+                    Self::id().serialize(writer, &NBTSerializeOptions::None);
+                }
+                NBTSerializeOptions::WithHeader(name) => {
+                    Self::id().serialize(writer, &NBTSerializeOptions::None);
+                    name.serialize(writer, &NBTSerializeOptions::None);
+                }
+            }
+
+            self.name
+                .serialize(writer, &NBTSerializeOptions::WithHeader("name"));
+            self.health
+                .serialize(writer, &NBTSerializeOptions::WithHeader("health"));
+            self.heights
+                .serialize(writer, &NBTSerializeOptions::WithHeader("heights"));
+
+            if options != &NBTSerializeOptions::Flatten {
+                0u8.serialize(writer, &NBTSerializeOptions::None);
+            }
+        }
+
+        async fn serialize_async<W: AsyncWrite + Unpin>(
+            &self,
+            writer: &mut W,
+            options: &NBTSerializeOptions<'_>,
+        ) {
+            let mut buf = Vec::new();
+            self.serialize(&mut buf, options);
+            writer
+                .write_all(&buf)
+                .await
+                .expect("failed to write fixture bytes");
+        }
+
+        fn id() -> u8 {
+            10
+        }
+    }
+
+    impl<'a> FromNbt<'a> for NetworkFixture {
+        fn from_nbt(tapes: &NbtTape<'a>, element: &NbtTapeElement<'a>) -> crate::Result<Self> {
+            let compound = element.as_compound().ok_or(NBTError::TypeMismatch {
+                expected: "Compound",
+                found: element.nbt_type(),
+            })?;
+            let field = |name| {
+                compound
+                    .iter()
+                    .find_map(|(field_name, element)| (*field_name == name).then_some(element))
+                    .ok_or(NBTError::ElementNotFound(name))
+            };
+
+            Ok(Self {
+                name: String::from_nbt(tapes, field("name")?)?,
+                health: i32::from_nbt(tapes, field("health")?)?,
+                heights: Vec::<i64>::from_nbt(tapes, field("heights")?)?,
+            })
+        }
+    }
+
+    fn encode_network_fixture() -> Vec<u8> {
+        let mut bytes = Vec::new();
+        NBT::new(NetworkFixture::sample())
+            .encode(&mut bytes, &NetEncodeOpts::None)
+            .expect("failed to encode fixture");
+        bytes
+    }
+
+    #[test]
+    fn net_decode_round_trips_network_payload() {
+        let mut reader = Cursor::new(encode_network_fixture());
+
+        let decoded = NBT::<NetworkFixture>::decode(&mut reader, &NetDecodeOpts::None)
+            .expect("failed to decode network NBT");
+
+        assert_eq!(*decoded, NetworkFixture::sample());
+    }
+
+    #[test]
+    fn net_decode_stops_at_end_of_root_compound() {
+        let trailing = b"next-packet";
+        let mut bytes = encode_network_fixture();
+        bytes.extend_from_slice(trailing);
+        let mut reader = Cursor::new(bytes);
+
+        let decoded = NBT::<NetworkFixture>::decode(&mut reader, &NetDecodeOpts::None)
+            .expect("failed to decode network NBT");
+
+        assert_eq!(*decoded, NetworkFixture::sample());
+        assert_eq!(&reader.get_ref()[reader.position() as usize..], trailing);
+    }
+
+    #[test]
+    fn net_decode_rejects_non_compound_root() {
+        let mut reader = Cursor::new([3, 0, 0, 0, 42]);
+
+        let err = NBT::<NetworkFixture>::decode(&mut reader, &NetDecodeOpts::None)
+            .expect_err("decoded invalid root tag");
+
+        assert!(matches!(err, NetDecodeError::ExternalError(_)));
     }
 }
