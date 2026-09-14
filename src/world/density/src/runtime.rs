@@ -1,6 +1,9 @@
+use std::ops::{Div, Neg, Rem};
+use bevy_math::DVec3;
+use temper_core::math::TemperMathExt;
 use temper_core::pos::BlockPos;
 use crate::error::{DensityResult, DensityRuntimeError};
-use crate::opcode::DensityOpcode;
+use crate::opcode::{DensityOpcode, DensitySpline, Tiling};
 
 pub type DensityStack = Vec<f64>;
 
@@ -26,9 +29,9 @@ impl DensityRuntime<'_> {
     pub fn execute_at(&mut self, pos: BlockPos) -> DensityResult<f64> {
         self.stack.clear();
         self.pos_stack.clear();
-        
+
         self.pos_stack.push(pos);
-        
+
         let mut position = 0;
         while position < self.main.len() {
             match self.main[position].execute(self)? {
@@ -36,10 +39,10 @@ impl DensityRuntime<'_> {
                 MovementResult::JumpTo(jump) => position = jump,
             }
         }
-        
+
         self.stack.pop().ok_or(DensityRuntimeError::StackUnderflow)
     }
-    
+
     fn execute_spline_at(&mut self, index: usize) -> DensityResult<f64> {
         if index >= self.spline_runtimes.len() {
             return Err(DensityRuntimeError::SplineRuntimeOutOfBounds {
@@ -47,7 +50,7 @@ impl DensityRuntime<'_> {
                 max: self.spline_runtimes.len() - 1,
             })
         }
-        
+
         let runtime = &self.spline_runtimes[index];
         let mut position = 0;
         while position < runtime.len() {
@@ -56,20 +59,22 @@ impl DensityRuntime<'_> {
                 MovementResult::JumpTo(jump) => position = jump,
             }
         }
-        
+
         self.stack.pop().ok_or(DensityRuntimeError::StackUnderflow)
     }
-    
+
     fn current_pos(&self) -> DensityResult<&BlockPos> {
         self.pos_stack.last().ok_or(DensityRuntimeError::PositionStackUnderflow)
     }
-    
-    fn push_pos(&mut self, pos: BlockPos) {
-        self.pos_stack.push(pos);
-    }
-    
+
     fn pop_pos(&mut self) -> DensityResult<BlockPos> {
         self.pos_stack.pop().ok_or(DensityRuntimeError::PositionStackUnderflow)
+    }
+
+    fn modify_last(&mut self, f: impl FnOnce(f64) -> f64) -> DensityResult<()> {
+        let last = self.stack.last_mut().ok_or(DensityRuntimeError::StackUnderflow)?;
+        *last = f(*last);
+        Ok(())
     }
 }
 
@@ -77,6 +82,392 @@ impl DensityOpcode {
     // We always want this inlined, it should only be used above in the runtime execute functions.
     #[inline(always)]
     fn execute(&self, runtime: &mut DensityRuntime) -> DensityResult<MovementResult> {
-        todo!()
+        match self {
+            DensityOpcode::PushConstant { value } => runtime.stack.push(*value),
+            DensityOpcode::JumpTo { index } => return Ok(MovementResult::JumpTo(*index)),
+            DensityOpcode::Add { lhs, rhs } => {
+                let lhs = lhs.get_value(&mut runtime.stack)?;
+                let rhs = rhs.get_value(&mut runtime.stack)?;
+                runtime.stack.push(lhs + rhs)
+            }
+            DensityOpcode::Mul { lhs, rhs } => {
+                let lhs = lhs.get_value(&mut runtime.stack)?;
+                let rhs = rhs.get_value(&mut runtime.stack)?;
+                runtime.stack.push(lhs * rhs)
+            }
+            DensityOpcode::Sub { lhs, rhs } => {
+                let lhs = lhs.get_value(&mut runtime.stack)?;
+                let rhs = rhs.get_value(&mut runtime.stack)?;
+                runtime.stack.push(lhs - rhs)
+            }
+            DensityOpcode::Div { lhs, rhs } => {
+                let lhs = lhs.get_value(&mut runtime.stack)?;
+                let rhs = rhs.get_value(&mut runtime.stack)?;
+                runtime.stack.push(lhs / rhs)
+            }
+            DensityOpcode::Min { a, b } => {
+                let a = a.get_value(&mut runtime.stack)?;
+                let b = b.get_value(&mut runtime.stack)?;
+                runtime.stack.push(a.min(b))
+            }
+            DensityOpcode::Max { a, b } => {
+                let a = a.get_value(&mut runtime.stack)?;
+                let b = b.get_value(&mut runtime.stack)?;
+                runtime.stack.push(a.max(b))
+            }
+            DensityOpcode::Abs => runtime.modify_last(f64::abs)?,
+            DensityOpcode::Square => runtime.modify_last(|v| v * v)?,
+            DensityOpcode::Cube => runtime.modify_last(|v| v * v * v)?,
+            DensityOpcode::Negate => runtime.modify_last(f64::neg)?,
+            DensityOpcode::Sign => runtime.modify_last(f64::signum)?,
+            DensityOpcode::Sqrt => runtime.modify_last(f64::sqrt)?,
+            DensityOpcode::Reciprocal => runtime.modify_last(f64::recip)?,
+            DensityOpcode::Log => runtime.modify_last(f64::ln)?,
+            DensityOpcode::Squeeze => runtime.modify_last(|v| {
+                let v = v.clamp(-1.0, 1.0);
+                v / 2.0 - v * v * v / 24.0
+            })?,
+            DensityOpcode::HalfNegative => runtime.modify_last(|v| {
+                if v.is_sign_negative() {
+                    v * 0.5
+                } else {
+                    v
+                }
+            })?,
+            DensityOpcode::QuarterNegative => runtime.modify_last(|v| {
+                if v.is_sign_negative() {
+                    v * 0.25
+                } else {
+                    v
+                }
+            })?,
+            DensityOpcode::Clamp { min, max } => runtime.modify_last(|v| {
+                v.clamp(*min, *max)
+            })?,
+            DensityOpcode::Slice {
+                axis,
+                coordinate,
+                cache_index,
+                after,
+            } => {
+                let pos = axis.mask_coordinate(*runtime.current_pos()?, *coordinate);
+                let max = runtime.caches.len() - 1;
+                let cache = runtime.caches
+                    .get_mut(*cache_index)
+                    .ok_or(DensityRuntimeError::InvalidCache {
+                        got: *cache_index,
+                        max,
+                    })?;
+
+                if cache.last_pos != pos {
+                    runtime.pos_stack.push(pos);
+                    // we continue here to generate the value
+                } else {
+                    runtime.stack.push(cache.last_value);
+                    return Ok(MovementResult::JumpTo(*after));
+                }
+            }
+            DensityOpcode::StoreSlice { cache_index } => {
+                let value = *runtime.stack.last().ok_or(DensityRuntimeError::StackUnderflow)?;
+                let pos = runtime.pop_pos()?;
+
+                let max = runtime.caches.len() - 1;
+                let cache = runtime.caches
+                    .get_mut(*cache_index)
+                    .ok_or(DensityRuntimeError::InvalidCache {
+                        got: *cache_index,
+                        max,
+                    })?;
+
+                cache.last_pos = pos;
+                cache.last_value = value;
+
+                // value remains on the stack
+            }
+            DensityOpcode::Noise {
+                noise,
+                xz_scale,
+                y_scale,
+                shift_x,
+                shift_y,
+                shift_z,
+            } => {
+                let shift_x = shift_x.get_value(&mut runtime.stack)?;
+                let shift_y = shift_y.get_value(&mut runtime.stack)?;
+                let shift_z = shift_z.get_value(&mut runtime.stack)?;
+                let pos = runtime.current_pos()?;
+
+                let val = noise.noise(DVec3::new(
+                    (pos.pos.x as f64 * *xz_scale) + shift_x,
+                    (pos.pos.y as f64 * *y_scale) + shift_y,
+                    (pos.pos.z as f64 * *xz_scale) + shift_z,
+                ));
+                runtime.stack.push(val);
+            }
+            DensityOpcode::BlendedNoise { noise } => {
+                let val = noise.noise(runtime.current_pos()?.pos.as_dvec3());
+                runtime.stack.push(val);
+            }
+            DensityOpcode::Shift { noise } => {
+                let pos = runtime.current_pos()?;
+                let val = noise.noise(pos.pos.as_dvec3() * 0.25) * 4.0;
+                runtime.stack.push(val);
+            }
+            DensityOpcode::ShiftA { noise } => {
+                let pos = runtime.current_pos()?;
+                let val = noise.noise(DVec3::new(
+                    pos.pos.x as f64 * 0.25,
+                    0.0,
+                    pos.pos.z as f64 * 0.25,
+                )) * 4.0;
+                runtime.stack.push(val);
+            }
+            DensityOpcode::ShiftB { noise } => {
+                let pos = runtime.current_pos()?;
+                let val = noise.noise(DVec3::new(
+                    pos.pos.z as f64 * 0.25,
+                    pos.pos.x as f64 * 0.25,
+                    0.0,
+                )) * 4.0;
+                runtime.stack.push(val);
+            }
+            DensityOpcode::IntervalSelect { thresholds, indexes } => {
+                let input = runtime.stack.pop().ok_or(DensityRuntimeError::StackUnderflow)?;
+
+                for (i, threshold) in thresholds.iter().enumerate() {
+                    if input < *threshold {
+                        return Ok(MovementResult::JumpTo(indexes[i]));
+                    }
+                }
+
+                return Ok(MovementResult::JumpTo(*indexes.last().unwrap()));
+            }
+            DensityOpcode::RangeChoice {
+                range,
+                when_out_of_range,
+            } => {
+                let input = runtime.stack.pop().ok_or(DensityRuntimeError::StackUnderflow)?;
+                if !range.contains(&input) {
+                    return Ok(MovementResult::JumpTo(*when_out_of_range));
+                }
+
+                // continue here if in range
+            }
+            DensityOpcode::Spline { spline } => {
+                let val = spline.execute(runtime)?;
+                runtime.stack.push(val);
+            },
+            DensityOpcode::Gradient {
+                axis,
+                tiling,
+                from_coord,
+                to_coord,
+                from_value,
+                to_value,
+            } => {
+                let from_coord = *from_coord as f64;
+                let to_coord = *to_coord as f64;
+
+                let coord = axis.select_coordinate(*runtime.current_pos()?) as f64;
+                let coord_range = to_coord - from_coord;
+                let coord_factor = (to_value - from_value) / coord_range;
+
+                let value = match tiling {
+                    Tiling::ClampToEdge => {
+                        let rel = coord.clamp(from_coord, to_coord) - from_coord;
+                        from_value + rel * coord_factor
+                    }
+                    Tiling::MirroredRepeat => {
+                        let rel = coord - from_coord;
+                        let tile_idx = rel.div(coord_range).floor();
+                        let local_coord = rel - tile_idx * coord_range;
+
+                        if (tile_idx as i32 & 1) == 0 {
+                            from_value + local_coord * coord_factor
+                        } else {
+                            from_value + (coord_range - local_coord) * coord_factor
+                        }
+                    }
+                    Tiling::Repeat => {
+                        let rel = coord - from_coord;
+                        from_value + rel.rem(coord_range).floor() * coord_factor
+                    }
+                    Tiling::Legacy => coord
+                        .clamp(from_coord, to_coord)
+                        .clamped_map(
+                            from_coord,
+                            to_coord,
+                            *from_value,
+                            *to_value,
+                        ),
+                };
+
+                runtime.stack.push(value);
+            }
+        }
+
+        Ok(MovementResult::Continue)
+    }
+}
+
+impl DensitySpline {
+    fn execute(&self, runtime: &mut DensityRuntime) -> DensityResult<f64> {
+        match self {
+            Self::Multipoint {
+                coordinate,
+                locations,
+                derivatives,
+                values,
+            } => {
+                let input = runtime.execute_spline_at(*coordinate)?;
+                let last_index = locations.len() - 1;
+
+                Ok(match Self::find_interval_start(locations, input) {
+                    None => {
+                        let value = values[0].execute(runtime)?;
+                        Self::linear_extend(input, locations, derivatives, value, 0)
+                    }
+                    Some(index) if index == last_index => {
+                        let value = values[last_index].execute(runtime)?;
+                        Self::linear_extend(input, locations, derivatives, value, last_index)
+                    }
+                    Some(start) => {
+                        let x1 = locations[start];
+                        let x2 = locations[start + 1];
+                        let dx = x2 - x1;
+                        let t = input.inverse_lerp(x1, x2);
+                        let y1 = values[start].execute(runtime)?;
+                        let y2 = values[start + 1].execute(runtime)?;
+                        let dy = y2 - y1;
+                        let d1 = derivatives[start];
+                        let d2 = derivatives[start + 1];
+                        let a = d1 * dx - dy;
+                        let b = -d2 * dx + dy;
+                        t.lerp(y1, y2) + t * (1.0 - t) * t.lerp(a, b)
+                    }
+                })
+            }
+            Self::Constant(v) => Ok(*v),
+        }
+    }
+
+    #[inline]
+    fn linear_extend(
+        input: f64,
+        locations: &[f64],
+        derivatives: &[f64],
+        value: f64,
+        index: usize
+    ) -> f64 {
+        let derivative = derivatives[index];
+
+        if derivative == 0.0 {
+            value
+        } else {
+            value + derivative * (input - locations[index])
+        }
+    }
+
+    #[inline]
+    fn find_interval_start(locations: &[f64], input: f64) -> Option<usize> {
+        locations
+            .partition_point(|&location| input >= location)
+            .checked_sub(1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::opcode::DensityValueSource;
+    use super::*;
+
+    fn test_simple(ops: &[DensityOpcode], pos: BlockPos) -> f64 {
+        let spline_runtimes = [];
+        let mut runtime = DensityRuntime {
+            main: &ops,
+            spline_runtimes: &spline_runtimes,
+            stack: Vec::new(),
+            caches: Vec::new(),
+            pos_stack: Vec::new(),
+        };
+
+        let value = runtime.execute_at(pos);
+        assert!(value.is_ok());
+
+        value.unwrap()
+    }
+
+    #[test]
+    fn test_add() {
+        let ops = [
+            DensityOpcode::PushConstant { value: 5.0 },
+            DensityOpcode::Add {
+                lhs: DensityValueSource::Stack,
+                rhs: DensityValueSource::Constant(5.0),
+            }
+        ];
+
+        let res = test_simple(&ops, BlockPos::of(0, 0, 0));
+        assert_eq!(res, 10.0);
+    }
+
+    #[test]
+    fn test_mul() {
+        let ops = [
+            DensityOpcode::PushConstant { value: 5.0 },
+            DensityOpcode::Mul {
+                lhs: DensityValueSource::Stack,
+                rhs: DensityValueSource::Constant(5.0),
+            }
+        ];
+
+        let res = test_simple(&ops, BlockPos::of(0, 0, 0));
+        assert_eq!(res, 25.0);
+    }
+
+    #[test]
+    fn test_sub() {
+        let ops = [
+            DensityOpcode::PushConstant { value: 5.0 },
+            DensityOpcode::Sub {
+                lhs: DensityValueSource::Stack,
+                rhs: DensityValueSource::Constant(5.0),
+            }
+        ];
+
+        let res = test_simple(&ops, BlockPos::of(0, 0, 0));
+        assert_eq!(res, 0.0);
+    }
+
+    #[test]
+    fn test_div() {
+        let ops = [
+            DensityOpcode::PushConstant { value: 5.0 },
+            DensityOpcode::Div {
+                lhs: DensityValueSource::Stack,
+                rhs: DensityValueSource::Constant(5.0),
+            }
+        ];
+
+        let res = test_simple(&ops, BlockPos::of(0, 0, 0));
+        assert_eq!(res, 1.0);
+    }
+
+    #[test]
+    fn test_add_mul() {
+        let ops = [
+            DensityOpcode::PushConstant { value: 5.0 },
+            DensityOpcode::Add {
+                lhs: DensityValueSource::Stack,
+                rhs: DensityValueSource::Constant(5.0),
+            },
+            DensityOpcode::Mul {
+                lhs: DensityValueSource::Stack,
+                rhs: DensityValueSource::Constant(5.0),
+            }
+        ];
+
+        let res = test_simple(&ops, BlockPos::of(0, 0, 0));
+        assert_eq!(res, 50.0);
     }
 }

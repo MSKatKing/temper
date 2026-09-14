@@ -13,7 +13,7 @@ pub enum DensityOpcode {
     PushConstant {
         value: f64,
     },
-    
+
     /// Tells the runtime to jump to `index` as the next opcode to execute. This should be used
     /// to jump over code segments that won't be needed, like for skipping cache values that
     /// have already been calculated.
@@ -85,13 +85,13 @@ pub enum DensityOpcode {
     /// the value on the top of the stack as the input. The input is first clamped between `-1.0`
     /// and `1.0`.
     Squeeze,
-    
+
     /// If the value on the top of the stack is negative, scales it by `0.5`.
     HalfNegative,
-    
+
     /// If the value on the top of the stack is negative, scale is by `0.25`.
     QuarterNegative,
-    
+
     /// Clamps the value on the top of the stack between `min` and `max`.
     Clamp {
         min: f64,
@@ -103,6 +103,12 @@ pub enum DensityOpcode {
     Slice {
         axis: Axis,
         coordinate: i32,
+        cache_index: usize,
+        after: usize,
+    },
+
+    /// Stores the value at the top of the stack into the cache at `cache_index`.
+    StoreSlice {
         cache_index: usize,
     },
 
@@ -139,14 +145,14 @@ pub enum DensityOpcode {
     ShiftB {
         noise: NormalNoise,
     },
-    
+
     /// Determines the function to execute based off the input value from the stack, jumping to that
     /// code segment and skipping others.
     IntervalSelect {
         thresholds: Vec<f64>,
         indexes: Vec<usize>,
     },
-    
+
     /// Determines the function to execute based off the input value and `range`, jumping to the
     /// proper function. The function for when the input value is in range should follow this
     /// opcode.
@@ -154,12 +160,12 @@ pub enum DensityOpcode {
         range: Range<f64>,
         when_out_of_range: usize,
     },
-    
+
     /// Executes a spline.
     Spline {
         spline: DensitySpline,
     },
-    
+
     /// Computes a continuous gradient of values from `from_value` to `to_value` using the
     /// coordinate described by `axis` as the selector for the value in between.
     Gradient {
@@ -185,10 +191,10 @@ pub enum DensityValueSource {
 pub enum Axis {
     /// Represents the x coordinate.
     X,
-    
+
     /// Represents the y coordinate.
     Y,
-    
+
     /// Represents the z coordinate.
     Z,
 }
@@ -198,7 +204,7 @@ pub enum Tiling {
     ClampToEdge,
     Repeat,
     MirroredRepeat,
-    
+
     /// Used for the legacy `y_clamped_gradient` density function.
     Legacy,
 }
@@ -235,11 +241,11 @@ impl DensityValueSource {
 
 impl Axis {
     /// Masks the coordinate covered by `self`, replacing it with `with_coord`.
-    /// 
+    ///
     /// # Arguments
     ///  * `pos`: the position to mask the coordinate of.
     ///  * `with_coord`: the value to replace the coordinate described by `self` with.
-    /// 
+    ///
     /// # Returns
     /// A [BlockPos] that contains `with_coord` on the axis described by `self` and the values from
     /// `pos` for the remaining coordinates.
@@ -251,12 +257,12 @@ impl Axis {
             Self::Z => pos.pos.with_z(with_coord).into(),
         }
     }
-    
+
     /// Returns the coordinate covered by `self` from `pos`.
-    /// 
+    ///
     /// # Arguments
     ///  * `pos`: the position to grab the coordinate from.
-    /// 
+    ///
     /// # Returns
     /// The coordinate from `pos` described by `self`.
     #[inline]
