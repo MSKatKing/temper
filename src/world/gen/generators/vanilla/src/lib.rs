@@ -8,15 +8,15 @@ use temper_core::block_state_id::BlockStateId;
 use temper_core::math::TemperMathExt;
 use temper_core::pos::{ChunkBlockPos, ChunkPos};
 use temper_core::random::{RandomSource, XoroshiroRandomSource};
-use temper_density::BoxedDensityFunction;
-use temper_density::compile::Compiler;
+use temper_density::compile::{CompiledDensityFunction, Compiler};
+use temper_density::error::DensityResult;
 use temper_density::json::{DensityFunctionArgument, deserialize_function};
-use temper_density::wrapped::WrappedDensityFunction;
+use temper_density::runtime::DensityRuntime;
 use temper_macros::block;
 
 pub struct VanillaGenerator {
     _rand: XoroshiroRandomSource,
-    final_density: BoxedDensityFunction,
+    final_density: CompiledDensityFunction,
     default_block_state: BlockStateId,
     default_fluid_state: BlockStateId,
     water_level: i16,
@@ -59,7 +59,7 @@ impl VanillaGenerator {
 
         Self {
             _rand: rand,
-            final_density: compiled,
+            final_density: compiled.unwrap(),
             default_block_state: block!("stone"),
             default_fluid_state: block!("water", { level: 0 }),
             water_level: 63,
@@ -139,13 +139,7 @@ impl VanillaGenerator {
         let cell_width_blocks = 1 << cell_width;
         let cell_height_blocks = 1 << cell_height;
 
-        let chunk_min = input.pos.block_offset(0, 0, 0);
-        let mut wrapped = WrappedDensityFunction::wrap(
-            &self.final_density,
-            cell_width_blocks,
-            chunk_min.pos.x >> 2,
-            chunk_min.pos.z >> 2,
-        );
+        let mut runtime = DensityRuntime::new(&self.final_density);
 
         let size_z = cell_count_xz + 1;
         let size_y = cell_count_y + 1;
@@ -163,8 +157,8 @@ impl VanillaGenerator {
             cell_width,
             cell_height,
             min_y,
-            &mut wrapped,
-        );
+            &mut runtime,
+        ).map_err(|err| GenerationError::DensityError(format!("{err:?}")))?;
 
         for x_cell in 0..cell_count_xz {
             let x_pos = x_cell << cell_width;
@@ -177,8 +171,8 @@ impl VanillaGenerator {
                 cell_width,
                 cell_height,
                 min_y,
-                &mut wrapped,
-            );
+                &mut runtime,
+            ).map_err(|err| GenerationError::DensityError(format!("{err:?}")))?;
 
             for z_cell in 0..cell_count_xz {
                 let z_pos = z_cell << cell_width;
@@ -293,8 +287,8 @@ fn fill_slice(
     cell_width: i32,
     cell_height: i32,
     min_y: i16,
-    function: &mut WrappedDensityFunction,
-) {
+    function: &mut DensityRuntime,
+) -> DensityResult<()> {
     let x_pos = (cell_x << cell_width) as i32;
 
     for cell_z in 0..=cell_count_xz {
@@ -304,7 +298,9 @@ fn fill_slice(
             let y_pos = (cell_y << cell_height) as i16 + min_y;
 
             slice[cell_z + cell_y * (cell_count_xz + 1)] =
-                function.execute(chunk_pos.block_offset(x_pos, y_pos as i32, z_pos));
+                function.execute_at(chunk_pos.block_offset(x_pos, y_pos as i32, z_pos))?;
         }
     }
+    
+    Ok(())
 }

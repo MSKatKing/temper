@@ -17,5 +17,6 @@ pub enum DensityRuntimeError {
 
 #[derive(Debug)]
 pub enum DensityCompileError {
-    
+    MissingExternalFunction(String),
+    UnknownNoise(String),
 }

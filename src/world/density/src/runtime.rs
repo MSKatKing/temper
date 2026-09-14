@@ -1,12 +1,14 @@
 use std::ops::{Div, Neg, Rem};
-use bevy_math::DVec3;
+use bevy_math::{DVec3, IVec3};
 use temper_core::math::TemperMathExt;
 use temper_core::pos::BlockPos;
+use crate::compile::CompiledDensityFunction;
 use crate::error::{DensityResult, DensityRuntimeError};
 use crate::opcode::{DensityOpcode, DensitySpline, Tiling};
 
 pub type DensityStack = Vec<f64>;
 
+#[derive(Clone)]
 pub struct DensityCache {
     last_pos: BlockPos,
     last_value: f64,
@@ -14,7 +16,7 @@ pub struct DensityCache {
 
 pub struct DensityRuntime<'compiled> {
     main: &'compiled [DensityOpcode],
-    spline_runtimes: &'compiled [Vec<DensityOpcode>],
+    spline_runtimes: &'compiled [Box<[DensityOpcode]>],
     stack: DensityStack,
     pos_stack: Vec<BlockPos>,
     caches: Vec<DensityCache>,
@@ -26,6 +28,19 @@ enum MovementResult {
 }
 
 impl DensityRuntime<'_> {
+    pub fn new(func: &CompiledDensityFunction) -> DensityRuntime<'_> {
+        DensityRuntime {
+            main: func.main.as_ref(),
+            spline_runtimes: func.spline_opcodes.as_ref(),
+            caches: vec![DensityCache {
+                last_pos: IVec3::splat(i32::MAX).into(),
+                last_value: 0.0,
+            }; func.num_caches],
+            stack: Vec::new(),
+            pos_stack: Vec::new(),
+        }
+    }
+
     pub fn execute_at(&mut self, pos: BlockPos) -> DensityResult<f64> {
         self.stack.clear();
         self.pos_stack.clear();

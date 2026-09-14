@@ -5,6 +5,7 @@ use crate::error::{DensityResult, DensityRuntimeError};
 use crate::runtime::DensityStack;
 
 /// Represents an opcode and it's arguments for the density runtime to calculate.
+#[derive(Debug)]
 pub enum DensityOpcode {
     /// Pushes `value` onto the stack.
     ///
@@ -179,6 +180,7 @@ pub enum DensityOpcode {
 }
 
 /// Represents a source for a value.
+#[derive(Debug)]
 pub enum DensityValueSource {
     /// Pops a value off of the runtime stack.
     Stack,
@@ -188,6 +190,7 @@ pub enum DensityValueSource {
 }
 
 /// Represents an axis, either X, Y, or Z.
+#[derive(Debug)]
 pub enum Axis {
     /// Represents the x coordinate.
     X,
@@ -200,6 +203,7 @@ pub enum Axis {
 }
 
 /// Represents a tiling mode to be used with the gradient instruction.
+#[derive(Debug)]
 pub enum Tiling {
     ClampToEdge,
     Repeat,
@@ -210,6 +214,7 @@ pub enum Tiling {
 }
 
 /// Nodes for a spline object.
+#[derive(Debug)]
 pub enum DensitySpline {
     /// Represents a multipoint spline. Coordinate should be the index into the runtime's spline
     /// code segments.
