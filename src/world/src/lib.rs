@@ -58,10 +58,9 @@ impl World {
         let storage_backend = StorageBackend::initialize(Some(backend_path), map_size)
             .expect("Failed to initialize database");
 
-        let seed = if let Ok(seed) = config.world_gen.seed.parse::<u64>() {
-            seed
-        } else {
-            java_hash_code(config.world_gen.seed.as_str()).into()
+        let seed = match config.world_gen.seed.parse::<u64>() {
+            Ok(seed) => seed,
+            Err(_) => java_hash_code(config.world_gen.seed.as_str()).into(),
         };
 
         let chunks = ChunkStore::new(
