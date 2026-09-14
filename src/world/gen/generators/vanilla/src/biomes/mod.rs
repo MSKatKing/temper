@@ -19,20 +19,20 @@ impl RTreeObject for BiomeParameters {
 
     fn envelope(&self) -> Self::Envelope {
         let min = [
+            quantize(self.temperature.start),
+            quantize(self.humidity.start),
             quantize(self.continentalness.start),
             quantize(self.erosion.start),
-            quantize(self.humidity.start),
-            quantize(self.temperature.start),
-            quantize(self.weirdness.start),
             quantize(self.depth.start),
+            quantize(self.weirdness.start),
         ];
         let max = [
+            quantize(self.temperature.end),
+            quantize(self.humidity.end),
             quantize(self.continentalness.end),
             quantize(self.erosion.end),
-            quantize(self.humidity.end),
-            quantize(self.temperature.end),
-            quantize(self.weirdness.end),
             quantize(self.depth.end),
+            quantize(self.weirdness.end),
         ];
 
         AABB::from_corners(min, max)
@@ -60,12 +60,12 @@ impl PointDistance for BiomeParameters {
 impl BiomeParameters {
     fn as_param_list(&self) -> [(i64, i64); 6] {
         [
+            (quantize(self.temperature.start), quantize(self.temperature.end)),
+            (quantize(self.humidity.start), quantize(self.humidity.end)),
             (quantize(self.continentalness.start), quantize(self.continentalness.end)),
             (quantize(self.erosion.start), quantize(self.erosion.end)),
-            (quantize(self.humidity.start), quantize(self.humidity.end)),
-            (quantize(self.temperature.start), quantize(self.temperature.end)),
-            (quantize(self.weirdness.start), quantize(self.weirdness.end)),
             (quantize(self.depth.start), quantize(self.depth.end)),
+            (quantize(self.weirdness.start), quantize(self.weirdness.end)),
         ]
     }
 }
@@ -74,8 +74,4 @@ include!(concat!(env!("OUT_DIR"), "/biome_params.rs"));
 
 pub fn quantize(v: f64) -> i64 {
     (v * 10000.0) as i64
-}
-
-pub fn unquantize(v: i64) -> f64 {
-    (v as f64) / 10000.0
 }

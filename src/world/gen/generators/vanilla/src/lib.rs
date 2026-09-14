@@ -86,83 +86,50 @@ impl VanillaGenerator {
         let mut weirdness = DensityRuntime::new(&self.router.ridges);
         let mut depth = DensityRuntime::new(&self.router.depth);
 
-        let min_y = input.target.height().min_y as i32;
-        for (i, section) in input.target.section_iter_mut().enumerate() {
-            let min_y = (i << 4) as i32 + min_y;
+        for x in 0..4 {
+            let block_x = x << 2;
 
-            for x in 0..4 {
-                let block_x = x << 2;
+            for z in 0..4 {
+                let block_z = z << 2;
 
-                for y in 0..4 {
-                    let block_y = min_y + (y << 2);
+                for y in 0..(input.target.height().height as i32 >> 2) {
+                    let block_y = (y << 2) + input.target.height().min_y as i32;
 
-                    for z in 0..4 {
-                        let block_z = z << 2;
-
-                        let pos = input.pos.block_offset(block_x, block_y, block_z);
-                        let biome = self.biome_tree.nearest_neighbor([
-                            quantize(
-                                continentalness.execute_at(pos)
-                                    .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
-                            ),
-                            quantize(
-                                erosion.execute_at(pos)
-                                    .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
-                            ),
-                            quantize(
-                                humidity.execute_at(pos)
-                                    .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
-                            ),
-                            quantize(
-                                temperature.execute_at(pos)
-                                    .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
-                            ),
-                            quantize(
-                                weirdness.execute_at(pos)
-                                    .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
-                            ),
-                            quantize(
-                                depth.execute_at(pos)
-                                    .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
-                            ),
-                        ]).unwrap();
-                        section.set_biome(SectionBlockPos::new(
-                            (x << 2) as u8,
-                            (y << 2) as u8,
-                            (z << 2) as u8,
-                        ), biome.biome)
-                    }
+                    let pos = input.pos.block_offset(block_x, block_y, block_z);
+                    let biome = self.biome_tree.nearest_neighbor([
+                        quantize(
+                            temperature.execute_at(pos)
+                                .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
+                        ),
+                        quantize(
+                            humidity.execute_at(pos)
+                                .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
+                        ),
+                        quantize(
+                            continentalness.execute_at(pos)
+                                .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
+                        ),
+                        quantize(
+                            erosion.execute_at(pos)
+                                .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
+                        ),
+                        quantize(
+                            depth.execute_at(pos)
+                                .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
+                        ),
+                        quantize(
+                            weirdness.execute_at(pos)
+                                .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
+                        ),
+                    ]).unwrap();
+                    input.target.set_biome(ChunkBlockPos::new(
+                        block_x as u8,
+                        block_y as i16,
+                        block_z as u8,
+                    ), biome.biome);
                 }
             }
         }
-
-        // for x in 0..4 {
-        //     let block_x = x << 2;
-        //
-        //     for y in 0..(input.target.height().height as i32 >> 4) {
-        //         let block_y = (y << 2) + input.target.height().min_y as i32;
-        //
-        //         for z in 0..4 {
-        //             let block_z = z << 2;
-        //
-        //             let pos = input.pos.block_offset(block_x, block_y, block_z);
-        //             let biome = self.biome_tree.nearest_neighbor([
-        //                 quantize(continentalness.execute(pos)),
-        //                 quantize(erosion.execute(pos)),
-        //                 quantize(humidity.execute(pos)),
-        //                 quantize(temperature.execute(pos)),
-        //                 quantize(weirdness.execute(pos)),
-        //                 quantize(depth.execute(pos)),
-        //                 0,
-        //             ]).unwrap();
-        //             input.target.set_biome(ChunkBlockPos::new(
-        //                 block_x as _,
-        //                 block_y as _,
-        //                 block_z as _,
-        //             ), biome.biome);
-        //         }
-        //     }
-        // }
 
         Ok(())
     }
