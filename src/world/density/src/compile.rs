@@ -1,10 +1,10 @@
+use crate::error::{DensityCompileError, DensityCompileResult};
 use crate::json::{DensityFunction, DensityFunctionArgument, DensitySpline, ValueOrSpline};
+use crate::opcode::{Axis, DensityOpcode, DensityValueSource, Tiling};
 use std::collections::HashMap;
 use temper_core::random::{PositionalRandom, RandomSource};
 use temper_noise::params::NoiseParameter;
 use temper_noise::{BlendedNoise, NormalNoise};
-use crate::error::{DensityCompileError, DensityCompileResult};
-use crate::opcode::{Axis, DensityOpcode, DensityValueSource, Tiling};
 
 pub struct CompiledDensityFunction {
     pub(crate) main: Box<[DensityOpcode]>,
@@ -29,14 +29,18 @@ impl Compiler<'_> {
             spline_opcodes: Vec::new(),
             num_caches: 0,
         };
-        
+
         let mut opcodes = Vec::new();
 
         compile_arg(&mut this, &mut opcodes, rand, &func)?;
-        
+
         Ok(CompiledDensityFunction {
             main: opcodes.into_boxed_slice(),
-            spline_opcodes: this.spline_opcodes.into_iter().map(|v| v.into_boxed_slice()).collect(),
+            spline_opcodes: this
+                .spline_opcodes
+                .into_iter()
+                .map(|v| v.into_boxed_slice())
+                .collect(),
             num_caches: this.num_caches,
         })
     }
@@ -53,12 +57,15 @@ fn compile_arg<R: RandomSource, P: PositionalRandom<R>>(
         DensityFunctionArgument::Function(val) => {
             compile_to(compiler, opcodes, rand, val.as_ref())?;
             Ok(DensityValueSource::Stack)
-        },
+        }
         DensityFunctionArgument::External(val) => compile_arg(
             compiler,
             opcodes,
             rand,
-            compiler.externals.get(val).ok_or(DensityCompileError::MissingExternalFunction(val.clone()))?,
+            compiler
+                .externals
+                .get(val)
+                .ok_or(DensityCompileError::MissingExternalFunction(val.clone()))?,
         ),
     }
 }
@@ -71,22 +78,26 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
 ) -> DensityCompileResult<()> {
     match func {
         DensityFunction::Cache2d { input } => {
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
         }
         DensityFunction::CacheAllInCell { input } => {
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
         }
         DensityFunction::CacheOnce { input } => {
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
         }
         DensityFunction::Interpolated { input } => {
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
         }
@@ -101,14 +112,13 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
                 after: 0,
             });
 
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
-            
-            opcodes.push(DensityOpcode::StoreSlice {
-                cache_index,
-            });
-            
+
+            opcodes.push(DensityOpcode::StoreSlice { cache_index });
+
             let len = opcodes.len();
             let DensityOpcode::Slice { after, .. } = &mut opcodes[idx] else {
                 unreachable!()
@@ -119,65 +129,55 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
             noise,
             xz_scale,
             y_scale,
-        } => {
-            opcodes.push(DensityOpcode::Noise {
-                noise: NormalNoise::new(
-                    &mut rand.spawn_from_hash(noise.as_str()),
-                    NoiseParameter::get_by_name(noise)
-                        .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
-                ),
-                xz_scale: *xz_scale,
-                y_scale: *y_scale,
-                shift_x: DensityValueSource::Constant(0.0),
-                shift_y: DensityValueSource::Constant(0.0),
-                shift_z: DensityValueSource::Constant(0.0),
-            })
-        },
+        } => opcodes.push(DensityOpcode::Noise {
+            noise: NormalNoise::new(
+                &mut rand.spawn_from_hash(noise.as_str()),
+                NoiseParameter::get_by_name(noise)
+                    .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
+            ),
+            xz_scale: *xz_scale,
+            y_scale: *y_scale,
+            shift_x: DensityValueSource::Constant(0.0),
+            shift_y: DensityValueSource::Constant(0.0),
+            shift_z: DensityValueSource::Constant(0.0),
+        }),
         DensityFunction::OldBlendedNoise {
             xz_scale,
             y_scale,
             xz_factor,
             y_factor,
             smear_scale_multiplier,
-        } => {
-            opcodes.push(DensityOpcode::BlendedNoise {
-                noise: BlendedNoise::new_seeded(
-                    &mut rand.spawn_from_hash("minecraft:terrain"),
-                    *xz_scale,
-                    *y_scale,
-                    *xz_factor,
-                    *y_factor,
-                    *smear_scale_multiplier,
-                )
-            })
-        },
-        DensityFunction::Shift { noise } => {
-            opcodes.push(DensityOpcode::Shift {
-                noise: NormalNoise::new(
-                    &mut rand.spawn_from_hash(noise.as_str()),
-                    NoiseParameter::get_by_name(noise)
-                        .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
-                )
-            })
-        },
-        DensityFunction::ShiftA { noise } => {
-            opcodes.push(DensityOpcode::ShiftA {
-                noise: NormalNoise::new(
-                    &mut rand.spawn_from_hash(noise.as_str()),
-                    NoiseParameter::get_by_name(noise)
-                        .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
-                )
-            })
-        }
-        DensityFunction::ShiftB { noise } => {
-            opcodes.push(DensityOpcode::ShiftB {
-                noise: NormalNoise::new(
-                    &mut rand.spawn_from_hash(noise.as_str()),
-                    NoiseParameter::get_by_name(noise)
-                        .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
-                )
-            })
-        }
+        } => opcodes.push(DensityOpcode::BlendedNoise {
+            noise: BlendedNoise::new_seeded(
+                &mut rand.spawn_from_hash("minecraft:terrain"),
+                *xz_scale,
+                *y_scale,
+                *xz_factor,
+                *y_factor,
+                *smear_scale_multiplier,
+            ),
+        }),
+        DensityFunction::Shift { noise } => opcodes.push(DensityOpcode::Shift {
+            noise: NormalNoise::new(
+                &mut rand.spawn_from_hash(noise.as_str()),
+                NoiseParameter::get_by_name(noise)
+                    .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
+            ),
+        }),
+        DensityFunction::ShiftA { noise } => opcodes.push(DensityOpcode::ShiftA {
+            noise: NormalNoise::new(
+                &mut rand.spawn_from_hash(noise.as_str()),
+                NoiseParameter::get_by_name(noise)
+                    .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
+            ),
+        }),
+        DensityFunction::ShiftB { noise } => opcodes.push(DensityOpcode::ShiftB {
+            noise: NormalNoise::new(
+                &mut rand.spawn_from_hash(noise.as_str()),
+                NoiseParameter::get_by_name(noise)
+                    .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
+            ),
+        }),
         DensityFunction::ShiftedNoise {
             noise,
             xz_scale,
@@ -189,7 +189,7 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
             let shift_z = compile_arg(compiler, opcodes, rand, shift_z)?;
             let shift_y = compile_arg(compiler, opcodes, rand, shift_y)?;
             let shift_x = compile_arg(compiler, opcodes, rand, shift_x)?;
-            
+
             opcodes.push(DensityOpcode::Noise {
                 noise: NormalNoise::new(
                     &mut rand.spawn_from_hash(noise.as_str()),
@@ -204,20 +204,22 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
             })
         }
         DensityFunction::Abs { input } => {
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
-            
+
             opcodes.push(DensityOpcode::Abs)
         }
         DensityFunction::Add { left, right } => {
             let rhs = compile_arg(compiler, opcodes, rand, right)?;
             let lhs = compile_arg(compiler, opcodes, rand, left)?;
-            
+
             opcodes.push(DensityOpcode::Add { lhs, rhs })
         }
         DensityFunction::Clamp { input, min, max } => {
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
 
@@ -226,11 +228,12 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
                 max: *max,
             })
         }
-        DensityFunction::Constant { value } => opcodes.push(DensityOpcode::PushConstant {
-            value: *value,
-        }),
+        DensityFunction::Constant { value } => {
+            opcodes.push(DensityOpcode::PushConstant { value: *value })
+        }
         DensityFunction::Cube { input } => {
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
 
@@ -243,7 +246,8 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
             opcodes.push(DensityOpcode::Div { lhs, rhs })
         }
         DensityFunction::Invert { input } => {
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
 
@@ -268,7 +272,8 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
             opcodes.push(DensityOpcode::Max { a, b })
         }
         DensityFunction::Negate { input } => {
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
 
@@ -281,7 +286,8 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
             opcodes.push(DensityOpcode::Sub { lhs, rhs })
         }
         DensityFunction::Square { input } => {
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
 
@@ -301,7 +307,8 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
             to_coord: *to_y,
         }),
         DensityFunction::Squeeze { input } => {
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
 
@@ -310,16 +317,18 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
         DensityFunction::Spline { spline } => {
             let spline = compile_spline(compiler, opcodes, rand, spline)?;
             opcodes.push(DensityOpcode::Spline { spline })
-        },
+        }
         DensityFunction::HalfNegative { input } => {
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
 
             opcodes.push(DensityOpcode::HalfNegative)
         }
         DensityFunction::QuarterNegative { input } => {
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
 
@@ -330,24 +339,27 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
             thresholds,
             functions,
         } => {
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
-            
+
             let idx = opcodes.len();
             opcodes.push(DensityOpcode::IntervalSelect {
                 thresholds: thresholds.clone(),
                 indexes: Vec::with_capacity(0),
             });
-            
+
             let (indexes, jumps): (Vec<usize>, Vec<usize>) = functions
                 .iter()
                 .map(|f| {
                     let idx = opcodes.len();
-                    if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+                    if let DensityValueSource::Constant(val) =
+                        compile_arg(compiler, opcodes, rand, f)?
+                    {
                         opcodes.push(DensityOpcode::PushConstant { value: val })
                     }
-                    
+
                     let jump = opcodes.len();
                     opcodes.push(DensityOpcode::JumpTo { index: 0 });
                     Ok((idx, jump))
@@ -355,22 +367,22 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
                 .collect::<Result<Vec<_>, _>>()?
                 .into_iter()
                 .unzip();
-            
+
             let DensityOpcode::IntervalSelect { indexes: val, .. } = &mut opcodes[idx] else {
                 unreachable!()
             };
-            
+
             *val = indexes;
-            
+
             let jump_to = opcodes.len();
             for jump in jumps {
                 let DensityOpcode::JumpTo { index } = &mut opcodes[jump] else {
                     unreachable!()
                 };
-                
+
                 *index = jump_to;
             }
-        },
+        }
         DensityFunction::RangeChoice {
             input,
             min_inclusive,
@@ -378,58 +390,67 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
             when_in_range,
             when_out_of_range,
         } => {
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
-            
+
             let idx = opcodes.len();
             opcodes.push(DensityOpcode::RangeChoice {
                 range: *min_inclusive..*max_exclusive,
                 when_out_of_range: 0,
             });
 
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, when_in_range)? {
+            if let DensityValueSource::Constant(val) =
+                compile_arg(compiler, opcodes, rand, when_in_range)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
-            
+
             let jump_idx = opcodes.len();
             opcodes.push(DensityOpcode::JumpTo { index: 0 });
 
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, when_out_of_range)? {
+            if let DensityValueSource::Constant(val) =
+                compile_arg(compiler, opcodes, rand, when_out_of_range)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
-            
+
             let out_idx = opcodes.len();
-            
-            let DensityOpcode::RangeChoice { when_out_of_range, .. } = &mut opcodes[idx] else {
+
+            let DensityOpcode::RangeChoice {
+                when_out_of_range, ..
+            } = &mut opcodes[idx]
+            else {
                 unreachable!()
             };
-            
+
             *when_out_of_range = jump_idx + 1;
-            
+
             let DensityOpcode::JumpTo { index } = &mut opcodes[jump_idx] else {
                 unreachable!()
             };
-            
+
             *index = out_idx;
-        },
+        }
         DensityFunction::Beardifier => opcodes.push(DensityOpcode::PushConstant { value: 0.0 }),
         DensityFunction::BlendAlpha => opcodes.push(DensityOpcode::PushConstant { value: 1.0 }),
         DensityFunction::BlendOffset => opcodes.push(DensityOpcode::PushConstant { value: 0.0 }),
         DensityFunction::BlendDensity { input } => {
-            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)? {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
                 opcodes.push(DensityOpcode::PushConstant { value: val })
             }
-        },
+        }
         _ => todo!("{:?}", func),
     }
-    
+
     Ok(())
 }
 
 fn compile_spline<R: RandomSource, P: PositionalRandom<R>>(
     compiler: &mut Compiler,
-    opcodes: &mut Vec<DensityOpcode>,
+    _opcodes: &mut Vec<DensityOpcode>,
     rand: &mut P,
     spline: &DensitySpline,
 ) -> DensityCompileResult<crate::opcode::DensitySpline> {
@@ -448,7 +469,7 @@ fn compile_spline<R: RandomSource, P: PositionalRandom<R>>(
         .iter()
         .map(|v| match &v.value {
             ValueOrSpline::Value(v) => Ok(crate::opcode::DensitySpline::Constant(*v)),
-            ValueOrSpline::Spline(s) => compile_spline(compiler, opcodes, rand, s),
+            ValueOrSpline::Spline(s) => compile_spline(compiler, _opcodes, rand, s),
         })
         .collect::<Result<Vec<_>, _>>()?;
 

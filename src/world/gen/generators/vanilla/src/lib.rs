@@ -158,7 +158,8 @@ impl VanillaGenerator {
             cell_height,
             min_y,
             &mut runtime,
-        ).map_err(|err| GenerationError::DensityError(format!("{err:?}")))?;
+        )
+        .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?;
 
         for x_cell in 0..cell_count_xz {
             let x_pos = x_cell << cell_width;
@@ -172,7 +173,8 @@ impl VanillaGenerator {
                 cell_height,
                 min_y,
                 &mut runtime,
-            ).map_err(|err| GenerationError::DensityError(format!("{err:?}")))?;
+            )
+            .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?;
 
             for z_cell in 0..cell_count_xz {
                 let z_pos = z_cell << cell_width;
@@ -301,6 +303,6 @@ fn fill_slice(
                 function.execute_at(chunk_pos.block_offset(x_pos, y_pos as i32, z_pos))?;
         }
     }
-    
+
     Ok(())
 }

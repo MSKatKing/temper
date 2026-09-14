@@ -1,10 +1,10 @@
-use std::ops::{Div, Neg, Rem};
-use bevy_math::{DVec3, IVec3};
-use temper_core::math::TemperMathExt;
-use temper_core::pos::BlockPos;
 use crate::compile::CompiledDensityFunction;
 use crate::error::{DensityResult, DensityRuntimeError};
 use crate::opcode::{DensityOpcode, DensitySpline, Tiling};
+use bevy_math::{DVec3, IVec3};
+use std::ops::{Div, Neg, Rem};
+use temper_core::math::TemperMathExt;
+use temper_core::pos::BlockPos;
 
 pub type DensityStack = Vec<f64>;
 
@@ -32,10 +32,13 @@ impl DensityRuntime<'_> {
         DensityRuntime {
             main: func.main.as_ref(),
             spline_runtimes: func.spline_opcodes.as_ref(),
-            caches: vec![DensityCache {
-                last_pos: IVec3::splat(i32::MAX).into(),
-                last_value: 0.0,
-            }; func.num_caches],
+            caches: vec![
+                DensityCache {
+                    last_pos: IVec3::splat(i32::MAX).into(),
+                    last_value: 0.0,
+                };
+                func.num_caches
+            ],
             stack: Vec::new(),
             pos_stack: Vec::new(),
         }
@@ -63,7 +66,7 @@ impl DensityRuntime<'_> {
             return Err(DensityRuntimeError::SplineRuntimeOutOfBounds {
                 got: index,
                 max: self.spline_runtimes.len() - 1,
-            })
+            });
         }
 
         let runtime = &self.spline_runtimes[index];
@@ -79,15 +82,22 @@ impl DensityRuntime<'_> {
     }
 
     fn current_pos(&self) -> DensityResult<&BlockPos> {
-        self.pos_stack.last().ok_or(DensityRuntimeError::PositionStackUnderflow)
+        self.pos_stack
+            .last()
+            .ok_or(DensityRuntimeError::PositionStackUnderflow)
     }
 
     fn pop_pos(&mut self) -> DensityResult<BlockPos> {
-        self.pos_stack.pop().ok_or(DensityRuntimeError::PositionStackUnderflow)
+        self.pos_stack
+            .pop()
+            .ok_or(DensityRuntimeError::PositionStackUnderflow)
     }
 
     fn modify_last(&mut self, f: impl FnOnce(f64) -> f64) -> DensityResult<()> {
-        let last = self.stack.last_mut().ok_or(DensityRuntimeError::StackUnderflow)?;
+        let last = self
+            .stack
+            .last_mut()
+            .ok_or(DensityRuntimeError::StackUnderflow)?;
         *last = f(*last);
         Ok(())
     }
@@ -142,23 +152,13 @@ impl DensityOpcode {
                 let v = v.clamp(-1.0, 1.0);
                 v / 2.0 - v * v * v / 24.0
             })?,
-            DensityOpcode::HalfNegative => runtime.modify_last(|v| {
-                if v.is_sign_negative() {
-                    v * 0.5
-                } else {
-                    v
-                }
-            })?,
-            DensityOpcode::QuarterNegative => runtime.modify_last(|v| {
-                if v.is_sign_negative() {
-                    v * 0.25
-                } else {
-                    v
-                }
-            })?,
-            DensityOpcode::Clamp { min, max } => runtime.modify_last(|v| {
-                v.clamp(*min, *max)
-            })?,
+            DensityOpcode::HalfNegative => {
+                runtime.modify_last(|v| if v.is_sign_negative() { v * 0.5 } else { v })?
+            }
+            DensityOpcode::QuarterNegative => {
+                runtime.modify_last(|v| if v.is_sign_negative() { v * 0.25 } else { v })?
+            }
+            DensityOpcode::Clamp { min, max } => runtime.modify_last(|v| v.clamp(*min, *max))?,
             DensityOpcode::Slice {
                 axis,
                 coordinate,
@@ -167,12 +167,12 @@ impl DensityOpcode {
             } => {
                 let pos = axis.mask_coordinate(*runtime.current_pos()?, *coordinate);
                 let max = runtime.caches.len() - 1;
-                let cache = runtime.caches
-                    .get_mut(*cache_index)
-                    .ok_or(DensityRuntimeError::InvalidCache {
+                let cache = runtime.caches.get_mut(*cache_index).ok_or(
+                    DensityRuntimeError::InvalidCache {
                         got: *cache_index,
                         max,
-                    })?;
+                    },
+                )?;
 
                 if cache.last_pos != pos {
                     runtime.pos_stack.push(pos);
@@ -183,16 +183,19 @@ impl DensityOpcode {
                 }
             }
             DensityOpcode::StoreSlice { cache_index } => {
-                let value = *runtime.stack.last().ok_or(DensityRuntimeError::StackUnderflow)?;
+                let value = *runtime
+                    .stack
+                    .last()
+                    .ok_or(DensityRuntimeError::StackUnderflow)?;
                 let pos = runtime.pop_pos()?;
 
                 let max = runtime.caches.len() - 1;
-                let cache = runtime.caches
-                    .get_mut(*cache_index)
-                    .ok_or(DensityRuntimeError::InvalidCache {
+                let cache = runtime.caches.get_mut(*cache_index).ok_or(
+                    DensityRuntimeError::InvalidCache {
                         got: *cache_index,
                         max,
-                    })?;
+                    },
+                )?;
 
                 cache.last_pos = pos;
                 cache.last_value = value;
@@ -246,8 +249,14 @@ impl DensityOpcode {
                 )) * 4.0;
                 runtime.stack.push(val);
             }
-            DensityOpcode::IntervalSelect { thresholds, indexes } => {
-                let input = runtime.stack.pop().ok_or(DensityRuntimeError::StackUnderflow)?;
+            DensityOpcode::IntervalSelect {
+                thresholds,
+                indexes,
+            } => {
+                let input = runtime
+                    .stack
+                    .pop()
+                    .ok_or(DensityRuntimeError::StackUnderflow)?;
 
                 for (i, threshold) in thresholds.iter().enumerate() {
                     if input < *threshold {
@@ -261,7 +270,10 @@ impl DensityOpcode {
                 range,
                 when_out_of_range,
             } => {
-                let input = runtime.stack.pop().ok_or(DensityRuntimeError::StackUnderflow)?;
+                let input = runtime
+                    .stack
+                    .pop()
+                    .ok_or(DensityRuntimeError::StackUnderflow)?;
                 if !range.contains(&input) {
                     return Ok(MovementResult::JumpTo(*when_out_of_range));
                 }
@@ -271,7 +283,7 @@ impl DensityOpcode {
             DensityOpcode::Spline { spline } => {
                 let val = spline.execute(runtime)?;
                 runtime.stack.push(val);
-            },
+            }
             DensityOpcode::Gradient {
                 axis,
                 tiling,
@@ -307,14 +319,12 @@ impl DensityOpcode {
                         let rel = coord - from_coord;
                         from_value + rel.rem(coord_range).floor() * coord_factor
                     }
-                    Tiling::Legacy => coord
-                        .clamp(from_coord, to_coord)
-                        .clamped_map(
-                            from_coord,
-                            to_coord,
-                            *from_value,
-                            *to_value,
-                        ),
+                    Tiling::Legacy => coord.clamp(from_coord, to_coord).clamped_map(
+                        from_coord,
+                        to_coord,
+                        *from_value,
+                        *to_value,
+                    ),
                 };
 
                 runtime.stack.push(value);
@@ -372,7 +382,7 @@ impl DensitySpline {
         locations: &[f64],
         derivatives: &[f64],
         value: f64,
-        index: usize
+        index: usize,
     ) -> f64 {
         let derivative = derivatives[index];
 
@@ -393,13 +403,13 @@ impl DensitySpline {
 
 #[cfg(test)]
 mod tests {
-    use crate::opcode::DensityValueSource;
     use super::*;
+    use crate::opcode::DensityValueSource;
 
     fn test_simple(ops: &[DensityOpcode], pos: BlockPos) -> f64 {
         let spline_runtimes = [];
         let mut runtime = DensityRuntime {
-            main: &ops,
+            main: ops,
             spline_runtimes: &spline_runtimes,
             stack: Vec::new(),
             caches: Vec::new(),
@@ -419,7 +429,7 @@ mod tests {
             DensityOpcode::Add {
                 lhs: DensityValueSource::Stack,
                 rhs: DensityValueSource::Constant(5.0),
-            }
+            },
         ];
 
         let res = test_simple(&ops, BlockPos::of(0, 0, 0));
@@ -433,7 +443,7 @@ mod tests {
             DensityOpcode::Mul {
                 lhs: DensityValueSource::Stack,
                 rhs: DensityValueSource::Constant(5.0),
-            }
+            },
         ];
 
         let res = test_simple(&ops, BlockPos::of(0, 0, 0));
@@ -447,7 +457,7 @@ mod tests {
             DensityOpcode::Sub {
                 lhs: DensityValueSource::Stack,
                 rhs: DensityValueSource::Constant(5.0),
-            }
+            },
         ];
 
         let res = test_simple(&ops, BlockPos::of(0, 0, 0));
@@ -461,7 +471,7 @@ mod tests {
             DensityOpcode::Div {
                 lhs: DensityValueSource::Stack,
                 rhs: DensityValueSource::Constant(5.0),
-            }
+            },
         ];
 
         let res = test_simple(&ops, BlockPos::of(0, 0, 0));
@@ -479,7 +489,7 @@ mod tests {
             DensityOpcode::Mul {
                 lhs: DensityValueSource::Stack,
                 rhs: DensityValueSource::Constant(5.0),
-            }
+            },
         ];
 
         let res = test_simple(&ops, BlockPos::of(0, 0, 0));

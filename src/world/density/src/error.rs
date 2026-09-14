@@ -5,14 +5,8 @@ pub type DensityCompileResult<T> = Result<T, DensityCompileError>;
 pub enum DensityRuntimeError {
     StackUnderflow,
     PositionStackUnderflow,
-    SplineRuntimeOutOfBounds {
-        got: usize,
-        max: usize,
-    },
-    InvalidCache {
-        got: usize,
-        max: usize,
-    },
+    SplineRuntimeOutOfBounds { got: usize, max: usize },
+    InvalidCache { got: usize, max: usize },
 }
 
 #[derive(Debug)]
