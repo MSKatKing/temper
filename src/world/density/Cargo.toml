@@ -1,6 +1,6 @@
 [package]
 name = "temper-density"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]
@@ -9,4 +9,3 @@ serde_json = { workspace = true }
 temper-noise = { workspace = true }
 temper-core = { workspace = true }
 bevy_math = { workspace = true }
-splines = "5.0.0"

@@ -153,7 +153,7 @@ fn chunk_ring(center: ChunkPos, radius: i32) -> impl Iterator<Item = (i32, i32)>
 mod tests {
     use bevy_ecs::schedule::Schedule;
     use temper_macros::block;
-    use temper_state::create_test_state;
+    use temper_state::create_test_state_with_generator;
 
     use super::*;
 
@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn generates_positions_into_queue() {
-        let (state, _temp_dir) = create_test_state();
+        let (state, _temp_dir) = create_test_state_with_generator("superflat".to_string());
         let mut world = bevy_ecs::world::World::new();
         let mut schedule = Schedule::default();
 

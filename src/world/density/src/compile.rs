@@ -1,21 +1,21 @@
-use crate::BoxedDensityFunction;
-use crate::conditional::{IntervalSelect, RangeChoice};
+use crate::error::{DensityCompileError, DensityCompileResult};
 use crate::json::{DensityFunction, DensityFunctionArgument, DensitySpline, ValueOrSpline};
-use crate::mapped::{Axis, Gradient, Tiling};
-use crate::marker::{Cache2d, CacheAllInCell, CacheOnce, FlatCache, Interpolated};
-use crate::math::{
-    Abs, Add, Clamp, Cube, Div, HalfNegative, Max, Min, Mul, Negate, QuarterNegative, Reciprocal,
-    Square, Squeeze, Sub,
-};
-use crate::noise::{Noise, OldBlendedNoise, Shift, ShiftA, ShiftB};
-use crate::spline::Spline;
+use crate::opcode::{Axis, DensityOpcode, DensityValueSource, Tiling};
 use std::collections::HashMap;
 use temper_core::random::{PositionalRandom, RandomSource};
 use temper_noise::params::NoiseParameter;
 use temper_noise::{BlendedNoise, NormalNoise};
 
+pub struct CompiledDensityFunction {
+    pub(crate) main: Box<[DensityOpcode]>,
+    pub(crate) spline_opcodes: Box<[Box<[DensityOpcode]>]>,
+    pub(crate) num_caches: usize,
+}
+
 pub struct Compiler<'a> {
     externals: &'a HashMap<String, DensityFunctionArgument>,
+    spline_opcodes: Vec<Vec<DensityOpcode>>,
+    num_caches: usize,
 }
 
 impl Compiler<'_> {
@@ -23,62 +23,123 @@ impl Compiler<'_> {
         rand: &mut P,
         externals: &HashMap<String, DensityFunctionArgument>,
         func: DensityFunctionArgument,
-    ) -> BoxedDensityFunction {
-        let mut this = Compiler { externals };
+    ) -> DensityCompileResult<CompiledDensityFunction> {
+        let mut this = Compiler {
+            externals,
+            spline_opcodes: Vec::new(),
+            num_caches: 0,
+        };
 
-        compile_arg(&mut this, rand, &func)
+        let mut opcodes = Vec::new();
+
+        compile_arg(&mut this, &mut opcodes, rand, &func)?;
+
+        Ok(CompiledDensityFunction {
+            main: opcodes.into_boxed_slice(),
+            spline_opcodes: this
+                .spline_opcodes
+                .into_iter()
+                .map(|v| v.into_boxed_slice())
+                .collect(),
+            num_caches: this.num_caches,
+        })
     }
 }
 
 fn compile_arg<R: RandomSource, P: PositionalRandom<R>>(
     compiler: &mut Compiler,
+    opcodes: &mut Vec<DensityOpcode>,
     rand: &mut P,
     arg: &DensityFunctionArgument,
-) -> BoxedDensityFunction {
+) -> DensityCompileResult<DensityValueSource> {
     match arg {
-        DensityFunctionArgument::Constant(val) => Box::new(*val),
-        DensityFunctionArgument::Function(val) => compile(compiler, rand, val.as_ref()),
+        DensityFunctionArgument::Constant(val) => Ok(DensityValueSource::Constant(*val)),
+        DensityFunctionArgument::Function(val) => {
+            compile_to(compiler, opcodes, rand, val.as_ref())?;
+            Ok(DensityValueSource::Stack)
+        }
         DensityFunctionArgument::External(val) => compile_arg(
             compiler,
+            opcodes,
             rand,
-            compiler.externals.get(val).expect("missing"),
+            compiler
+                .externals
+                .get(val)
+                .ok_or(DensityCompileError::MissingExternalFunction(val.clone()))?,
         ),
     }
 }
 
-fn compile<R: RandomSource, P: PositionalRandom<R>>(
+fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
     compiler: &mut Compiler,
+    opcodes: &mut Vec<DensityOpcode>,
     rand: &mut P,
     func: &DensityFunction,
-) -> BoxedDensityFunction {
+) -> DensityCompileResult<()> {
     match func {
-        DensityFunction::Cache2d { input } => Box::new(Cache2d(compile_arg(compiler, rand, input))),
+        DensityFunction::Cache2d { input } => {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+        }
         DensityFunction::CacheAllInCell { input } => {
-            Box::new(CacheAllInCell(compile_arg(compiler, rand, input)))
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
         }
         DensityFunction::CacheOnce { input } => {
-            Box::new(CacheOnce(compile_arg(compiler, rand, input)))
-        }
-        DensityFunction::FlatCache { input } => {
-            Box::new(FlatCache(compile_arg(compiler, rand, input)))
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
         }
         DensityFunction::Interpolated { input } => {
-            Box::new(Interpolated(compile_arg(compiler, rand, input)))
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+        }
+        DensityFunction::FlatCache { input } => {
+            let idx = opcodes.len();
+            let cache_index = compiler.num_caches;
+            compiler.num_caches += 1;
+            opcodes.push(DensityOpcode::Slice {
+                axis: Axis::Y,
+                coordinate: 0,
+                cache_index,
+                after: 0,
+            });
+
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+
+            opcodes.push(DensityOpcode::StoreSlice { cache_index });
+
+            let len = opcodes.len();
+            let DensityOpcode::Slice { after, .. } = &mut opcodes[idx] else {
+                unreachable!()
+            };
+            *after = len;
         }
         DensityFunction::Noise {
             noise,
             xz_scale,
             y_scale,
-        } => Box::new(Noise {
+        } => opcodes.push(DensityOpcode::Noise {
             noise: NormalNoise::new(
                 &mut rand.spawn_from_hash(noise.as_str()),
-                NoiseParameter::get_by_name(noise).expect("unknown noise"),
+                NoiseParameter::get_by_name(noise)
+                    .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
             ),
             xz_scale: *xz_scale,
             y_scale: *y_scale,
-            shift_x: None,
-            shift_y: None,
-            shift_z: None,
+            shift_x: DensityValueSource::Constant(0.0),
+            shift_y: DensityValueSource::Constant(0.0),
+            shift_z: DensityValueSource::Constant(0.0),
         }),
         DensityFunction::OldBlendedNoise {
             xz_scale,
@@ -86,26 +147,37 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             xz_factor,
             y_factor,
             smear_scale_multiplier,
-        } => Box::new(OldBlendedNoise(BlendedNoise::new_seeded(
-            &mut rand.spawn_from_hash("minecraft:terrain"),
-            *xz_scale,
-            *y_scale,
-            *xz_factor,
-            *y_factor,
-            *smear_scale_multiplier,
-        ))),
-        DensityFunction::Shift { noise } => Box::new(Shift(NormalNoise::new(
-            &mut rand.spawn_from_hash(noise.as_str()),
-            NoiseParameter::get_by_name(noise).expect("unknown noise"),
-        ))),
-        DensityFunction::ShiftA { noise } => Box::new(ShiftA(NormalNoise::new(
-            &mut rand.spawn_from_hash(noise.as_str()),
-            NoiseParameter::get_by_name(noise).expect("unknown noise"),
-        ))),
-        DensityFunction::ShiftB { noise } => Box::new(ShiftB(NormalNoise::new(
-            &mut rand.spawn_from_hash(noise.as_str()),
-            NoiseParameter::get_by_name(noise).expect("unknown noise"),
-        ))),
+        } => opcodes.push(DensityOpcode::BlendedNoise {
+            noise: BlendedNoise::new_seeded(
+                &mut rand.spawn_from_hash("minecraft:terrain"),
+                *xz_scale,
+                *y_scale,
+                *xz_factor,
+                *y_factor,
+                *smear_scale_multiplier,
+            ),
+        }),
+        DensityFunction::Shift { noise } => opcodes.push(DensityOpcode::Shift {
+            noise: NormalNoise::new(
+                &mut rand.spawn_from_hash(noise.as_str()),
+                NoiseParameter::get_by_name(noise)
+                    .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
+            ),
+        }),
+        DensityFunction::ShiftA { noise } => opcodes.push(DensityOpcode::ShiftA {
+            noise: NormalNoise::new(
+                &mut rand.spawn_from_hash(noise.as_str()),
+                NoiseParameter::get_by_name(noise)
+                    .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
+            ),
+        }),
+        DensityFunction::ShiftB { noise } => opcodes.push(DensityOpcode::ShiftB {
+            noise: NormalNoise::new(
+                &mut rand.spawn_from_hash(noise.as_str()),
+                NoiseParameter::get_by_name(noise)
+                    .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
+            ),
+        }),
         DensityFunction::ShiftedNoise {
             noise,
             xz_scale,
@@ -113,117 +185,279 @@ fn compile<R: RandomSource, P: PositionalRandom<R>>(
             shift_x,
             shift_y,
             shift_z,
-        } => Box::new(Noise {
-            noise: NormalNoise::new(
-                &mut rand.spawn_from_hash(noise.as_str()),
-                NoiseParameter::get_by_name(noise).expect("unknown noise"),
-            ),
-            xz_scale: *xz_scale,
-            y_scale: *y_scale,
-            shift_x: Some(compile_arg(compiler, rand, shift_x)),
-            shift_y: Some(compile_arg(compiler, rand, shift_y)),
-            shift_z: Some(compile_arg(compiler, rand, shift_z)),
-        }),
-        DensityFunction::Abs { input } => Box::new(Abs(compile_arg(compiler, rand, input))),
-        DensityFunction::Add { left, right } => Box::new(Add {
-            left: compile_arg(compiler, rand, left),
-            right: compile_arg(compiler, rand, right),
-        }),
-        DensityFunction::Ceil { .. } => todo!(),
-        DensityFunction::Clamp { input, min, max } => Box::new(Clamp {
-            inner: compile_arg(compiler, rand, input),
-            min: *min,
-            max: *max,
-        }),
-        DensityFunction::Constant { value } => Box::new(*value),
-        DensityFunction::Cube { input } => Box::new(Cube(compile_arg(compiler, rand, input))),
-        DensityFunction::Div { left, right } => Box::new(Div {
-            left: compile_arg(compiler, rand, left),
-            right: compile_arg(compiler, rand, right),
-        }),
-        DensityFunction::Floor { .. } => todo!(),
-        DensityFunction::Invert { input } => {
-            Box::new(Reciprocal(compile_arg(compiler, rand, input)))
+        } => {
+            let shift_z = compile_arg(compiler, opcodes, rand, shift_z)?;
+            let shift_y = compile_arg(compiler, opcodes, rand, shift_y)?;
+            let shift_x = compile_arg(compiler, opcodes, rand, shift_x)?;
+
+            opcodes.push(DensityOpcode::Noise {
+                noise: NormalNoise::new(
+                    &mut rand.spawn_from_hash(noise.as_str()),
+                    NoiseParameter::get_by_name(noise)
+                        .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
+                ),
+                xz_scale: *xz_scale,
+                y_scale: *y_scale,
+                shift_x,
+                shift_y,
+                shift_z,
+            })
         }
-        DensityFunction::Mul { left, right } => Box::new(Mul {
-            left: compile_arg(compiler, rand, left),
-            right: compile_arg(compiler, rand, right),
-        }),
-        DensityFunction::Min { left, right } => Box::new(Min {
-            left: compile_arg(compiler, rand, left),
-            right: compile_arg(compiler, rand, right),
-        }),
-        DensityFunction::Max { left, right } => Box::new(Max {
-            left: compile_arg(compiler, rand, left),
-            right: compile_arg(compiler, rand, right),
-        }),
-        DensityFunction::Negate { input } => Box::new(Negate(compile_arg(compiler, rand, input))),
-        DensityFunction::Round { .. } => todo!(),
-        DensityFunction::Sub { left, right } => Box::new(Sub {
-            left: compile_arg(compiler, rand, left),
-            right: compile_arg(compiler, rand, right),
-        }),
-        DensityFunction::Square { input } => Box::new(Square(compile_arg(compiler, rand, input))),
-        DensityFunction::Truncate { .. } => todo!(),
+        DensityFunction::Abs { input } => {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+
+            opcodes.push(DensityOpcode::Abs)
+        }
+        DensityFunction::Add { left, right } => {
+            let rhs = compile_arg(compiler, opcodes, rand, right)?;
+            let lhs = compile_arg(compiler, opcodes, rand, left)?;
+
+            opcodes.push(DensityOpcode::Add { lhs, rhs })
+        }
+        DensityFunction::Clamp { input, min, max } => {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+
+            opcodes.push(DensityOpcode::Clamp {
+                min: *min,
+                max: *max,
+            })
+        }
+        DensityFunction::Constant { value } => {
+            opcodes.push(DensityOpcode::PushConstant { value: *value })
+        }
+        DensityFunction::Cube { input } => {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+
+            opcodes.push(DensityOpcode::Cube)
+        }
+        DensityFunction::Div { left, right } => {
+            let rhs = compile_arg(compiler, opcodes, rand, right)?;
+            let lhs = compile_arg(compiler, opcodes, rand, left)?;
+
+            opcodes.push(DensityOpcode::Div { lhs, rhs })
+        }
+        DensityFunction::Invert { input } => {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+
+            opcodes.push(DensityOpcode::Reciprocal)
+        }
+        DensityFunction::Mul { left, right } => {
+            let rhs = compile_arg(compiler, opcodes, rand, right)?;
+            let lhs = compile_arg(compiler, opcodes, rand, left)?;
+
+            opcodes.push(DensityOpcode::Mul { lhs, rhs })
+        }
+        DensityFunction::Min { left, right } => {
+            let b = compile_arg(compiler, opcodes, rand, right)?;
+            let a = compile_arg(compiler, opcodes, rand, left)?;
+
+            opcodes.push(DensityOpcode::Min { a, b })
+        }
+        DensityFunction::Max { left, right } => {
+            let b = compile_arg(compiler, opcodes, rand, right)?;
+            let a = compile_arg(compiler, opcodes, rand, left)?;
+
+            opcodes.push(DensityOpcode::Max { a, b })
+        }
+        DensityFunction::Negate { input } => {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+
+            opcodes.push(DensityOpcode::Negate)
+        }
+        DensityFunction::Sub { left, right } => {
+            let rhs = compile_arg(compiler, opcodes, rand, right)?;
+            let lhs = compile_arg(compiler, opcodes, rand, left)?;
+
+            opcodes.push(DensityOpcode::Sub { lhs, rhs })
+        }
+        DensityFunction::Square { input } => {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+
+            opcodes.push(DensityOpcode::Square)
+        }
         DensityFunction::YClampedGradient {
             from_y,
             to_y,
             from_value,
             to_value,
-        } => Box::new(Gradient {
+        } => opcodes.push(DensityOpcode::Gradient {
             axis: Axis::Y,
             tiling: Tiling::Legacy,
-            from_coord: *from_y,
-            to_coord: *to_y,
             from_value: *from_value,
             to_value: *to_value,
+            from_coord: *from_y,
+            to_coord: *to_y,
         }),
-        DensityFunction::Squeeze { input } => Box::new(Squeeze(compile_arg(compiler, rand, input))),
-        DensityFunction::Spline { spline } => Box::new(compile_spline(compiler, rand, spline)),
+        DensityFunction::Squeeze { input } => {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+
+            opcodes.push(DensityOpcode::Squeeze)
+        }
+        DensityFunction::Spline { spline } => {
+            let spline = compile_spline(compiler, opcodes, rand, spline)?;
+            opcodes.push(DensityOpcode::Spline { spline })
+        }
         DensityFunction::HalfNegative { input } => {
-            Box::new(HalfNegative(compile_arg(compiler, rand, input)))
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+
+            opcodes.push(DensityOpcode::HalfNegative)
         }
         DensityFunction::QuarterNegative { input } => {
-            Box::new(QuarterNegative(compile_arg(compiler, rand, input)))
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+
+            opcodes.push(DensityOpcode::QuarterNegative)
         }
         DensityFunction::IntervalSelect {
             input,
             thresholds,
             functions,
-        } => Box::new(IntervalSelect {
-            input: compile_arg(compiler, rand, input),
-            thresholds: thresholds.clone(),
-            functions: functions
+        } => {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+
+            let idx = opcodes.len();
+            opcodes.push(DensityOpcode::IntervalSelect {
+                thresholds: thresholds.clone(),
+                indexes: Vec::with_capacity(0),
+            });
+
+            let (indexes, jumps): (Vec<usize>, Vec<usize>) = functions
                 .iter()
-                .map(|v| compile_arg(compiler, rand, v))
-                .collect(),
-        }),
+                .map(|f| {
+                    let idx = opcodes.len();
+                    if let DensityValueSource::Constant(val) =
+                        compile_arg(compiler, opcodes, rand, f)?
+                    {
+                        opcodes.push(DensityOpcode::PushConstant { value: val })
+                    }
+
+                    let jump = opcodes.len();
+                    opcodes.push(DensityOpcode::JumpTo { index: 0 });
+                    Ok((idx, jump))
+                })
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter()
+                .unzip();
+
+            let DensityOpcode::IntervalSelect { indexes: val, .. } = &mut opcodes[idx] else {
+                unreachable!()
+            };
+
+            *val = indexes;
+
+            let jump_to = opcodes.len();
+            for jump in jumps {
+                let DensityOpcode::JumpTo { index } = &mut opcodes[jump] else {
+                    unreachable!()
+                };
+
+                *index = jump_to;
+            }
+        }
         DensityFunction::RangeChoice {
             input,
             min_inclusive,
             max_exclusive,
             when_in_range,
             when_out_of_range,
-        } => Box::new(RangeChoice {
-            input: compile_arg(compiler, rand, input),
-            when_in_range: compile_arg(compiler, rand, when_in_range),
-            when_out_range: compile_arg(compiler, rand, when_out_of_range),
-            range: (*min_inclusive)..(*max_exclusive),
-        }),
-        DensityFunction::Beardifier => Box::new(0.0f64),
-        DensityFunction::BlendAlpha => Box::new(1.0f64),
-        DensityFunction::BlendOffset => Box::new(0.0f64),
-        DensityFunction::BlendDensity { input } => compile_arg(compiler, rand, input),
+        } => {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+
+            let idx = opcodes.len();
+            opcodes.push(DensityOpcode::RangeChoice {
+                range: *min_inclusive..*max_exclusive,
+                when_out_of_range: 0,
+            });
+
+            if let DensityValueSource::Constant(val) =
+                compile_arg(compiler, opcodes, rand, when_in_range)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+
+            let jump_idx = opcodes.len();
+            opcodes.push(DensityOpcode::JumpTo { index: 0 });
+
+            if let DensityValueSource::Constant(val) =
+                compile_arg(compiler, opcodes, rand, when_out_of_range)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+
+            let out_idx = opcodes.len();
+
+            let DensityOpcode::RangeChoice {
+                when_out_of_range, ..
+            } = &mut opcodes[idx]
+            else {
+                unreachable!()
+            };
+
+            *when_out_of_range = jump_idx + 1;
+
+            let DensityOpcode::JumpTo { index } = &mut opcodes[jump_idx] else {
+                unreachable!()
+            };
+
+            *index = out_idx;
+        }
+        DensityFunction::Beardifier => opcodes.push(DensityOpcode::PushConstant { value: 0.0 }),
+        DensityFunction::BlendAlpha => opcodes.push(DensityOpcode::PushConstant { value: 1.0 }),
+        DensityFunction::BlendOffset => opcodes.push(DensityOpcode::PushConstant { value: 0.0 }),
+        DensityFunction::BlendDensity { input } => {
+            if let DensityValueSource::Constant(val) = compile_arg(compiler, opcodes, rand, input)?
+            {
+                opcodes.push(DensityOpcode::PushConstant { value: val })
+            }
+        }
         _ => todo!("{:?}", func),
     }
+
+    Ok(())
 }
 
 fn compile_spline<R: RandomSource, P: PositionalRandom<R>>(
     compiler: &mut Compiler,
+    _opcodes: &mut Vec<DensityOpcode>,
     rand: &mut P,
     spline: &DensitySpline,
-) -> Spline {
-    let coordinate = compile_arg(compiler, rand, &spline.coordinate);
+) -> DensityCompileResult<crate::opcode::DensitySpline> {
+    let spline_idx = compiler.spline_opcodes.len();
+    compiler.spline_opcodes.push(Vec::with_capacity(0));
+    let mut spline_opcodes = Vec::new();
+    compile_arg(compiler, &mut spline_opcodes, rand, &spline.coordinate)?;
     let locations = spline.points.iter().map(|v| v.location).collect::<Vec<_>>();
     let derivatives = spline
         .points
@@ -234,15 +468,16 @@ fn compile_spline<R: RandomSource, P: PositionalRandom<R>>(
         .points
         .iter()
         .map(|v| match &v.value {
-            ValueOrSpline::Value(v) => Spline::Constant { value: *v },
-            ValueOrSpline::Spline(s) => compile_spline(compiler, rand, s),
+            ValueOrSpline::Value(v) => Ok(crate::opcode::DensitySpline::Constant(*v)),
+            ValueOrSpline::Spline(s) => compile_spline(compiler, _opcodes, rand, s),
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>, _>>()?;
 
-    Spline::Multipoint {
-        coordinate,
+    compiler.spline_opcodes[spline_idx] = spline_opcodes;
+    Ok(crate::opcode::DensitySpline::Multipoint {
+        coordinate: spline_idx,
         locations,
         derivatives,
         values,
-    }
+    })
 }

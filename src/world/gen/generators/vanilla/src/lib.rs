@@ -10,7 +10,8 @@ use temper_core::block_state_id::BlockStateId;
 use temper_core::math::TemperMathExt;
 use temper_core::pos::{ChunkBlockPos, ChunkPos, SectionBlockPos};
 use temper_core::random::{RandomSource, XoroshiroRandomSource};
-use temper_density::wrapped::WrappedDensityFunction;
+use temper_density::error::DensityResult;
+use temper_density::runtime::DensityRuntime;
 use temper_macros::block;
 use crate::biomes::{quantize, BiomeParameters};
 use crate::router::{JsonNoiseRouter, NoiseRouter};
@@ -33,7 +34,7 @@ impl VanillaGenerator {
 
         Self {
             _rand: rand,
-            router,
+            router: router.expect("failed to parse noise router"),
             default_block_state: block!("stone"),
             default_fluid_state: block!("water", { level: 0 }),
             water_level: 63,
@@ -78,82 +79,62 @@ impl ChunkGenerator for VanillaGenerator {
 
 impl VanillaGenerator {
     fn fill_biomes(&self, input: StageInput) -> Result<(), GenerationError> {
-        let cell_size_xz = 1;
-        let cell_width = cell_size_xz + 1;
-        let cell_width_blocks = 1 << cell_width;
-
-        let chunk_min = input.pos.block_offset(0, 0, 0);
-        let mut continentalness = WrappedDensityFunction::wrap(
-            &self.router.continents,
-            cell_width_blocks,
-            chunk_min.pos.x >> 2,
-            chunk_min.pos.z >> 2,
-        );
-        let mut erosion = WrappedDensityFunction::wrap(
-            &self.router.erosion,
-            cell_width_blocks,
-            chunk_min.pos.x >> 2,
-            chunk_min.pos.z >> 2,
-        );
-        let mut humidity = WrappedDensityFunction::wrap(
-            &self.router.vegetation,
-            cell_width_blocks,
-            chunk_min.pos.x >> 2,
-            chunk_min.pos.z >> 2,
-        );
-        let mut temperature = WrappedDensityFunction::wrap(
-            &self.router.temperature,
-            cell_width_blocks,
-            chunk_min.pos.x >> 2,
-            chunk_min.pos.z >> 2,
-        );
-        let mut weirdness = WrappedDensityFunction::wrap(
-            &self.router.ridges,
-            cell_width_blocks,
-            chunk_min.pos.x >> 2,
-            chunk_min.pos.z >> 2,
-        );
-        let mut depth = WrappedDensityFunction::wrap(
-            &self.router.depth,
-            cell_width_blocks,
-            chunk_min.pos.x >> 2,
-            chunk_min.pos.z >> 2,
-        );
+        let mut continentalness = DensityRuntime::new(&self.router.continents);
+        let mut erosion = DensityRuntime::new(&self.router.erosion);
+        let mut humidity = DensityRuntime::new(&self.router.vegetation);
+        let mut temperature = DensityRuntime::new(&self.router.temperature);
+        let mut weirdness = DensityRuntime::new(&self.router.ridges);
+        let mut depth = DensityRuntime::new(&self.router.depth);
 
         let min_y = input.target.height().min_y as i32;
-        input.target
-            .section_iter_mut()
-            .enumerate()
-            .for_each(|(i, section)| {
-                let min_y = (i << 4) as i32 + min_y;
+        for (i, section) in input.target.section_iter_mut().enumerate() {
+            let min_y = (i << 4) as i32 + min_y;
 
-                for x in 0..4 {
-                    let block_x = x << 2;
+            for x in 0..4 {
+                let block_x = x << 2;
 
-                    for y in 0..4 {
-                        let block_y = min_y + (y << 2);
+                for y in 0..4 {
+                    let block_y = min_y + (y << 2);
 
-                        for z in 0..4 {
-                            let block_z = z << 2;
+                    for z in 0..4 {
+                        let block_z = z << 2;
 
-                            let pos = input.pos.block_offset(block_x, block_y, block_z);
-                            let biome = self.biome_tree.nearest_neighbor([
-                                quantize(continentalness.execute(pos)),
-                                quantize(erosion.execute(pos)),
-                                quantize(humidity.execute(pos)),
-                                quantize(temperature.execute(pos)),
-                                quantize(weirdness.execute(pos)),
-                                quantize(depth.execute(pos)),
-                            ]).unwrap();
-                            section.set_biome(SectionBlockPos::new(
-                                (x << 2) as u8,
-                                (y << 2) as u8,
-                                (z << 2) as u8,
-                            ), biome.biome)
-                        }
+                        let pos = input.pos.block_offset(block_x, block_y, block_z);
+                        let biome = self.biome_tree.nearest_neighbor([
+                            quantize(
+                                continentalness.execute_at(pos)
+                                    .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
+                            ),
+                            quantize(
+                                erosion.execute_at(pos)
+                                    .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
+                            ),
+                            quantize(
+                                humidity.execute_at(pos)
+                                    .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
+                            ),
+                            quantize(
+                                temperature.execute_at(pos)
+                                    .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
+                            ),
+                            quantize(
+                                weirdness.execute_at(pos)
+                                    .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
+                            ),
+                            quantize(
+                                depth.execute_at(pos)
+                                    .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
+                            ),
+                        ]).unwrap();
+                        section.set_biome(SectionBlockPos::new(
+                            (x << 2) as u8,
+                            (y << 2) as u8,
+                            (z << 2) as u8,
+                        ), biome.biome)
                     }
                 }
-            });
+            }
+        }
 
         // for x in 0..4 {
         //     let block_x = x << 2;
@@ -225,13 +206,7 @@ impl VanillaGenerator {
         let cell_width_blocks = 1 << cell_width;
         let cell_height_blocks = 1 << cell_height;
 
-        let chunk_min = input.pos.block_offset(0, 0, 0);
-        let mut wrapped = WrappedDensityFunction::wrap(
-            &self.router.final_density,
-            cell_width_blocks,
-            chunk_min.pos.x >> 2,
-            chunk_min.pos.z >> 2,
-        );
+        let mut runtime = DensityRuntime::new(&self.router.final_density);
 
         let size_z = cell_count_xz + 1;
         let size_y = cell_count_y + 1;
@@ -249,8 +224,9 @@ impl VanillaGenerator {
             cell_width,
             cell_height,
             min_y,
-            &mut wrapped,
-        );
+            &mut runtime,
+        )
+        .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?;
 
         for x_cell in 0..cell_count_xz {
             let x_pos = x_cell << cell_width;
@@ -263,8 +239,9 @@ impl VanillaGenerator {
                 cell_width,
                 cell_height,
                 min_y,
-                &mut wrapped,
-            );
+                &mut runtime,
+            )
+            .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?;
 
             for z_cell in 0..cell_count_xz {
                 let z_pos = z_cell << cell_width;
@@ -379,8 +356,8 @@ fn fill_slice(
     cell_width: i32,
     cell_height: i32,
     min_y: i16,
-    function: &mut WrappedDensityFunction,
-) {
+    function: &mut DensityRuntime,
+) -> DensityResult<()> {
     let x_pos = (cell_x << cell_width) as i32;
 
     for cell_z in 0..=cell_count_xz {
@@ -390,7 +367,9 @@ fn fill_slice(
             let y_pos = (cell_y << cell_height) as i16 + min_y;
 
             slice[cell_z + cell_y * (cell_count_xz + 1)] =
-                function.execute(chunk_pos.block_offset(x_pos, y_pos as i32, z_pos));
+                function.execute_at(chunk_pos.block_offset(x_pos, y_pos as i32, z_pos))?;
         }
     }
+
+    Ok(())
 }

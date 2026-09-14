@@ -3,6 +3,7 @@ use include_dir::{include_dir, Dir};
 use serde::Deserialize;
 use temper_core::random::{PositionalRandom, RandomSource};
 use temper_density::compile::Compiler;
+use temper_density::error::DensityCompileResult;
 use temper_density::json::{deserialize_function, DensityFunctionArgument};
 use crate::router::NoiseRouter;
 
@@ -33,13 +34,13 @@ impl JsonNoiseRouter {
         serde_json::from_str(ROUTER).unwrap()
     }
 
-    pub fn build<R: RandomSource, P: PositionalRandom<R>>(self, rand: &mut P) -> NoiseRouter {
+    pub fn build<R: RandomSource, P: PositionalRandom<R>>(self, rand: &mut P) -> DensityCompileResult<NoiseRouter> {
         let mut externals = HashMap::new();
         gather(&mut externals, &EXTERNAL);
 
-        NoiseRouter {
+        Ok(NoiseRouter {
             // chunk_surface_level: Compiler::compile(rand, &externals, self.preliminary_surface_level),
-            final_density: Compiler::compile(rand, &externals, self.final_density),
+            final_density: Compiler::compile(rand, &externals, self.final_density)?,
             // barrier: Compiler::compile(rand, &externals, self.barrier),
             // fluid_level_floodedness: Compiler::compile(rand, &externals, self.fluid_level_floodedness),
             // fluid_level_spread: Compiler::compile(rand, &externals, self.fluid_level_spread),
@@ -47,13 +48,13 @@ impl JsonNoiseRouter {
             // vein_toggle: Compiler::compile(rand, &externals, self.vein_toggle),
             // vein_ridged: Compiler::compile(rand, &externals, self.vein_ridged),
             // vein_gap: Compiler::compile(rand, &externals, self.vein_gap),
-            temperature: Compiler::compile(rand, &externals, self.temperature),
-            vegetation: Compiler::compile(rand, &externals, self.vegetation),
-            continents: Compiler::compile(rand, &externals, self.continents),
-            erosion: Compiler::compile(rand, &externals, self.erosion),
-            depth: Compiler::compile(rand, &externals, self.depth),
-            ridges: Compiler::compile(rand, &externals, self.ridges),
-        }
+            temperature: Compiler::compile(rand, &externals, self.temperature)?,
+            vegetation: Compiler::compile(rand, &externals, self.vegetation)?,
+            continents: Compiler::compile(rand, &externals, self.continents)?,
+            erosion: Compiler::compile(rand, &externals, self.erosion)?,
+            depth: Compiler::compile(rand, &externals, self.depth)?,
+            ridges: Compiler::compile(rand, &externals, self.ridges)?,
+        })
     }
 }
 

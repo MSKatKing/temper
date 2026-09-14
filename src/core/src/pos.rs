@@ -125,6 +125,12 @@ impl Add<IVec3> for BlockPos {
     }
 }
 
+impl From<IVec3> for BlockPos {
+    fn from(value: IVec3) -> Self {
+        Self { pos: value }
+    }
+}
+
 #[derive(Clone, Copy, DeepSizeOf, Serialize, Deserialize, TypeHash)]
 pub struct ChunkHeight {
     pub min_y: i16,
