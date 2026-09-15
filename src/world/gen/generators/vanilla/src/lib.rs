@@ -1,6 +1,8 @@
 mod biomes;
 mod router;
 
+use crate::biomes::{BiomeParameters, quantize};
+use crate::router::{JsonNoiseRouter, NoiseRouter};
 use gen_core::{
     ChunkGenerator, GenStage, GenerationError, GeneratorId, StageDependencies, StageInput,
     StageSpec,
@@ -8,13 +10,11 @@ use gen_core::{
 use rstar::RTree;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::math::TemperMathExt;
-use temper_core::pos::{ChunkBlockPos, ChunkPos, SectionBlockPos};
+use temper_core::pos::{ChunkBlockPos, ChunkPos};
 use temper_core::random::{RandomSource, XoroshiroRandomSource};
 use temper_density::error::DensityResult;
 use temper_density::runtime::DensityRuntime;
 use temper_macros::block;
-use crate::biomes::{quantize, BiomeParameters};
-use crate::router::{JsonNoiseRouter, NoiseRouter};
 
 pub struct VanillaGenerator {
     _rand: XoroshiroRandomSource,
@@ -56,7 +56,11 @@ impl ChunkGenerator for VanillaGenerator {
         match stage {
             GenStage::EMPTY => Some(StageSpec::new(stage, "empty", StageDependencies::NONE)),
             GenStage::BIOMES => Some(StageSpec::new(stage, "biomes", StageDependencies::NONE)),
-            GenStage::NOISE => Some(StageSpec::new(stage, "noise", StageDependencies::only_own(GenStage::BIOMES))),
+            GenStage::NOISE => Some(StageSpec::new(
+                stage,
+                "noise",
+                StageDependencies::only_own(GenStage::BIOMES),
+            )),
             GenStage::SURFACE => Some(StageSpec::new(
                 stage,
                 "surface",
@@ -96,37 +100,35 @@ impl VanillaGenerator {
                     let block_y = (y << 2) + input.target.height().min_y as i32;
 
                     let pos = input.pos.block_offset(block_x, block_y, block_z);
-                    let biome = self.biome_tree.nearest_neighbor([
-                        quantize(
-                            temperature.execute_at(pos)
-                                .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
-                        ),
-                        quantize(
-                            humidity.execute_at(pos)
-                                .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
-                        ),
-                        quantize(
-                            continentalness.execute_at(pos)
-                                .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
-                        ),
-                        quantize(
-                            erosion.execute_at(pos)
-                                .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
-                        ),
-                        quantize(
-                            depth.execute_at(pos)
-                                .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
-                        ),
-                        quantize(
-                            weirdness.execute_at(pos)
-                                .map_err(|err| GenerationError::DensityError(format!("{err:?}")))?
-                        ),
-                    ]).unwrap();
-                    input.target.set_biome(ChunkBlockPos::new(
-                        block_x as u8,
-                        block_y as i16,
-                        block_z as u8,
-                    ), biome.biome);
+                    let point =
+                        [
+                            quantize(temperature.execute_at(pos).map_err(|err| {
+                                GenerationError::DensityError(format!("{err:?}"))
+                            })?),
+                            quantize(humidity.execute_at(pos).map_err(|err| {
+                                GenerationError::DensityError(format!("{err:?}"))
+                            })?),
+                            quantize(continentalness.execute_at(pos).map_err(|err| {
+                                GenerationError::DensityError(format!("{err:?}"))
+                            })?),
+                            quantize(erosion.execute_at(pos).map_err(|err| {
+                                GenerationError::DensityError(format!("{err:?}"))
+                            })?),
+                            quantize(depth.execute_at(pos).map_err(|err| {
+                                GenerationError::DensityError(format!("{err:?}"))
+                            })?),
+                            quantize(weirdness.execute_at(pos).map_err(|err| {
+                                GenerationError::DensityError(format!("{err:?}"))
+                            })?),
+                        ];
+
+                    let biome = self.biome_tree.nearest_neighbor(point).unwrap();
+                    input.target.set_biome(
+                        ChunkBlockPos::new(block_x as u8, block_y as i16, block_z as u8),
+                        biome.biome,
+                    );
+
+                    println!("{} {} {} => {:?}", block_x, block_y, block_z, point)
                 }
             }
         }

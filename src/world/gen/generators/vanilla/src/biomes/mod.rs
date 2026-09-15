@@ -1,5 +1,5 @@
+use rstar::{AABB, Envelope, Point, PointDistance, RTreeObject};
 use std::ops::Range;
-use rstar::{RTreeObject, AABB, PointDistance, Envelope, Point};
 use temper_data::biomes::Biome;
 
 #[derive(Clone)]
@@ -11,6 +11,7 @@ pub struct BiomeParameters {
     temperature: Range<f64>,
     weirdness: Range<f64>,
     depth: Range<f64>,
+    #[expect(dead_code)]
     offset: Range<f64>,
 }
 
@@ -40,7 +41,10 @@ impl RTreeObject for BiomeParameters {
 }
 
 impl PointDistance for BiomeParameters {
-    fn distance_2(&self, point: &<Self::Envelope as Envelope>::Point) -> <<Self::Envelope as Envelope>::Point as Point>::Scalar {
+    fn distance_2(
+        &self,
+        point: &<Self::Envelope as Envelope>::Point,
+    ) -> <<Self::Envelope as Envelope>::Point as Point>::Scalar {
         let mut squared_distance = 0;
 
         for (i, (min, max)) in self.as_param_list().iter().enumerate() {
@@ -60,9 +64,15 @@ impl PointDistance for BiomeParameters {
 impl BiomeParameters {
     fn as_param_list(&self) -> [(i64, i64); 6] {
         [
-            (quantize(self.temperature.start), quantize(self.temperature.end)),
+            (
+                quantize(self.temperature.start),
+                quantize(self.temperature.end),
+            ),
             (quantize(self.humidity.start), quantize(self.humidity.end)),
-            (quantize(self.continentalness.start), quantize(self.continentalness.end)),
+            (
+                quantize(self.continentalness.start),
+                quantize(self.continentalness.end),
+            ),
             (quantize(self.erosion.start), quantize(self.erosion.end)),
             (quantize(self.depth.start), quantize(self.depth.end)),
             (quantize(self.weirdness.start), quantize(self.weirdness.end)),

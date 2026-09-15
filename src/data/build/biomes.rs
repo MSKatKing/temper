@@ -3,8 +3,8 @@ use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
-use std::{collections::BTreeMap, fs};
 use std::path::Path;
+use std::{collections::BTreeMap, fs};
 use syn::{LitBool, LitFloat, LitInt};
 use temper_assets::asset_path;
 
@@ -133,7 +133,7 @@ pub struct MusicData {
 }
 
 pub(crate) fn build() -> TokenStream {
-    const BIOMES_PATH: &'static str = asset_path!("data", "minecraft", "worldgen", "biome");
+    const BIOMES_PATH: &str = asset_path!("data", "minecraft", "worldgen", "biome");
 
     println!("Building biomes...");
     println!("cargo:rerun-if-changed={}", BIOMES_PATH);
@@ -153,7 +153,18 @@ pub(crate) fn build() -> TokenStream {
 
             let data = fs::read_to_string(entry.path()).unwrap();
             let biome = serde_json::from_str::<Biome>(&data).unwrap();
-            biomes.insert(entry.path().strip_prefix(BIOMES_PATH).unwrap().display().to_string().strip_suffix(".json").unwrap().to_string(), biome);
+            biomes.insert(
+                entry
+                    .path()
+                    .strip_prefix(BIOMES_PATH)
+                    .unwrap()
+                    .display()
+                    .to_string()
+                    .strip_suffix(".json")
+                    .unwrap()
+                    .to_string(),
+                biome,
+            );
         }
     }
 

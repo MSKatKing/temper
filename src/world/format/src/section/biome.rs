@@ -6,7 +6,16 @@ use type_hash::TypeHash;
 
 #[repr(transparent)]
 #[derive(
-    Copy, Clone, Serialize, Deserialize, Default, PartialEq, DeepSizeOf, Pod, Zeroable, TypeHash,
+    Copy,
+    Clone,
+    Serialize,
+    Deserialize,
+    Default,
+    PartialEq,
+    DeepSizeOf,
+    Pod,
+    Zeroable,
+    TypeHash,
     Debug,
 )]
 pub struct BiomeType(pub u8);

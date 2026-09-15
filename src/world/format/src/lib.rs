@@ -15,13 +15,12 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::{ChunkBlockPos, ChunkHeight};
+use temper_data::biomes::Biome;
 use temper_entities::entity_types::EntityTypeEnum;
 use temper_macros::{block, match_block};
 use type_hash::TypeHash;
 use uuid::Uuid;
-use temper_data::biomes::Biome;
 use vanilla_chunk_format::VanillaChunk;
-use crate::vanilla_chunk_format::Section;
 
 #[derive(Clone, Serialize, Deserialize, TypeHash)]
 pub struct Chunk {
@@ -287,7 +286,7 @@ impl Chunk {
     /// Does what it says on the tin, sets blocks without updating the heightmaps. Remember to
     /// recalculate the heightmaps at the end.
     pub fn set_block_without_heightmap(&mut self, pos: ChunkBlockPos, id: BlockStateId) {
-        let section = (pos.y() + -self.height.min_y) >> 4;
+        let section = (pos.y() - self.height.min_y) >> 4;
         assert!(section >= 0);
         assert!((section as usize) < self.sections.len());
 
@@ -295,7 +294,7 @@ impl Chunk {
     }
 
     pub fn set_biome(&mut self, pos: ChunkBlockPos, biome: &Biome) {
-        let section = (pos.y() + -self.height.min_y) >> 4;
+        let section = (pos.y() - self.height.min_y) >> 4;
         assert!(section >= 0);
         assert!((section as usize) < self.sections.len());
 
@@ -346,7 +345,7 @@ impl Chunk {
     pub fn height(&self) -> &ChunkHeight {
         &self.height
     }
-    
+
     pub fn section_iter_mut(&mut self) -> impl Iterator<Item = &mut ChunkSection> {
         self.sections.iter_mut()
     }

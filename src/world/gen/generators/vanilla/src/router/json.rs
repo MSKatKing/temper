@@ -1,16 +1,18 @@
-use std::collections::HashMap;
-use include_dir::{include_dir, Dir};
+use crate::router::NoiseRouter;
+use include_dir::{Dir, include_dir};
 use serde::Deserialize;
+use std::collections::HashMap;
 use temper_core::random::{PositionalRandom, RandomSource};
 use temper_density::compile::Compiler;
 use temper_density::error::DensityCompileResult;
-use temper_density::json::{deserialize_function, DensityFunctionArgument};
-use crate::router::NoiseRouter;
+use temper_density::json::{DensityFunctionArgument, deserialize_function};
 
-const ROUTER: &'static str = include_str!("router.json");
-const EXTERNAL: Dir = include_dir!("assets/generated/generated/data/minecraft/worldgen/density_function");
+const ROUTER: &str = include_str!("router.json");
+const EXTERNAL: Dir =
+    include_dir!("assets/generated/generated/data/minecraft/worldgen/density_function");
 
 #[derive(Deserialize)]
+#[expect(dead_code)]
 pub struct JsonNoiseRouter {
     preliminary_surface_level: DensityFunctionArgument,
     final_density: DensityFunctionArgument,
@@ -34,7 +36,10 @@ impl JsonNoiseRouter {
         serde_json::from_str(ROUTER).unwrap()
     }
 
-    pub fn build<R: RandomSource, P: PositionalRandom<R>>(self, rand: &mut P) -> DensityCompileResult<NoiseRouter> {
+    pub fn build<R: RandomSource, P: PositionalRandom<R>>(
+        self,
+        rand: &mut P,
+    ) -> DensityCompileResult<NoiseRouter> {
         let mut externals = HashMap::new();
         gather(&mut externals, &EXTERNAL);
 

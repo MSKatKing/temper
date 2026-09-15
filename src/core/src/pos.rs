@@ -319,11 +319,7 @@ impl ChunkBlockPos {
 
     pub fn section_block_pos(&self) -> SectionBlockPos {
         SectionBlockPos {
-            pos: U8Vec3::new(
-                self.x(),
-                self.y().rem_euclid(16) as u8,
-                self.z(),
-            )
+            pos: U8Vec3::new(self.x(), self.y().rem_euclid(16) as u8, self.z()),
         }
     }
 
