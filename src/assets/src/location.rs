@@ -2,14 +2,15 @@ use std::borrow::Cow;
 use std::marker::PhantomData;
 use crate::resource::Resource;
 
+#[derive(Debug)]
 pub struct ResourceLocation<'a, T: Resource> {
-    namespace: Cow<'a, str>,
-    path: Cow<'a, str>,
+    pub namespace: Cow<'a, str>,
+    pub path: Cow<'a, str>,
     __inner: PhantomData<T>,
 }
 
 impl<T: Resource> ResourceLocation<'_, T> {
-    const DEFAULT_NAMESPACE: &'static str = "minecraft";
+    pub(crate) const DEFAULT_NAMESPACE: &'static str = "minecraft";
     
     pub fn new(namespace: impl Into<String>, path: impl Into<String>) -> ResourceLocation<'static, T> {
         ResourceLocation::<'static, T> {
@@ -33,5 +34,12 @@ impl<T: Resource> ResourceLocation<'_, T> {
     
     pub const fn with_default_namespace_ref(path: &str) -> ResourceLocation<T> {
         Self::new_ref(Self::DEFAULT_NAMESPACE, path)
+    }
+}
+
+impl<T: Resource> PartialEq for ResourceLocation<'_, T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.namespace.eq(other.namespace.as_ref())
+            && self.path.eq(other.path.as_ref())
     }
 }

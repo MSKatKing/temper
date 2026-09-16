@@ -3,6 +3,7 @@ mod generate_source;
 mod item_to_block_mapping;
 mod registry_packets;
 mod tag_packets;
+mod resources;
 
 use semver::Version;
 use std::fs;
@@ -53,6 +54,15 @@ fn main() {
     }
 
     downloading::generate();
+    
+    resources::bake_resources(
+        std::env::var("OUT_DIR").unwrap(),
+        workspace_root::get_workspace_root_directory()
+            .unwrap()
+            .join("assets")
+            .join("generated")
+            .join("generated")
+    )
 }
 
 fn check_version(path: PathBuf) -> Option<bool> {
