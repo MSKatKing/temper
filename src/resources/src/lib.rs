@@ -9,12 +9,14 @@ use temper_command_infra::CommandRegistry;
 use temper_entities::PhysicalRegistry;
 use temper_net_runtime::connection::NewConnection;
 use temper_state::GlobalStateResource;
+use crate::weather::WeatherStatus;
 
 pub mod bossbar;
 pub mod new_conn;
 pub mod server_command_rx;
 pub mod time;
 pub mod world_sync_tracker;
+pub mod weather;
 
 pub fn register_resources(
     world: &mut World,
@@ -27,6 +29,7 @@ pub fn register_resources(
     world.insert_resource(WorldSyncTracker {
         last_synced: std::time::Instant::now(),
     });
+    world.insert_resource(WeatherStatus::init());
     world.insert_resource(WorldTime::default());
     world.insert_resource(ServerCommandReceiver(server_command_recv));
     world.insert_resource(PhysicalRegistry::new());
