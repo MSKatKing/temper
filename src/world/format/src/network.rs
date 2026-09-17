@@ -9,6 +9,7 @@ use temper_codec::net_types::byte_array::ByteArray;
 use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
 use temper_codec::net_types::var_int::VarInt;
 use temper_macros::NetEncode;
+use temper_nbt::blob::NbtBlob;
 
 #[derive(NetEncode)]
 pub struct NetworkChunk {
@@ -49,7 +50,7 @@ pub struct BlockEntity {
     pub xz: u8,
     pub y: i16,
     pub entity_type: VarInt,
-    pub nbt: Vec<u8>,
+    pub nbt: NbtBlob,
 }
 
 impl TryFrom<&Chunk> for Vec<BlockEntity> {

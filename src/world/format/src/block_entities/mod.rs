@@ -4,6 +4,7 @@ pub use sign::{SignBlockEntity, SignText};
 
 use crate::errors::WorldError;
 use serde::{Deserialize, Serialize};
+use temper_nbt::blob::NbtBlob;
 use temper_nbt::{NBTSerializable, NBTSerializeOptions};
 
 /// A block entity stored in a chunk. `protocol_id` comes from the blockstate
@@ -49,7 +50,7 @@ impl BlockEntityKind {
     /// Blobs are JSON rather than bitcode like the rest of the chunk: `TextComponent`
     /// uses `#[serde(flatten)]`, which serializes as a map with no known length, and
     /// bitcode requires one. The blob is opaque to `Chunk` either way.
-    pub fn to_network_nbt(self, blob: &[u8]) -> Result<Vec<u8>, WorldError> {
+    pub fn to_network_nbt(self, blob: &[u8]) -> Result<NbtBlob, WorldError> {
         let mut buf = Vec::new();
         match self {
             Self::Sign => {
@@ -58,6 +59,6 @@ impl BlockEntityKind {
                 NBTSerializable::serialize(&sign, &mut buf, &NBTSerializeOptions::Network);
             }
         }
-        Ok(buf)
+        Ok(NbtBlob(buf))
     }
 }

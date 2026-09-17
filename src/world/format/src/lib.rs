@@ -699,7 +699,7 @@ mod tests {
             .expect("sign blob should convert to nbt");
 
         assert!(
-            nbt.len() > 20,
+            nbt.0.len() > 20,
             "sign nbt should contain the text components"
         );
         let restored: SignBlockEntity =

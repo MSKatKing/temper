@@ -29,6 +29,7 @@ temper-data = { workspace = true }
 temper-world-format = { workspace = true }
 temper-blocks-generated = { workspace = true }
 temper-block-properties = { workspace = true }
+temper-nbt = { workspace = true }
 
 [lints]
 workspace = true
