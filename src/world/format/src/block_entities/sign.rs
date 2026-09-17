@@ -1,3 +1,4 @@
+use crate::{BlockEntityData, block_entities::BlockEntityKind};
 use serde::{Deserialize, Serialize};
 use temper_macros::NBTSerialize;
 use temper_text::TextComponent;
@@ -31,5 +32,23 @@ pub struct SignBlockEntity {
 impl SignBlockEntity {
     pub fn to_blob(&self) -> Result<Vec<u8>, WorldError> {
         serde_json::to_vec(self).map_err(|e| WorldError::BlockEntitySerializeError(e.to_string()))
+    }
+}
+
+impl BlockEntityData {
+    /// Reads the stored blob as a sign, if this entry is one.
+    pub fn as_sign(&self) -> Result<Option<SignBlockEntity>, WorldError> {
+        if self.kind != BlockEntityKind::Sign {
+            return Ok(None);
+        }
+        serde_json::from_slice(&self.blob)
+            .map(Some)
+            .map_err(|e| WorldError::BlockEntityDeserializeError(e.to_string()))
+    }
+
+    /// Replaces the stored blob with a sign's data.
+    pub fn set_sign(&mut self, sign: &SignBlockEntity) -> Result<(), WorldError> {
+        self.blob = sign.to_blob()?;
+        Ok(())
     }
 }
