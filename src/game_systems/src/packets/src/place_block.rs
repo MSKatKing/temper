@@ -92,7 +92,7 @@ pub fn handle(
                         continue 'ev_loop;
                     };
                     let block_pos: BlockPos = event.position.into();
-                    if block_pos.pos.y >= 319 {
+                    if block_pos.pos.y > 319 {
                         mq::queue(
                             TextComponentBuilder::new(
                                 "Build limit is 319! Cannot place block here..".to_string(),
