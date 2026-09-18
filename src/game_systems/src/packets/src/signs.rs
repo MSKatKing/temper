@@ -8,7 +8,7 @@ use temper_blocks::BlockDispatch;
 use temper_blocks_generated::{HangingSignBlock, SignBlock, WallHangingSignBlock};
 use temper_codec::net_types::{network_position::NetworkPosition, var_int::VarInt};
 use temper_components::player::{position::Position, rotation::Rotation};
-use temper_core::{block_state_id::BlockStateId, pos::BlockPos};
+use temper_core::{block_state_id::BlockStateId, mq, pos::BlockPos};
 use temper_messages::{BlockEntityPlaced, BlockInteractMessage};
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::{
@@ -16,7 +16,7 @@ use temper_protocol::{
     outgoing::{block_entity_data::BlockEntityDataPacket, open_sign_editor::OpenSignEditor},
 };
 use temper_state::GlobalStateResource;
-use temper_text::{TextComponent, TextContent};
+use temper_text::{Color, NamedColor, TextComponent, TextComponentBuilder, TextContent};
 use temper_world::Dimension;
 use temper_world_format::block_entities::BlockEntityKind;
 
@@ -68,6 +68,13 @@ pub fn handle_sign_update(
             .any(|line| line.len() > MAX_SIGN_LINE_LEN)
         {
             trace!("Rejecting oversized sign update from {eid:?} at {block_pos}");
+            mq::queue(
+                TextComponentBuilder::new("Sign text was too long.".to_string())
+                    .color(Color::Named(NamedColor::Red))
+                    .build(),
+                true,
+                eid,
+            );
             continue;
         }
 

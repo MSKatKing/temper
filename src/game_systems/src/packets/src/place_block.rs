@@ -94,11 +94,14 @@ pub fn handle(
                     let block_pos: BlockPos = event.position.into();
                     if block_pos.pos.y >= 319 {
                         mq::queue(
-                            TextComponentBuilder::new("Sign text was too long.".to_string())
-                                .color(Color::Named(NamedColor::Red))
-                                .build(),
+                            TextComponentBuilder::new(
+                                "Build limit is 319! Cannot place block here..".to_string(),
+                            )
+                            .color(Color::Named(NamedColor::Red))
+                            .bold()
+                            .build(),
                             true,
-                            eid,
+                            entity,
                         );
                         trace!("Block placement out of bounds: {}", block_pos);
                         continue 'ev_loop;
