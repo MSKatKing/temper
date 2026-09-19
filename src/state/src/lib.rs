@@ -33,10 +33,15 @@ pub struct GlobalStateResource(pub GlobalState);
 
 /// Creates a minimal GlobalStateResource for testing with a temporary database
 pub fn create_test_state() -> (GlobalStateResource, TempDir) {
+    create_test_state_with_generator("normal".to_string())
+}
+
+pub fn create_test_state_with_generator(generator: String) -> (GlobalStateResource, TempDir) {
     let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
     let db_path = temp_dir.path().to_path_buf();
 
-    let config = create_dummy_config();
+    let mut config = create_dummy_config();
+    config.world_gen.generator = generator;
 
     let server_state = ServerState {
         world: World::new(&db_path, &config).unwrap(),

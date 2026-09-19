@@ -14,4 +14,6 @@ pub enum GenerationError {
     },
     #[error("generation failed: {0}")]
     Failed(String),
+    #[error("error computing density: {0}")]
+    DensityError(String),
 }

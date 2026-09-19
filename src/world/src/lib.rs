@@ -7,7 +7,6 @@ pub mod player;
 use dashmap::DashMap;
 pub use generation::WorldChunkGenerator;
 use std::fs::create_dir_all;
-use std::hash::{BuildHasher, Hasher};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use temper_config::ServerConfig;
@@ -59,10 +58,9 @@ impl World {
         let storage_backend = StorageBackend::initialize(Some(backend_path), map_size)
             .expect("Failed to initialize database");
 
-        let seed = {
-            let mut hasher = wyhash::WyHasherBuilder::default().build_hasher();
-            hasher.write(&config.world_gen.seed.clone().into_bytes());
-            hasher.finish()
+        let seed = match config.world_gen.seed.parse::<u64>() {
+            Ok(seed) => seed,
+            Err(_) => java_hash_code(config.world_gen.seed.as_str()).into(),
         };
 
         let chunks = ChunkStore::new(
@@ -185,9 +183,21 @@ fn check_config_validity(config: &ServerConfig) -> Result<(), WorldError> {
     Ok(())
 }
 
+fn java_hash_code(str: &str) -> u32 {
+    let mut output = 0u32;
+
+    for (i, char) in str.chars().enumerate() {
+        output = output.wrapping_add(
+            (char as u32).wrapping_mul(31u32.wrapping_pow(str.len() as u32 - i as u32 - 1)),
+        )
+    }
+
+    output
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::World;
+    use crate::{java_hash_code, World};
     use temper_config::server_config::create_dummy_config;
     use temper_core::dimension::Dimension;
     use temper_core::pos::ChunkPos;
@@ -208,5 +218,14 @@ mod tests {
             );
         let encoded = bitcode::serialize(&*chunk).unwrap();
         std::fs::write("../../../.etc/raw_chunk.dat", encoded).unwrap();
+    }
+
+    #[test]
+    fn test_java_hash_code() {
+        assert_eq!(java_hash_code("Hello, world!"), 2414922741);
+        assert_eq!(java_hash_code("temper rox"), 1116817596);
+        assert_eq!(java_hash_code("my custom seed"), 1881557324);
+        assert_eq!(java_hash_code("abcghimnostuyz123789"), 1899513971);
+        assert_eq!(java_hash_code("TEMPER ROX!"), 2444120837);
     }
 }
