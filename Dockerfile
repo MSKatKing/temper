@@ -1,5 +1,5 @@
-FROM rust:alpine3.20 AS chef
-RUN apk add --no-cache musl-dev gcc openssl-dev openssl-libs-static pkgconfig
+FROM rust:alpine3.24 AS chef
+RUN apk add --no-cache musl-dev gcc openssl-dev openssl-libs-static pkgconfig openjdk25
 # Install nightly toolchain
 RUN rustup toolchain install nightly && \
     rustup default nightly

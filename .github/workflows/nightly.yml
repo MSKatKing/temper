@@ -1,8 +1,8 @@
-name: Release
+name: Nightly
 
 on:
   pull_request:
-    branches: [ "master" ]
+    branches: [ "dev" ]
     types: [ closed ]
 
 permissions:
@@ -18,9 +18,9 @@ defaults:
     shell: bash
 
 jobs:
-  check_release:
-    name: Check Release Version
-    if: github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository
+  check_merge:
+    name: Check If Merged
+    if: github.event.pull_request.merged == true && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -40,13 +40,13 @@ jobs:
       - name: Check release version
         id: version
         run: |
-          version="$(bash scripts/check-release-version.sh)"
+          version="$(bash scripts/check-release-version.sh)-dev"
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "tag=v${version}" >> "${GITHUB_OUTPUT}"
 
   build:
-    name: Build Release Artifacts
-    needs: check_release
+    name: Build Nightly Artifacts
+    needs: check_merge
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -113,8 +113,8 @@ jobs:
           if-no-files-found: error
 
   publish:
-    name: Publish Release
-    needs: [ check_release, build ]
+    name: Publish Nightly
+    needs: [ check_merge, build ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -129,16 +129,17 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.check_release.outputs.tag }}
+          RELEASE_TAG: ${{ needs.check_merge.outputs.tag }}
           RELEASE_TARGET: ${{ github.event.pull_request.merge_commit_sha }}
-          RELEASE_TITLE: Temper ${{ needs.check_release.outputs.version }}
+          RELEASE_TITLE: Nightly Temper ${{ needs.check_merge.outputs.version }}
         run: |
           python3 -c 'import json, os; event = json.load(open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8")); print(event["pull_request"].get("body") or "")' > release-notes.md
           release_target="${RELEASE_TARGET:-${GITHUB_SHA}}"
           gh release create "${RELEASE_TAG}" dist/* \
             --target "${release_target}" \
             --title "${RELEASE_TITLE}" \
-            --notes-file release-notes.md
+            --notes-file release-notes.md \
+            --prerelease
 
   build-and-publish:
     runs-on: ubuntu-latest
@@ -162,8 +163,15 @@ jobs:
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        flavor: |
+          latest=false
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+        tags: |
+          type=raw,value=nightly
+          type=raw,value=nightly-{{date 'YYYYMMDD' tz='UTC'}}
+          type=sha,prefix=sha-
 
       - name: Build and push Docker image
         id: push
