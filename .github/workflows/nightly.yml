@@ -2,11 +2,11 @@ name: Nightly
 
 on:
   pull_request:
-    branches: [ "dev" ]
-    types: [ closed ]
+    branches: ["dev"]
+    types: [closed]
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -22,6 +22,8 @@ jobs:
     name: Check If Merged
     if: github.event.pull_request.merged == true && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
@@ -29,6 +31,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
 
       - name: Install Rust stable
@@ -41,150 +44,62 @@ jobs:
         id: version
         run: |
           version="$(bash scripts/check-release-version.sh)-dev"
-          echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "tag=v${version}" >> "${GITHUB_OUTPUT}"
-
-  build:
-    name: Build Nightly Artifacts
-    needs: check_merge
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: macos-14
-            target: aarch64-apple-darwin
-            artifact: temper-aarch64-apple-darwin
-            binary: temper
-            archive: temper-aarch64-apple-darwin.tar.gz
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact: temper-x86_64-unknown-linux-gnu
-            binary: temper
-            archive: temper-x86_64-unknown-linux-gnu.tar.gz
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact: temper-x86_64-pc-windows-msvc
-            binary: temper.exe
-            archive: temper-x86_64-pc-windows-msvc.zip
-          - os: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
-            artifact: temper-aarch64-unknown-linux-gnu
-            binary: temper
-            archive: temper-aarch64-unknown-linux-gnu.tar.gz
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Install JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '25'
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Build
-        run: cargo build --profile hyper --target ${{ matrix.target }} --bin temper
-
-      - name: Package Unix executable
-        if: runner.os != 'Windows'
-        run: |
-          mkdir -p dist
-          cp "target/${{ matrix.target }}/hyper/${{ matrix.binary }}" "dist/temper"
-          tar -C dist -czf "${{ matrix.archive }}" temper
-
-      - name: Package Windows executable
-        if: runner.os == 'Windows'
-        run: |
-          mkdir -p dist
-          cp "target/${{ matrix.target }}/hyper/${{ matrix.binary }}" "dist/temper.exe"
-          7z a "${{ matrix.archive }}" "./dist/temper.exe"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.archive }}
-          if-no-files-found: error
-
-  publish:
-    name: Publish Nightly
-    needs: [ check_merge, build ]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-
-      - name: Create release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.check_merge.outputs.tag }}
-          RELEASE_TARGET: ${{ github.event.pull_request.merge_commit_sha }}
-          RELEASE_TITLE: Nightly Temper ${{ needs.check_merge.outputs.version }}
-        run: |
-          python3 -c 'import json, os; event = json.load(open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8")); print(event["pull_request"].get("body") or "")' > release-notes.md
-          release_target="${RELEASE_TARGET:-${GITHUB_SHA}}"
-          gh release create "${RELEASE_TAG}" dist/* \
-            --target "${release_target}" \
-            --title "${RELEASE_TITLE}" \
-            --notes-file release-notes.md \
-            --prerelease
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
 
   build-and-publish:
+    name: Build and Publish Image
+    needs: check_merge
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
       attestations: write
       id-token: write
-    
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
-      
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to the Container registry
-        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Extract metadata (tags, labels) for Docker
+
+      - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
-        flavor: |
-          latest=false
+        uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-
-        tags: |
-          type=raw,value=nightly
-          type=raw,value=nightly-{{date 'YYYYMMDD' tz='UTC'}}
-          type=sha,prefix=sha-
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=nightly
+            type=raw,value=nightly-{{date 'YYYYMMDD', tz='UTC'}}
+            type=sha,prefix=sha-
+            type=raw,value=${{ needs.check_merge.outputs.tag }}
 
       - name: Build and push Docker image
         id: push
-        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-      
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: Generate artifact attestation
         uses: actions/attest@v4
         with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
