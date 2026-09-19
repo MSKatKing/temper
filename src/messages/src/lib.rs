@@ -31,10 +31,12 @@ pub mod particle;
 pub use entity_spawn::{DespawnMob, SpawnMobBundle, SpawnMobCommand};
 
 pub mod block_break;
+pub mod block_entity_placed;
 pub mod block_interaction;
 pub mod cross_chunk_boundary_event;
-pub mod destroy_entity;
+pub mod damage;
 pub mod force_player_recount_event;
+pub mod kill_entity;
 pub mod load_chunk_entities;
 pub mod packet_messages;
 pub mod save_chunk_entities;
@@ -43,15 +45,17 @@ pub mod world_change;
 
 use crate::chunk_calc::ChunkCalc;
 use crate::cross_chunk_boundary_event::ChunkBoundaryCrossed;
-use crate::destroy_entity::DestroyEntity;
+use crate::damage::DamageEvent;
 use crate::entity_update::SendEntityUpdate;
 use crate::force_player_recount_event::ForcePlayerRecount;
+use crate::kill_entity::KillEntity;
 use crate::load_chunk_entities::LoadChunkEntities;
 use crate::packet_messages::Movement;
 use crate::particle::SendParticle;
 use crate::save_chunk_entities::SaveChunkEntities;
 use crate::teleport_entity::TeleportEntity;
 pub use block_break::BlockBrokenEvent;
+pub use block_entity_placed::BlockEntityPlaced;
 pub use block_interaction::BlockInteractMessage;
 use temper_command_infra::{CommandDispatched, RebuildCommandGraph};
 use world_change::WorldChange;
@@ -85,6 +89,8 @@ pub fn register_messages(world: &mut World) {
     MessageRegistry::register_message::<BlockInteractMessage>(world);
     MessageRegistry::register_message::<LoadChunkEntities>(world);
     MessageRegistry::register_message::<SaveChunkEntities>(world);
-    MessageRegistry::register_message::<DestroyEntity>(world);
+    MessageRegistry::register_message::<KillEntity>(world);
     MessageRegistry::register_message::<ChunkBoundaryCrossed>(world);
+    MessageRegistry::register_message::<BlockEntityPlaced>(world);
+    MessageRegistry::register_message::<DamageEvent>(world);
 }

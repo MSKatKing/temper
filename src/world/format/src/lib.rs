@@ -1,3 +1,4 @@
+pub mod block_entities;
 pub mod errors;
 pub mod heightmap;
 pub mod light;
@@ -6,6 +7,7 @@ mod palette;
 pub mod section;
 pub mod vanilla_chunk_format;
 
+use crate::block_entities::BlockEntityData;
 use crate::errors::WorldError;
 use crate::heightmap::Heightmaps;
 use crate::section::{AIR, ChunkSection};
@@ -28,6 +30,9 @@ pub struct Chunk {
     height: ChunkHeight,
     #[type_hash(foreign_type)]
     pub entities: DashMap<Uuid, (EntityTypeEnum, Vec<u8>)>,
+
+    #[type_hash(foreign_type)]
+    pub block_entities: DashMap<ChunkBlockPos, BlockEntityData>,
 
     pub heightmaps: Heightmaps,
     dirty: Arc<AtomicBool>,
@@ -136,6 +141,7 @@ impl Chunk {
             dirty: Arc::new(AtomicBool::new(false)),
             stage: 0,
             noise: ChunkNoises::default(),
+            block_entities: DashMap::new(),
         }
     }
 
@@ -161,6 +167,7 @@ impl Chunk {
             height,
             heightmaps: Heightmaps::default(),
             entities: DashMap::new(),
+            block_entities: DashMap::new(),
             dirty: Arc::new(AtomicBool::new(false)),
             stage: 0,
             noise: ChunkNoises::default(),
@@ -172,6 +179,7 @@ impl Chunk {
             sections: self.sections.clone(),
             height: self.height,
             entities: self.entities.clone(),
+            block_entities: self.block_entities.clone(),
             heightmaps: self.heightmaps.clone(),
             dirty: Arc::clone(&self.dirty),
             stage: self.stage,
@@ -494,6 +502,7 @@ impl TryFrom<&VanillaChunk> for Chunk {
                 .and_then(|h| Heightmaps::try_from(h).ok())
                 .unwrap_or_default(),
             entities: DashMap::new(),
+            block_entities: DashMap::new(),
             dirty: Arc::new(AtomicBool::new(false)),
             stage: 6,
             noise: ChunkNoises::default(),
@@ -505,8 +514,13 @@ impl TryFrom<&VanillaChunk> for Chunk {
 mod tests {
     use crate::BlockStateId;
     use crate::Chunk;
+    use crate::block_entities::BlockEntityKind;
+    use crate::block_entities::SignBlockEntity;
+    use crate::block_entities::SignText;
     use temper_core::pos::ChunkBlockPos;
     use temper_macros::block;
+    use temper_text::TextComponent;
+    use temper_text::TextContent;
 
     #[test]
     fn test_read_write() {
@@ -667,5 +681,55 @@ mod tests {
 
         assert_eq!(chunk.heightmaps.world_surface.get_height(0, 0), 80);
         assert_eq!(chunk.heightmaps.motion_blocking.get_height(0, 0), 80);
+    }
+
+    #[test]
+    fn sign_serializes_to_network_nbt() {
+        let sign = SignBlockEntity {
+            is_waxed: false,
+            front_text: SignText {
+                messages: vec![
+                    TextComponent {
+                        content: TextContent::Text {
+                            text: "hello".into(),
+                        },
+                        ..Default::default()
+                    },
+                    TextComponent::default(),
+                    TextComponent::default(),
+                    TextComponent::default(),
+                ],
+                color: "black".to_string(),
+                has_glowing_text: false,
+            },
+            back_text: SignText {
+                messages: vec![
+                    TextComponent {
+                        content: TextContent::Text {
+                            text: "hello".into(),
+                        },
+                        ..Default::default()
+                    },
+                    TextComponent::default(),
+                    TextComponent::default(),
+                    TextComponent::default(),
+                ],
+                color: "black".to_string(),
+                has_glowing_text: false,
+            },
+        };
+
+        let blob = sign.to_blob().expect("sign should serialize");
+        let nbt = BlockEntityKind::Sign
+            .to_network_nbt(&blob)
+            .expect("sign blob should convert to nbt");
+
+        assert!(
+            nbt.0.len() > 20,
+            "sign nbt should contain the text components"
+        );
+        let restored: SignBlockEntity =
+            serde_json::from_slice(&blob).expect("blob should deserialize");
+        assert_eq!(restored, sign);
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "temper-messages"
-version = "0.1.0"
+version = { workspace = true }
 edition = "2021"
 description = "Defines all Bevy ECS messages for Temper."
 
@@ -15,6 +15,10 @@ temper-codec = { workspace = true }
 temper-inventories = { workspace = true }
 temper-particles = { workspace = true }
 temper-entities = { workspace = true }
+temper-world-format = { workspace = true }
+temper-data = { workspace = true }
+temper-macros = { workspace = true }
+temper-text = { workspace = true }
 
 [lints]
 workspace = true
