@@ -1,17 +1,17 @@
 mod biomes;
 mod router;
 
-use crate::biomes::{BiomeParameters, quantize};
+use crate::biomes::{quantize, BiomeParameters, RTree};
 use crate::router::{JsonNoiseRouter, NoiseRouter};
 use gen_core::{
     ChunkGenerator, GenStage, GenerationError, GeneratorId, StageDependencies, StageInput,
     StageSpec,
 };
-use rstar::RTree;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::math::TemperMathExt;
 use temper_core::pos::{ChunkBlockPos, ChunkPos};
 use temper_core::random::{RandomSource, XoroshiroRandomSource};
+use temper_data::biomes::Biome;
 use temper_density::error::DensityResult;
 use temper_density::runtime::DensityRuntime;
 use temper_macros::block;
@@ -22,14 +22,19 @@ pub struct VanillaGenerator {
     default_block_state: BlockStateId,
     default_fluid_state: BlockStateId,
     water_level: i16,
-    biome_tree: RTree<BiomeParameters>,
+    biome_tree: RTree<&'static Biome>,
 }
 
 impl VanillaGenerator {
     pub fn new(seed: u64) -> VanillaGenerator {
         let mut rand = XoroshiroRandomSource::new(seed);
 
-        let tree = RTree::bulk_load(BiomeParameters::OVERWORLD.to_vec());
+        let tree = RTree::new(
+            BiomeParameters::OVERWORLD
+                .iter()
+                .map(|v| (v.clone(), v.biome))
+                .collect(),
+        );
         let router = JsonNoiseRouter::new().build(&mut rand.fork_positional());
 
         Self {
@@ -96,10 +101,10 @@ impl VanillaGenerator {
             for z in 0..4 {
                 let block_z = z << 2;
 
-                for y in 0..(input.target.height().height as i32 >> 2) {
-                    let block_y = (y << 2) + input.target.height().min_y as i32;
+                for y in 0..(input.target.height().height as i16 >> 2) {
+                    let block_y = (y << 2) + input.target.height().min_y;
 
-                    let pos = input.pos.block_offset(block_x, block_y, block_z);
+                    let pos = input.pos.block_offset(block_x, block_y as i32, block_z);
                     let point =
                         [
                             quantize(temperature.execute_at(pos).map_err(|err| {
@@ -120,15 +125,14 @@ impl VanillaGenerator {
                             quantize(weirdness.execute_at(pos).map_err(|err| {
                                 GenerationError::DensityError(format!("{err:?}"))
                             })?),
+                            0,
                         ];
 
-                    let biome = self.biome_tree.nearest_neighbor(point).unwrap();
+                    let biome = self.biome_tree.search(point);
                     input.target.set_biome(
-                        ChunkBlockPos::new(block_x as u8, block_y as i16, block_z as u8),
-                        biome.biome,
+                        ChunkBlockPos::new(block_x as u8, block_y, block_z as u8),
+                        biome,
                     );
-
-                    println!("{} {} {} => {:?}", block_x, block_y, block_z, point)
                 }
             }
         }

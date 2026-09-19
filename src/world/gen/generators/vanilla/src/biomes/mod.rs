@@ -1,6 +1,10 @@
-use rstar::{AABB, Envelope, Point, PointDistance, RTreeObject};
+mod rtree;
+
+pub use rtree::*;
+
 use std::ops::Range;
 use temper_data::biomes::Biome;
+use crate::biomes::rtree::{ClimateParameter, PARAMETER_COUNT};
 
 #[derive(Clone)]
 pub struct BiomeParameters {
@@ -15,67 +19,16 @@ pub struct BiomeParameters {
     offset: Range<f64>,
 }
 
-impl RTreeObject for BiomeParameters {
-    type Envelope = AABB<[i64; 6]>;
-
-    fn envelope(&self) -> Self::Envelope {
-        let min = [
-            quantize(self.temperature.start),
-            quantize(self.humidity.start),
-            quantize(self.continentalness.start),
-            quantize(self.erosion.start),
-            quantize(self.depth.start),
-            quantize(self.weirdness.start),
-        ];
-        let max = [
-            quantize(self.temperature.end),
-            quantize(self.humidity.end),
-            quantize(self.continentalness.end),
-            quantize(self.erosion.end),
-            quantize(self.depth.end),
-            quantize(self.weirdness.end),
-        ];
-
-        AABB::from_corners(min, max)
-    }
-}
-
-impl PointDistance for BiomeParameters {
-    fn distance_2(
-        &self,
-        point: &<Self::Envelope as Envelope>::Point,
-    ) -> <<Self::Envelope as Envelope>::Point as Point>::Scalar {
-        let mut squared_distance = 0;
-
-        for (i, (min, max)) in self.as_param_list().iter().enumerate() {
-            let p = point[i];
-
-            if p < *min {
-                squared_distance += (min - p).pow(2);
-            } else if p > *max {
-                squared_distance += (p - max).pow(2);
-            }
-        }
-
-        squared_distance
-    }
-}
-
 impl BiomeParameters {
-    fn as_param_list(&self) -> [(i64, i64); 6] {
+    fn as_param_list(&self) -> [ClimateParameter; PARAMETER_COUNT] {
         [
-            (
-                quantize(self.temperature.start),
-                quantize(self.temperature.end),
-            ),
-            (quantize(self.humidity.start), quantize(self.humidity.end)),
-            (
-                quantize(self.continentalness.start),
-                quantize(self.continentalness.end),
-            ),
-            (quantize(self.erosion.start), quantize(self.erosion.end)),
-            (quantize(self.depth.start), quantize(self.depth.end)),
-            (quantize(self.weirdness.start), quantize(self.weirdness.end)),
+            quantize(self.temperature.start)..quantize(self.temperature.end),
+            quantize(self.humidity.start)..quantize(self.humidity.end),
+            quantize(self.continentalness.start)..quantize(self.continentalness.end),
+            quantize(self.erosion.start)..quantize(self.erosion.end),
+            quantize(self.depth.start)..quantize(self.depth.end),
+            quantize(self.weirdness.start)..quantize(self.weirdness.end),
+            quantize(self.offset.start)..quantize(self.offset.end),
         ]
     }
 }
