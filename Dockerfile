@@ -1,8 +1,6 @@
 FROM rust:alpine3.24 AS chef
 RUN apk add --no-cache musl-dev gcc openssl-dev openssl-libs-static pkgconfig openjdk25
-# Install nightly toolchain
-RUN rustup toolchain install nightly && \
-    rustup default nightly
+RUN rustup toolchain install stable
 RUN cargo install cargo-chef
 WORKDIR /app
 
