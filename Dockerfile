@@ -23,11 +23,13 @@ FROM alpine:3.20
 WORKDIR /app
 RUN addgroup -S temper && adduser -S temper -G temper
 COPY --from=builder /app/target/release/temper /app/
+RUN ./temper setup
 RUN chown -R temper:temper /app
 LABEL org.opencontainers.image.source = "https://github.com/temper-mc/temper"
 
 USER temper
 EXPOSE 25565
+EXPOSE 9000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
   CMD nc -z localhost 25565 || exit 1
 CMD ["./temper", "--no-tui"]
