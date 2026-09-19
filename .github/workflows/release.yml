@@ -20,7 +20,7 @@ defaults:
 jobs:
   check_release:
     name: Check Release Version
-    if: github.event.pull_request.merged == true
+    if: github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
