@@ -80,7 +80,6 @@ impl ChunkSectionType {
         }
     }
 
-    #[expect(unused)]
     pub fn fill(&mut self, id: BlockStateId) {
         match self {
             Self::Uniform(data) => data.fill(id),
@@ -133,7 +132,7 @@ impl ChunkSection {
             y,
             inner: ChunkSectionType::Uniform(UniformSection::new_with(id)),
             light: SectionLightData::default(),
-            biome: BiomeData::Uniform(BiomeType(Biome::PLAINS.id as u8)),
+            biome: BiomeData::Uniform(BiomeType::default()),
             dirty: Arc::new(AtomicBool::new(true)),
         }
     }
@@ -186,20 +185,38 @@ impl ChunkSection {
         self.inner.set_block(pos, id);
     }
 
-    #[expect(unused)]
+    #[inline]
     pub(crate) fn fill(&mut self, id: BlockStateId) {
         self.dirty.store(true, std::sync::atomic::Ordering::Relaxed);
         self.inner.fill(id);
     }
 
+    #[inline]
     pub(crate) fn fill_biome(&mut self, biome: &Biome) {
         self.dirty.store(true, std::sync::atomic::Ordering::Relaxed);
         self.biome.fill_biome(BiomeType(biome.id as u8))
     }
 
+    #[inline]
     pub fn set_biome(&mut self, pos: SectionBlockPos, biome: &Biome) {
         self.dirty.store(true, std::sync::atomic::Ordering::Relaxed);
         self.biome.set_biome(BiomeType(biome.id as u8), pos)
+    }
+
+    #[inline]
+    pub fn collapse_biomes(&mut self) {
+        let BiomeData::Mixed(data) = &self.biome else {
+            return;
+        };
+
+        let ty = data[0];
+        for biome in &data[1..] {
+            if biome.0 != ty.0 {
+                return;
+            }
+        }
+
+        self.biome = BiomeData::Uniform(ty);
     }
 
     #[expect(unused)]

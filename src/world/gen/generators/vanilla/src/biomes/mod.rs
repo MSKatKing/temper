@@ -4,7 +4,6 @@ pub use rtree::*;
 
 use std::ops::Range;
 use temper_data::biomes::Biome;
-use crate::biomes::rtree::{ClimateParameter, PARAMETER_COUNT};
 
 #[derive(Clone)]
 pub struct BiomeParameters {
@@ -15,12 +14,11 @@ pub struct BiomeParameters {
     temperature: Range<f64>,
     weirdness: Range<f64>,
     depth: Range<f64>,
-    #[expect(dead_code)]
     offset: Range<f64>,
 }
 
 impl BiomeParameters {
-    fn as_param_list(&self) -> [ClimateParameter; PARAMETER_COUNT] {
+    fn as_param_list(&self) -> ParameterSpace {
         [
             quantize(self.temperature.start)..quantize(self.temperature.end),
             quantize(self.humidity.start)..quantize(self.humidity.end),

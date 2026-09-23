@@ -20,7 +20,7 @@ use type_hash::TypeHash;
 )]
 pub struct BiomeType(pub u8);
 
-#[derive(Clone, DeepSizeOf, Serialize, Deserialize, TypeHash)]
+#[derive(Clone, DeepSizeOf, Serialize, Deserialize, TypeHash, Debug)]
 pub enum BiomeData {
     Uniform(BiomeType),
     Mixed(Box<[BiomeType]>),

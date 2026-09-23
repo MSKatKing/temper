@@ -198,16 +198,11 @@ impl Chunk {
     ///
     /// * `assert` - Checks if the given y value is in range of the height of the chunk.
     pub fn fill_section(&mut self, y: i8, state: BlockStateId) {
-        assert!(i16::from(y) >= self.height.min_y / 16);
-        assert!(i16::from(y) < (self.height.min_y + self.height.height as i16) / 16);
+        let section = y - (self.height.min_y >> 4) as i8;
+        assert!(section >= 0);
+        assert!((section as usize) < self.sections.len());
 
-        let section = self
-            .sections
-            .iter_mut()
-            .find(|s| s.y == y)
-            .expect("Section not found");
-
-        *section = ChunkSection::new_uniform(state, y);
+        self.sections[section as usize].fill(state);
     }
 
     /// Fills the entire chunk with the given block.
@@ -307,6 +302,15 @@ impl Chunk {
         assert!((section as usize) < self.sections.len());
 
         self.sections[section as usize].set_biome(pos.section_block_pos(), biome)
+    }
+
+    /// Collapses section biome data if possible, turning mixed palettes into single value palettes
+    /// if the mixed palette only contains one value.
+    #[inline]
+    pub fn collapse_biomes(&mut self) {
+        for section in &mut self.sections {
+            section.collapse_biomes();
+        }
     }
 
     pub fn fill_biome(&mut self, biome: &Biome) {

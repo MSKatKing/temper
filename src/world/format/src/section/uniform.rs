@@ -21,6 +21,7 @@ impl UniformSection {
         self.0
     }
 
+    #[inline]
     pub fn fill(&mut self, id: BlockStateId) {
         self.0 = id;
     }

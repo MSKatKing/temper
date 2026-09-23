@@ -1,7 +1,7 @@
 mod biomes;
 mod router;
 
-use crate::biomes::{quantize, BiomeParameters, RTree};
+use crate::biomes::{BiomeParameters, RTree, quantize};
 use crate::router::{JsonNoiseRouter, NoiseRouter};
 use gen_core::{
     ChunkGenerator, GenStage, GenerationError, GeneratorId, StageDependencies, StageInput,
@@ -9,7 +9,7 @@ use gen_core::{
 };
 use temper_core::block_state_id::BlockStateId;
 use temper_core::math::TemperMathExt;
-use temper_core::pos::{ChunkBlockPos, ChunkPos};
+use temper_core::pos::{ChunkBlockPos, ChunkPos, SectionBlockPos};
 use temper_core::random::{RandomSource, XoroshiroRandomSource};
 use temper_data::biomes::Biome;
 use temper_density::error::DensityResult;
@@ -95,18 +95,21 @@ impl VanillaGenerator {
         let mut weirdness = DensityRuntime::new(&self.router.ridges);
         let mut depth = DensityRuntime::new(&self.router.depth);
 
-        for x in 0..4 {
-            let block_x = x << 2;
+        let min_y = input.target.height().min_y;
+        for (i, section) in input.target.sections.iter_mut().enumerate() {
+            let base_y = min_y + (i << 4) as i16;
 
-            for z in 0..4 {
-                let block_z = z << 2;
+            for x in 0..4 {
+                let block_x = (x as i32) << 2;
 
-                for y in 0..(input.target.height().height as i16 >> 2) {
-                    let block_y = (y << 2) + input.target.height().min_y;
+                for y in 0..4 {
+                    let block_y = base_y + ((y as i16) << 2);
 
-                    let pos = input.pos.block_offset(block_x, block_y as i32, block_z);
-                    let point =
-                        [
+                    for z in 0..4 {
+                        let block_z = (z as i32) << 2;
+
+                        let pos = input.pos.block_offset(block_x, block_y as i32, block_z);
+                        let point = [
                             quantize(temperature.execute_at(pos).map_err(|err| {
                                 GenerationError::DensityError(format!("{err:?}"))
                             })?),
@@ -128,14 +131,14 @@ impl VanillaGenerator {
                             0,
                         ];
 
-                    let biome = self.biome_tree.search(point);
-                    input.target.set_biome(
-                        ChunkBlockPos::new(block_x as u8, block_y, block_z as u8),
-                        biome,
-                    );
+                        let biome = self.biome_tree.search(point);
+                        section.set_biome(SectionBlockPos::new(x << 2, y << 2, z << 2), biome);
+                    }
                 }
             }
         }
+
+        input.target.collapse_biomes();
 
         Ok(())
     }

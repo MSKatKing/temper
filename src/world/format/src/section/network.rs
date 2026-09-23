@@ -122,10 +122,10 @@ impl<'section> From<&'section BiomeData> for PalettedContainer<'section> {
                 bits_per_entry: 7,
                 palette: NetworkPalette::Direct {},
                 data_array: {
-                    let mut new_buffer = vec![0u64; 64 / size_of::<u64>()];
+                    let mut new_buffer = vec![0u64; 8];
 
-                    for block in 0..64 {
-                        PalettedSection::pack_value(&mut new_buffer, block, 7, data[block].0);
+                    for (idx, block) in data.iter().enumerate() {
+                        PalettedSection::pack_value(&mut new_buffer, idx, 7, block.0)
                     }
 
                     NetworkArray::new_owned(new_buffer)
