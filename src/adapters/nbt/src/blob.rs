@@ -1,14 +1,17 @@
 use crate::de::borrow::NbtTag;
+use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 use temper_codec::decode::errors::NetDecodeError;
 use temper_codec::decode::{NetDecode, NetDecodeOpts};
 use temper_codec::encode::errors::NetEncodeError;
 use temper_codec::encode::{NetEncode, NetEncodeOpts};
+use type_hash::TypeHash;
 
 const INITIAL_BLOB_CAPACITY: usize = 256;
 
 /// A lump of NBT data as bytes. Useful for when you need to read
 /// some NBT but don't actually care what's in there.
+#[derive(Debug, Clone, Hash, Default, PartialEq, TypeHash, Serialize, Deserialize)]
 pub struct NbtBlob(pub Vec<u8>);
 
 impl NetDecode for NbtBlob {
@@ -126,22 +129,8 @@ fn read_bytes<R: Read>(
     }
 
     let start = bytes.len();
-    bytes.reserve(len);
-
-    let buf = {
-        let spare = &mut bytes.spare_capacity_mut()[..len];
-        // SAFETY: `spare` points at `len` contiguous spare `u8` slots owned by
-        // `bytes`. `read_exact` fully initializes them before `set_len` exposes
-        // them as part of the vector.
-        unsafe { std::slice::from_raw_parts_mut(spare.as_mut_ptr().cast::<u8>(), len) }
-    };
-
-    reader.read_exact(buf)?;
-
-    // SAFETY: The previous `read_exact` call initialized exactly `len` bytes.
-    unsafe {
-        bytes.set_len(start + len);
-    }
+    bytes.resize(start + len, 0);
+    reader.read_exact(&mut bytes[start..])?;
 
     Ok(())
 }

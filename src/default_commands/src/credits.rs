@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::Query;
-use temper_codec::net_types::adhoc_id::AdHocID;
+use temper_codec::net_types::id_or_inline::IdOr;
 use temper_command_infra::{CommandHandler, CommandResult, CommandSource};
 use temper_macros::Command;
 use temper_nbt::NBT;
@@ -36,7 +36,7 @@ impl CommandHandler for CreditsCommand {
             })
             .collect::<Vec<_>>();
         let packet = ShowDialog {
-            content: AdHocID::from(NBT::from(DialogContent {
+            content: IdOr::from(NBT::from(DialogContent {
                 dialog_content_type: "minecraft:notice".to_string(),
                 title: TextComponent::from("Credits"),
                 body: lines,

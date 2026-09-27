@@ -1,11 +1,11 @@
 use crate::{Access, PermissionSet, Permissions};
 use bevy_ecs::prelude::Component;
-use bitcode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use type_hash::TypeHash;
 
 /// Component representing a player's permissions.
-#[derive(Component, Clone, Debug, Encode, Decode, TypeHash)]
+#[derive(Component, Clone, Debug, Serialize, Deserialize, TypeHash)]
 pub struct PlayerPermission {
     pub permissions: PermissionSet,
 }

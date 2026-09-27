@@ -1,4 +1,4 @@
-use bitcode_derive::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::io::{Read, Write};
 use temper_codec::decode::errors::NetDecodeError;
@@ -9,7 +9,7 @@ use temper_codec::net_types::var_int::VarInt;
 use temper_core::block_state_id::BlockStateId;
 use type_hash::TypeHash;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Decode, Encode, TypeHash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, TypeHash, Serialize, Deserialize)]
 pub struct ItemID(pub VarInt);
 
 impl Display for ItemID {

@@ -6,12 +6,12 @@ use crate::player::gamemode::GameMode;
 use crate::player::gameplay_state::ender_chest::EnderChest;
 use crate::player::hunger::Hunger;
 use crate::player::rotation::Rotation;
-use bitcode_derive::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use temper_inventories::inventory::Inventory;
 use temper_permissions::player::PlayerPermission;
 use type_hash::TypeHash;
 
-#[derive(Clone, Debug, Encode, Decode, Default, TypeHash)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default, TypeHash)]
 pub struct OfflinePlayerData {
     pub abilities: PlayerAbilities,
     pub gamemode: GameMode,

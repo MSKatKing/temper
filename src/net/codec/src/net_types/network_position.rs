@@ -4,11 +4,13 @@ use crate::decode::errors::NetDecodeError;
 use crate::decode::{NetDecode, NetDecodeOpts};
 use crate::encode::errors::NetEncodeError;
 use crate::encode::{NetEncode, NetEncodeOpts};
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::io::{Read, Write};
+use type_hash::TypeHash;
 
 /// The definition of a "Position" in the Minecraft protocol.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TypeHash)]
 pub struct NetworkPosition {
     // Encoded as a 26 bit int
     pub x: i32,

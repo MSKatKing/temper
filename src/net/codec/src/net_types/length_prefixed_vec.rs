@@ -3,9 +3,12 @@ use crate::decode::{NetDecode, NetDecodeOpts};
 use crate::encode::errors::NetEncodeError;
 use crate::encode::{NetEncode, NetEncodeOpts};
 use crate::net_types::var_int::VarInt;
+use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
+use std::ops::{Deref, DerefMut};
+use type_hash::TypeHash;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, TypeHash)]
 pub struct LengthPrefixedVec<T> {
     pub length: VarInt,
     pub data: Vec<T>,
@@ -61,5 +64,19 @@ where
         }
 
         Ok(Self { length, data })
+    }
+}
+
+impl<T> Deref for LengthPrefixedVec<T> {
+    type Target = Vec<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+impl<T> DerefMut for LengthPrefixedVec<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
     }
 }

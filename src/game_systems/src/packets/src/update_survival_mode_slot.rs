@@ -23,8 +23,6 @@ pub fn handle(receiver: Res<ClickContainerReceiver>, mut inventories: Query<&mut
                                 item_id: Some(ItemID(new_data.item_id)),
                                 components_to_add: None,
                                 components_to_remove: None,
-                                components_to_add_count: None,
-                                components_to_remove_count: None,
                             },
                         )
                         .expect("failed to write to inventory");

@@ -1,7 +1,6 @@
 use super::{NBTSerializable, NBTSerializeOptions};
 use std::collections::HashMap;
 use std::io::Write;
-use temper_general_purpose::simd::arrays;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use uuid::Uuid;
 
@@ -159,6 +158,24 @@ impl NBTSerializable for Uuid {
     }
 }
 
+impl NBTSerializable for u128 {
+    fn serialize<W: Write>(&self, buf: &mut W, options: &NBTSerializeOptions<'_>) {
+        Uuid::from_u128(*self).serialize(buf, options)
+    }
+
+    async fn serialize_async<W: AsyncWrite + Unpin>(
+        &self,
+        buf: &mut W,
+        options: &NBTSerializeOptions<'_>,
+    ) {
+        Uuid::from_u128(*self).serialize_async(buf, options).await
+    }
+
+    fn id() -> u8 {
+        Uuid::id()
+    }
+}
+
 impl<T: NBTSerializable + std::fmt::Debug> NBTSerializable for Vec<T> {
     fn serialize<W: Write>(&self, buf: &mut W, options: &NBTSerializeOptions<'_>) {
         self.as_slice().serialize(buf, options);
@@ -196,41 +213,8 @@ impl<T: NBTSerializable> NBTSerializable for &'_ [T] {
 
         (self.len() as i32).serialize(buf, &NBTSerializeOptions::None);
 
-        if is_special {
-            match Self::id() {
-                TAG_BYTE_ARRAY => {
-                    let bytes = unsafe {
-                        std::slice::from_raw_parts(self.as_ptr() as *const u8, self.len())
-                    };
-                    buf.write_all(bytes)
-                        .expect("failed to write bytes to writer");
-                }
-                TAG_INT_ARRAY => {
-                    let bytes = unsafe {
-                        arrays::u32_slice_to_u8_be(std::slice::from_raw_parts(
-                            self.as_ptr() as *const u32,
-                            self.len(),
-                        ))
-                    };
-                    buf.write_all(&bytes)
-                        .expect("failed to write bytes to writer");
-                }
-                TAG_LONG_ARRAY => {
-                    let bytes = unsafe {
-                        arrays::u64_slice_to_u8_be(std::slice::from_raw_parts(
-                            self.as_ptr() as *const u64,
-                            self.len(),
-                        ))
-                    };
-                    buf.write_all(&bytes)
-                        .expect("failed to write bytes to writer");
-                }
-                _ => unreachable!(),
-            }
-        } else {
-            self.iter()
-                .for_each(|item| item.serialize(buf, &NBTSerializeOptions::None));
-        }
+        self.iter()
+            .for_each(|item| item.serialize(buf, &NBTSerializeOptions::None));
     }
 
     async fn serialize_async<W: AsyncWrite + Unpin>(
@@ -252,44 +236,8 @@ impl<T: NBTSerializable> NBTSerializable for &'_ [T] {
             .serialize_async(buf, &NBTSerializeOptions::None)
             .await;
 
-        if is_special {
-            match Self::id() {
-                TAG_BYTE_ARRAY => {
-                    let bytes = unsafe {
-                        std::slice::from_raw_parts(self.as_ptr() as *const u8, self.len())
-                    };
-                    buf.write_all(bytes)
-                        .await
-                        .expect("failed to write bytes to writer");
-                }
-                TAG_INT_ARRAY => {
-                    let bytes = unsafe {
-                        arrays::u32_slice_to_u8_be(std::slice::from_raw_parts(
-                            self.as_ptr() as *const u32,
-                            self.len(),
-                        ))
-                    };
-                    buf.write_all(&bytes)
-                        .await
-                        .expect("failed to write bytes to writer");
-                }
-                TAG_LONG_ARRAY => {
-                    let bytes = unsafe {
-                        arrays::u64_slice_to_u8_be(std::slice::from_raw_parts(
-                            self.as_ptr() as *const u64,
-                            self.len(),
-                        ))
-                    };
-                    buf.write_all(&bytes)
-                        .await
-                        .expect("failed to write bytes to writer");
-                }
-                _ => unreachable!(),
-            }
-        } else {
-            for item in self.iter() {
-                Box::pin(item.serialize_async(buf, &NBTSerializeOptions::None)).await;
-            }
+        for item in self.iter() {
+            Box::pin(item.serialize_async(buf, &NBTSerializeOptions::None)).await;
         }
     }
 

@@ -8,6 +8,7 @@ bevy_ecs = { workspace = true }
 tracing = { workspace = true }
 bitcode = { workspace = true }
 type_hash = { workspace = true }
+serde = { workspace = true }
 
 [lints]
 workspace = true

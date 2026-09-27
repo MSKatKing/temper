@@ -146,6 +146,12 @@ impl<const N: usize> NetDecode for [u8; N] {
     }
 }
 
+impl NetDecode for () {
+    fn decode<R: Read>(_: &mut R, _: &NetDecodeOpts) -> Result<Self, NetDecodeError> {
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

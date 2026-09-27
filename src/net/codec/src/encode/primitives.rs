@@ -167,3 +167,9 @@ where
         Ok(())
     }
 }
+
+impl NetEncode for () {
+    fn encode<W: Write>(&self, _: &mut W, _: &NetEncodeOpts) -> Result<(), NetEncodeError> {
+        Ok(())
+    }
+}

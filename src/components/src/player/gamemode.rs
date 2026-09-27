@@ -1,12 +1,12 @@
 use crate::player::abilities::PlayerAbilities;
 use bevy_ecs::prelude::Component;
-use bitcode_derive::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use std::io::Write;
 use temper_codec::encode::errors::NetEncodeError;
 use temper_codec::encode::{NetEncode, NetEncodeOpts};
 use type_hash::TypeHash;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Decode, Encode, TypeHash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TypeHash, Default)]
 #[repr(u8)]
 pub enum GameMode {
     #[default]

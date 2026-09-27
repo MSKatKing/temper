@@ -93,7 +93,7 @@ pub fn check_players(state: &ServerState) -> Result<(), String> {
             continue;
         }
 
-        if let Err(e) = bitcode::decode::<OfflinePlayerData>(value) {
+        if let Err(e) = bitcode::deserialize::<OfflinePlayerData>(value) {
             progress_bar.finish();
             error!("Player {} failed to decode: {}", player_uuid, e);
             error!(

@@ -3,8 +3,8 @@ use crate::decode::{NetDecode, NetDecodeOpts};
 use crate::encode::errors::NetEncodeError;
 use crate::encode::{NetEncode, NetEncodeOpts};
 use crate::net_types::NetTypesError;
-use bitcode::{Decode, Encode};
 use deepsize::DeepSizeOf;
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::io::{Read, Write};
 use tokio::io::AsyncRead;
@@ -13,7 +13,18 @@ use tokio::io::{AsyncReadExt, AsyncWrite};
 use type_hash::TypeHash;
 
 #[derive(
-    Debug, Encode, Decode, Clone, DeepSizeOf, PartialEq, Eq, PartialOrd, Ord, Copy, Hash, TypeHash,
+    Debug,
+    Serialize,
+    Deserialize,
+    Clone,
+    DeepSizeOf,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Copy,
+    Hash,
+    TypeHash,
 )]
 pub struct VarInt(pub i32);
 
@@ -25,6 +36,12 @@ mod adapters {
     impl From<usize> for VarInt {
         fn from(value: usize) -> Self {
             Self::new(value as i32)
+        }
+    }
+
+    impl From<VarInt> for usize {
+        fn from(value: VarInt) -> Self {
+            value.0 as usize
         }
     }
 

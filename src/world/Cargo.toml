@@ -19,6 +19,7 @@ temper-threadpool = { workspace = true }
 dashmap = { workspace = true }
 rand = { workspace = true }
 uuid = { workspace = true }
+serde = { workspace = true }
 temper-world-format = { workspace = true }
 gen-core = { path = "./gen/core" }
 gen-scheduler = { path = "./gen/scheduler" }

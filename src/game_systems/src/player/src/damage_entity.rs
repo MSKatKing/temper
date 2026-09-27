@@ -31,6 +31,10 @@ pub fn damage_entity(
     mut kill_writer: MessageWriter<KillEntity>,
 ) {
     for message in messages.read() {
+        let Ok(target_game_id) = player_query.get(message.target).map(|v| v.6).copied() else {
+            error!("Could not get components for damaged player");
+            continue;
+        };
         for (entity, mut health, hunger, stream_writer, _is_player, identity, game_id, _pos) in
             player_query.iter_mut()
         {
@@ -88,7 +92,7 @@ pub fn damage_entity(
             }
             if let Some(stream_writer) = stream_writer {
                 let damage_event = DamagePlayer {
-                    entity_id: game_id.get(),
+                    entity_id: target_game_id.get(),
                     source_type_id: VarInt::new(i32::from(
                         message.source.to_vanilla_source().to_id(),
                     )),

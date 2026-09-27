@@ -1,4 +1,4 @@
-use temper_codec::net_types::adhoc_id::AdHocID;
+use temper_codec::net_types::id_or_inline::IdOr;
 use temper_macros::{NBTSerialize, NetEncode, packet};
 use temper_nbt::NBT;
 use temper_text::TextComponent;
@@ -6,7 +6,7 @@ use temper_text::TextComponent;
 #[derive(NetEncode)]
 #[packet(packet_id = "show_dialog", state = "play")]
 pub struct ShowDialog {
-    pub content: AdHocID<NBT<DialogContent>>,
+    pub content: IdOr<NBT<DialogContent>>,
 }
 
 #[derive(NBTSerialize)]

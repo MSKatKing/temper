@@ -4,7 +4,7 @@ use temper_codec::decode::errors::NetDecodeError;
 use temper_codec::decode::{NetDecode, NetDecodeOpts};
 use temper_codec::net_types::var_int::VarInt;
 use temper_components::player::client_information::ClientInformationComponent;
-use temper_macros::{NetDecode, packet};
+use temper_macros::{InverseDiscriminant, NetDecode, packet};
 use tracing::warn;
 use typename::TypeName;
 
@@ -22,7 +22,7 @@ pub struct ClientInformation {
     pub particle_status: ParticleStatus,
 }
 
-#[derive(Debug)]
+#[derive(Debug, InverseDiscriminant)]
 pub enum ChatMode {
     Enabled,
     CommandsOnly,
@@ -32,18 +32,16 @@ pub enum ChatMode {
 impl NetDecode for ChatMode {
     fn decode<R: Read>(reader: &mut R, opts: &NetDecodeOpts) -> Result<Self, NetDecodeError> {
         let value = VarInt::decode(reader, opts)?;
-        match value.0 as u8 {
-            0 => Ok(ChatMode::Enabled),
-            1 => Ok(ChatMode::CommandsOnly),
-            2 => Ok(ChatMode::Hidden),
-            _ => {
-                warn!(
-                    "Received unknown chat mode value: {}, defaulting to Enabled",
-                    value.0
-                );
-                Ok(ChatMode::Enabled) // Default to Enabled if unknown value
-            }
+
+        if let Some(chat_mode) = Self::from_discriminant(value) {
+            return Ok(chat_mode);
         }
+
+        warn!(
+            "Received unknown chat mode value: {}, defaulting to Enabled",
+            value.0
+        );
+        Ok(ChatMode::Enabled) // Default to Enabled if unknown value
     }
 }
 
@@ -57,7 +55,7 @@ impl Display for ChatMode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, InverseDiscriminant)]
 pub enum MainHand {
     Left,
     Right,
@@ -66,17 +64,16 @@ pub enum MainHand {
 impl NetDecode for MainHand {
     fn decode<R: Read>(reader: &mut R, opts: &NetDecodeOpts) -> Result<Self, NetDecodeError> {
         let value = VarInt::decode(reader, opts)?;
-        match value.0 as u8 {
-            0 => Ok(MainHand::Left),
-            1 => Ok(MainHand::Right),
-            _ => {
-                warn!(
-                    "Received unknown main hand value: {}, defaulting to Left",
-                    value.0
-                );
-                Ok(MainHand::Left) // Default to Left if unknown value
-            }
+
+        if let Some(main_hand) = Self::from_discriminant(value) {
+            return Ok(main_hand);
         }
+
+        warn!(
+            "Received unknown main hand value: {}, defaulting to Left",
+            value.0
+        );
+        Ok(MainHand::Left) // Default to Left if unknown value
     }
 }
 
@@ -89,7 +86,7 @@ impl Display for MainHand {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, InverseDiscriminant)]
 pub enum ParticleStatus {
     All,
     Decreased,
@@ -99,18 +96,16 @@ pub enum ParticleStatus {
 impl NetDecode for ParticleStatus {
     fn decode<R: Read>(reader: &mut R, opts: &NetDecodeOpts) -> Result<Self, NetDecodeError> {
         let value = VarInt::decode(reader, opts)?;
-        match value.0 as u8 {
-            0 => Ok(ParticleStatus::All),
-            1 => Ok(ParticleStatus::Decreased),
-            2 => Ok(ParticleStatus::Minimal),
-            _ => {
-                warn!(
-                    "Received unknown particle status value: {}, defaulting to All",
-                    value.0
-                );
-                Ok(ParticleStatus::All) // Default to All if unknown value
-            }
+
+        if let Some(particle_status) = Self::from_discriminant(value) {
+            return Ok(particle_status);
         }
+
+        warn!(
+            "Received unknown particle status value: {}, defaulting to All",
+            value.0
+        );
+        Ok(ParticleStatus::All) // Default to All if unknown value
     }
 }
 

@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use temper_macros::NBTSerialize;
+use type_hash::TypeHash;
 
 #[cfg(test)]
 mod tests;
@@ -7,6 +8,7 @@ mod tests;
 mod ansi;
 mod builders;
 mod r#impl;
+mod nbt;
 mod utils;
 
 pub use builders::*;
@@ -16,7 +18,7 @@ pub type JsonTextComponent = String;
 
 /// A TextComponent that can be a Text, Translate or Keybind.
 ///
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Default, NBTSerialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Default, NBTSerialize, TypeHash)]
 #[serde(rename_all = "snake_case")]
 #[nbt(rename_all = "snake_case")]
 pub struct TextComponent {
@@ -76,15 +78,17 @@ pub struct TextComponent {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Defines an event that occurs when this component is hovered over.
+    #[type_hash(foreign_type)]
     pub hover_event: Option<HoverEvent>,
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[nbt(skip_if = "Vec::is_empty")]
     /// The with field of this TextComponent.
+    #[type_hash(foreign_type)]
     pub extra: Vec<TextComponent>,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, NBTSerialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, NBTSerialize, TypeHash)]
 #[serde(untagged)]
 pub enum TextContent {
     Text {
@@ -94,6 +98,7 @@ pub enum TextContent {
         translate: String,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         #[nbt(skip_if = "Vec::is_empty")]
+        #[type_hash(foreign_type)]
         with: Vec<TextComponent>,
     },
     Keybind {

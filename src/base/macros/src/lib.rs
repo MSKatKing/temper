@@ -143,6 +143,22 @@ pub fn enum_discriminant(input: TokenStream) -> TokenStream {
     misc::discriminant::enum_discriminant_derive(input)
 }
 
+/// Derive macro to convert a discriminant value back into a field-less enum variant.
+/// Usage:
+/// ```ignore
+/// #[derive(InverseDiscriminant)]
+/// enum MyEnum {
+///     VariantA,
+///     VariantB,
+/// }
+/// assert_eq!(MyEnum::from_discriminant(1usize), Some(MyEnum::VariantB));
+/// assert_eq!(MyEnum::from_discriminant(2usize), None);
+/// ```
+#[proc_macro_derive(InverseDiscriminant)]
+pub fn inverse_enum_discriminant(input: TokenStream) -> TokenStream {
+    misc::discriminant::inverse_enum_discriminant_derive(input)
+}
+
 /// A macro to lookup item IDs at compile time.
 /// Feed in the item name as a string literal, and it will output a [`temper_inventories::item::ItemID`] struct with the correct ID for that item.
 /// Usage:

@@ -10,6 +10,10 @@ temper-codec = { workspace = true }
 temper-general-purpose = { workspace = true }
 uuid = { workspace = true }
 tokio = { workspace = true }
+bitcode = { workspace = true }
+type_hash = { workspace = true }
+serde = { workspace = true }
+simdnbt = { workspace = true }
 
 [lints]
 workspace = true
