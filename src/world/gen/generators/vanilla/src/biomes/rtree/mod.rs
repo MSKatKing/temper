@@ -1,17 +1,20 @@
 use crate::biomes::BiomeParameters;
-use crate::biomes::rtree::node::Node;
+use crate::biomes::rtree::node::{Leaf, Node};
 use crate::biomes::rtree::param::{PARAMETER_COUNT, ParameterValues};
+use std::cell::Cell;
+use thread_local::ThreadLocal;
 
 mod node;
 mod param;
 
 pub use param::ParameterSpace;
 
-pub struct RTree<T: PartialEq + Clone> {
+pub struct RTree<T: PartialEq + Clone + Send + Sync + 'static> {
     root: Node<T>,
+    last_result: ThreadLocal<Cell<Option<&'static Leaf<T>>>>,
 }
 
-impl<T: PartialEq + Clone> RTree<T> {
+impl<T: PartialEq + Clone + Send + Sync + 'static> RTree<T> {
     pub fn new(values: Vec<(BiomeParameters, T)>) -> Self {
         debug_assert!(!values.is_empty());
 
@@ -22,12 +25,24 @@ impl<T: PartialEq + Clone> RTree<T> {
 
         Self {
             root: Self::build(leaves),
+            last_result: ThreadLocal::new(),
         }
     }
 
     #[inline(always)]
     pub fn search(&self, target: ParameterValues) -> &T {
-        self.root.search(target, None).inner()
+        let result = self
+            .root
+            .search(target, self.last_result.get_or_default().take());
+
+        // SAFETY: the 'static lifetime isn't actually static, the lifetime references data owned by
+        // `self` and since the ThreadLocal is also owned by `self` (and the reference is never
+        // returned as 'static), the reference will be dropped at the same time as `self`, ensuring
+        // it never outlives `self`
+        self.last_result
+            .get_or_default()
+            .set(unsafe { Some(&*(result as *const _)) });
+        result.inner()
     }
 
     fn build(mut children: Vec<Node<T>>) -> Node<T> {
