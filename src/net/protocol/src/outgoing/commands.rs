@@ -7,7 +7,7 @@ use temper_command_infra::{
     CommandNodeKind as InfraCommandNodeKind, EntityProperties, IntegerProperties, ParserKind,
     ParserProperties, ResourceProperties, StringMode,
 };
-use temper_macros::{NetEncode, packet, Discriminant};
+use temper_macros::{Discriminant, NetEncode, packet};
 
 #[derive(Clone, Debug, PartialEq, NetEncode)]
 pub enum PrimitiveArgumentFlags {

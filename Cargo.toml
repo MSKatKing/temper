@@ -235,11 +235,11 @@ craftflow-nbt = "2.1.0"
 simdnbt = { version = "0.10.0", git = "https://github.com/MSKatKing/simdnbt", branch = "stable" }
 figment = { version = "0.10.19", features = ["toml", "env"] }
 simd-json = "0.18.1"
-bytemuck = { version = "1.25.2", features = ["extern_crate_alloc", "derive"] }
 serde_yaml_ng = "0.10.0"
 
 # Bit manipulation
 byteorder = "1.5.0"
+bytemuck = { version = "1.25.2", features = ["extern_crate_alloc", "derive"] }
 
 # Data types
 dashmap = { version = "7.0.0-rc2", features = ["serde"] }

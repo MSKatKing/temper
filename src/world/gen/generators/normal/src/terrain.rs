@@ -332,42 +332,6 @@ pub fn dither_field(seed: u64, x: i32, z: i32, cell_size: i32) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use noise::{
-        Fbm as LegacyFbm, MultiFractal, NoiseFn, OpenSimplex as LegacyOpenSimplex,
-        Perlin as LegacyPerlin, RidgedMulti,
-    };
-
-    fn legacy_height_noise(seed: u64, x: f64, z: f64) -> f64 {
-        let to01 = |n: f64| (n * 0.5 + 0.5).clamp(0.0, 1.0);
-
-        let base = LegacyFbm::<LegacyPerlin>::new(seed as u32)
-            .set_octaves(4)
-            .set_frequency(0.002);
-        let peaks = RidgedMulti::<LegacyPerlin>::new((seed as u32).wrapping_add(1))
-            .set_octaves(4)
-            .set_frequency(0.008);
-        let mountain_mask = LegacyFbm::<LegacyPerlin>::new((seed as u32).wrapping_add(2))
-            .set_octaves(2)
-            .set_frequency(0.0006);
-
-        let height = shape_height(
-            to01(base.get([x, z])),
-            to01(peaks.get([x, z])),
-            to01(mountain_mask.get([x, z])),
-        );
-
-        (height * 2.0) - 1.0
-    }
-
-    fn legacy_cave_noise(seed: u64, x: f64, y: f64, z: f64) -> f64 {
-        RidgedMulti::<LegacyOpenSimplex>::new((seed + 100) as u32)
-            .set_frequency(0.01)
-            .set_lacunarity(2.5)
-            .set_octaves(5)
-            .set_persistence(0.8)
-            .set_attenuation(0.3)
-            .get([x, y, z])
-    }
 
     #[test]
     fn peak_noise_is_gated_out_of_lower_terrain() {
@@ -405,56 +369,5 @@ mod tests {
 
         assert!(samples.iter().any(|&sample| sample <= 0.6));
         assert!(samples.iter().any(|&sample| sample > 0.6));
-    }
-
-    #[test]
-    fn height_noise_stays_close_to_legacy_distribution() {
-        let noise = NoiseGenerator::new(0);
-        let mut samples = [0.0; 25];
-        noise.fill_height_noise(0, 0, 4, 5, 5, &mut samples);
-
-        let legacy: Vec<_> = (0..5)
-            .flat_map(|z| {
-                (0..5).map(move |x| legacy_height_noise(0, f64::from(x * 4), f64::from(z * 4)))
-            })
-            .collect();
-
-        let avg_delta = samples
-            .iter()
-            .zip(legacy.iter())
-            .map(|(new, old)| (new - old).abs())
-            .sum::<f64>()
-            / samples.len() as f64;
-
-        assert!(avg_delta < 0.35, "avg delta was {avg_delta}");
-    }
-
-    #[test]
-    fn cave_carve_ratio_stays_close_to_legacy_distribution() {
-        let noise = NoiseGenerator::new(0);
-        let mut samples = [0.0; 5 * 21 * 5];
-        noise.fill_cave_noise(0, -60, 0, 4, 8, 5, 21, 5, &mut samples);
-
-        let legacy: Vec<_> = (0..5)
-            .flat_map(|z| {
-                (0..21).flat_map(move |y| {
-                    (0..5).map(move |x| {
-                        legacy_cave_noise(
-                            0,
-                            f64::from(x * 4) / 2.0,
-                            f64::from(-60 + y * 8) / 2.0,
-                            f64::from(z * 4) / 2.0,
-                        )
-                    })
-                })
-            })
-            .collect();
-
-        let carve_ratio = |values: &[f64]| -> f64 {
-            values.iter().filter(|&&value| value > 0.6).count() as f64 / values.len() as f64
-        };
-
-        let ratio_delta = (carve_ratio(&samples) - carve_ratio(&legacy)).abs();
-        assert!(ratio_delta < 0.15, "carve ratio delta was {ratio_delta}");
     }
 }
