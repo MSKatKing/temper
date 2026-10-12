@@ -7,7 +7,6 @@ edition = "2024"
 temper-codec = { workspace = true }
 temper-command-infra = { workspace = true }
 temper-macros = { workspace = true }
-enum-ordinalize = { workspace = true }
 tracing = { workspace = true }
 temper-components = { workspace = true }
 typename = { workspace = true }

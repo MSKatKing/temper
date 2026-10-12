@@ -1,6 +1,5 @@
 use std::{fmt, io::Write};
 
-use enum_ordinalize::Ordinalize;
 use temper_codec::encode::{NetEncode as NetEncodeTrait, NetEncodeOpts, errors::NetEncodeError};
 use temper_codec::net_types::{length_prefixed_vec::LengthPrefixedVec, var_int::VarInt};
 use temper_command_infra::{
@@ -8,7 +7,7 @@ use temper_command_infra::{
     CommandNodeKind as InfraCommandNodeKind, EntityProperties, IntegerProperties, ParserKind,
     ParserProperties, ResourceProperties, StringMode,
 };
-use temper_macros::{NetEncode, packet};
+use temper_macros::{Discriminant, NetEncode, packet};
 
 #[derive(Clone, Debug, PartialEq, NetEncode)]
 pub enum PrimitiveArgumentFlags {
@@ -58,7 +57,7 @@ impl NetEncodeTrait for EntityArgumentFlags {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Ordinalize, Default)]
+#[derive(Clone, Debug, PartialEq, Discriminant, Default)]
 pub enum StringArgumentType {
     #[default]
     Word,
@@ -68,11 +67,11 @@ pub enum StringArgumentType {
 
 impl NetEncodeTrait for StringArgumentType {
     fn encode<W: Write>(&self, writer: &mut W, opts: &NetEncodeOpts) -> Result<(), NetEncodeError> {
-        VarInt::new(i32::from(self.ordinal())).encode(writer, opts)
+        VarInt::new(self.discriminant()).encode(writer, opts)
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Ordinalize)]
+#[derive(Clone, Debug, PartialEq, Discriminant)]
 pub enum PrimitiveArgumentType {
     Bool,
     Float,
@@ -129,7 +128,7 @@ pub enum PrimitiveArgumentType {
 
 impl NetEncodeTrait for PrimitiveArgumentType {
     fn encode<W: Write>(&self, writer: &mut W, opts: &NetEncodeOpts) -> Result<(), NetEncodeError> {
-        VarInt::new(i32::from(self.ordinal())).encode(writer, opts)
+        VarInt::new(self.discriminant()).encode(writer, opts)
     }
 }
 
