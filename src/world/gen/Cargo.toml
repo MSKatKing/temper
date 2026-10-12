@@ -11,7 +11,6 @@ skyblock = { path = "./generators/skyblock" }
 superflat = { path = "./generators/superflat" }
 vanilla = { path = "./generators/vanilla" }
 temper-world-format = { workspace = true }
-noise = { workspace = true }
 temper-core = { workspace = true }
 temper-macros = { workspace = true }
 thiserror = { workspace = true }
