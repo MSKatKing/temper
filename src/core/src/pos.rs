@@ -15,6 +15,35 @@ use deepsize::DeepSizeOf;
 use serde::{Deserialize, Serialize};
 use temper_codec::net_types::network_position::NetworkPosition;
 use type_hash::TypeHash;
+use crate::dimension::Dimension;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FullChunkPos {
+    pos: ChunkPos,
+    dimension: Dimension,
+}
+
+impl Deref for FullChunkPos {
+    type Target = ChunkPos;
+
+    fn deref(&self) -> &Self::Target {
+        &self.pos
+    }
+}
+
+impl FullChunkPos {
+    pub fn new(pos: ChunkPos, dimension: Dimension) -> Self {
+        FullChunkPos { pos, dimension }
+    }
+
+    pub fn of(x: i32, z: i32, dimension: Dimension) -> Self {
+        FullChunkPos::new(ChunkPos::new(x, z), dimension)
+    }
+
+    pub fn dimension(&self) -> Dimension {
+        self.dimension
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct BlockPos {
