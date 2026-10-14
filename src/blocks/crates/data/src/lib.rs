@@ -35,7 +35,6 @@ pub struct PlacedBlocks {
 }
 
 /// Result of the try_break function
-#[derive(Default)]
 pub struct BrokenBlocks {
     /// Any extra blocks broken by the function
     pub blocks: Vec<BlockPos>,
@@ -43,7 +42,6 @@ pub struct BrokenBlocks {
 }
 
 /// Result of the interact function
-#[derive(Default)]
 pub struct BlockUpdates {
     /// Any other blocks that are updated by the function
     pub blocks: HashMap<BlockPos, BlockStateId>,
@@ -58,6 +56,24 @@ impl PlacedBlocks {
             place_original: true,
             blocks: HashMap::default(),
             dimension,
+        }
+    }
+}
+
+impl BrokenBlocks {
+    pub fn new(dimension: Dimension) -> Self {
+        Self {
+            dimension,
+            blocks: Vec::default(),
+        }
+    }
+}
+
+impl BlockUpdates {
+    pub fn new(dimension: Dimension) -> Self {
+        Self {
+            dimension,
+            blocks: HashMap::default(),
         }
     }
 }

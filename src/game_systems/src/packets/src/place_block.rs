@@ -11,7 +11,6 @@ use temper_blocks::BlockDispatch;
 use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::rotation::Rotation;
 use temper_core::block_state_id::{BlockStateId, ITEM_TO_BLOCK_MAPPING};
-use temper_core::dimension::Dimension;
 use temper_core::mq;
 use temper_inventories::hotbar::Hotbar;
 use temper_inventories::inventory::Inventory;
@@ -181,7 +180,7 @@ pub fn handle(
                         block_clicked: *block_pos,
                         block_pos: *offset_pos,
                         level: &state.0.world,
-                        dimension: Dimension::Overworld,
+                        dimension: dim.0,
                         player_rotation: rot,
                         default_placement_state: block_state,
                     };

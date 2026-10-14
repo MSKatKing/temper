@@ -155,9 +155,9 @@ macro_rules! block_behavior_trait {
 //
 // This is the only place where the `block_behavior_trait!` macro should be used.
 block_behavior_trait!(
-    fn get_placement_state(mut; _context: PlacementContext) -> PlacedBlocks; PlacedBlocks::new(Default::default()),
-    fn interact(mut; _world: &World, _pos: FullBlockPos) -> BlockUpdates; BlockUpdates::default(),
-    fn try_break(; _world: &World, _pos: FullBlockPos) -> BrokenBlocks; BrokenBlocks::default(),
+    fn get_placement_state(mut; _context: PlacementContext) -> PlacedBlocks; PlacedBlocks::new(_context.dimension),
+    fn interact(mut; _world: &World, _pos: FullBlockPos) -> BlockUpdates; BlockUpdates::new(_pos.dimension()),
+    fn try_break(; _world: &World, _pos: FullBlockPos) -> BrokenBlocks; BrokenBlocks::new(_pos.dimension()),
 
     fn is_interactable(;) -> bool; false,
     fn is_solid(;) -> bool; true, // Used for fence and pane connections
