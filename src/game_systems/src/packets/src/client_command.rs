@@ -1,6 +1,11 @@
 use bevy_ecs::prelude::{MessageWriter, Query, Res};
+use temper_codec::net_types::network_position::NetworkPosition;
 use temper_components::player::chunk_receiver::ChunkReceiver;
+use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::gamemode::GameModeComponent;
+use temper_components::player::position::Position;
+use temper_core::dimension::Dimension;
+use temper_messages::dimension_change::DimensionChange;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::ClientCommandReceiver;
 use temper_protocol::incoming::client_command::ClientCommandAction;
@@ -8,15 +13,16 @@ use temper_protocol::outgoing::game_event::GameEventPacket;
 use temper_protocol::outgoing::respawn::RespawnPacket;
 use temper_state::GlobalStateResource;
 use tracing::error;
-use temper_codec::net_types::network_position::NetworkPosition;
-use temper_components::player::dimension::CurrentDimension;
-use temper_components::player::position::Position;
-use temper_core::dimension::Dimension;
-use temper_messages::dimension_change::DimensionChange;
 
 pub fn handle_client_command(
     events: Res<ClientCommandReceiver>,
-    mut query: Query<(&StreamWriter, &GameModeComponent, &Position, &CurrentDimension, &mut ChunkReceiver)>,
+    mut query: Query<(
+        &StreamWriter,
+        &GameModeComponent,
+        &Position,
+        &CurrentDimension,
+        &mut ChunkReceiver,
+    )>,
     mut dim_change_writer: MessageWriter<DimensionChange>,
     state: Res<GlobalStateResource>,
 ) {
@@ -54,12 +60,14 @@ pub fn handle_client_command(
                     entity: sender,
                     is_respawn: true,
                     new_dimension: Dimension::Overworld,
-                    spawn_position: Some(state
-                        .0
-                        .spawn_positions
-                        .pop()
-                        .expect("No spawn position available")
-                        .into()),
+                    spawn_position: Some(
+                        state
+                            .0
+                            .spawn_positions
+                            .pop()
+                            .expect("No spawn position available")
+                            .into(),
+                    ),
                     spawn_rotation: Some(Default::default()),
                 });
             }

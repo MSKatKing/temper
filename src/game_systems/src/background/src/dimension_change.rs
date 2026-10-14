@@ -1,4 +1,5 @@
 use bevy_ecs::prelude::{Commands, MessageReader, MessageWriter, Query};
+use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
 use temper_codec::net_types::var_int::VarInt;
 use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::gamemode::GameModeComponent;
@@ -7,17 +8,16 @@ use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_components::player::teleport_tracker::TeleportTracker;
 use temper_components::player::velocity::Velocity;
+use temper_inventories::inventory::Inventory;
+use temper_inventories::slot::InventorySlot;
 use temper_messages::chunk_calc::ChunkCalc;
 use temper_messages::dimension_change::DimensionChange;
 use temper_messages::teleport_entity::TeleportEntity;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::game_event::GameEventPacket;
 use temper_protocol::outgoing::respawn::RespawnPacket;
-use tracing::warn;
-use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
-use temper_inventories::inventory::Inventory;
-use temper_inventories::slot::InventorySlot;
 use temper_protocol::outgoing::set_container_content::SetContainerContent;
+use tracing::warn;
 
 pub fn handle_dimension_change(
     mut messages: MessageReader<DimensionChange>,
@@ -89,7 +89,13 @@ pub fn handle_dimension_change(
                 .send_packet(SetContainerContent {
                     window_id: VarInt::new(0),
                     state_id: VarInt::new(0),
-                    slots: LengthPrefixedVec::new(inventory.slots.iter().map(|v| v.as_ref().cloned().unwrap_or(InventorySlot::empty())).collect()),
+                    slots: LengthPrefixedVec::new(
+                        inventory
+                            .slots
+                            .iter()
+                            .map(|v| v.as_ref().cloned().unwrap_or(InventorySlot::empty()))
+                            .collect(),
+                    ),
                     carried_item: InventorySlot::empty(),
                 })
                 .unwrap_or_else(|err| warn!("failed to send packet to player: {err}"));
