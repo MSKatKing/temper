@@ -75,7 +75,7 @@ pub fn accept_new_connections(
             velocity: Velocity::zero(),
             last_synced_position: LastSyncedPosition::from_position(&position),
             on_ground: OnGround::default(),
-            chunk_receiver: ChunkReceiver::default(),
+            chunk_receiver: ChunkReceiver::new(),
             inventory: player_data.inventory,
             hotbar: Hotbar::default(),
             ender_chest: player_data.ender_chest,

@@ -3,18 +3,19 @@ use std::collections::HashSet;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::client_information::ClientInformationComponent;
 use temper_components::player::position::Position;
-use temper_core::pos::ChunkPos;
+use temper_core::pos::{ChunkPos, FullChunkPos};
 use temper_messages::chunk_calc::ChunkCalc;
 use temper_state::GlobalStateResource;
 use tracing::warn;
+use temper_components::player::dimension::CurrentDimension;
 
 pub fn handle(
     mut messages: MessageReader<ChunkCalc>,
-    mut query: Query<(&Position, &mut ChunkReceiver, &ClientInformationComponent)>,
+    mut query: Query<(&Position, &mut ChunkReceiver, &CurrentDimension, &ClientInformationComponent)>,
     state: Res<GlobalStateResource>,
 ) {
     for message in messages.read() {
-        let (position, mut chunk_receiver, client_info) = match query.get_mut(message.0) {
+        let (position, mut chunk_receiver, dimension, client_info) = match query.get_mut(message.0) {
             Ok(data) => data,
             Err(_) => {
                 warn!("Player does not exist, skipping chunk calculation");
@@ -31,7 +32,7 @@ pub fn handle(
         let mut needed_set = HashSet::new();
         for x in player_chunk.x() - radius..=player_chunk.x() + radius {
             for z in player_chunk.z() - radius..=player_chunk.z() + radius {
-                needed_set.insert(ChunkPos::new(x, z));
+                needed_set.insert(FullChunkPos::of(x, z, dimension.0));
             }
         }
 

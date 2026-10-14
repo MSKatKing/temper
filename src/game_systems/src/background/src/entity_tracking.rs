@@ -7,6 +7,8 @@ use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_net_runtime::connection::StreamWriter;
 use tracing::trace;
+use temper_components::player::dimension::CurrentDimension;
+use temper_core::pos::FullChunkPos;
 
 pub fn refresh_visible_entities(
     mut player_query: Query<(Entity, &StreamWriter, &ChunkReceiver, &mut EntityTracker)>,
@@ -15,6 +17,7 @@ pub fn refresh_visible_entities(
         &Identity,
         &GameID,
         &Position,
+        &CurrentDimension,
         Has<PlayerMarker>,
         Option<&StreamWriter>,
     )>,
@@ -29,7 +32,7 @@ pub fn refresh_visible_entities(
             let should_keep = entity_query
                 .get(tracked_entity)
                 .map(
-                    |(entity, _identity, _game_id, pos, is_player, maybe_writer)| {
+                    |(entity, _identity, _game_id, pos, dim, is_player, maybe_writer)| {
                         if entity == player_entity {
                             return false;
                         }
@@ -38,7 +41,7 @@ pub fn refresh_visible_entities(
                             return false;
                         }
 
-                        chunk_receiver.loaded.contains(&pos.chunk())
+                        chunk_receiver.loaded.contains(&FullChunkPos::new(pos.chunk(), dim.0))
                     },
                 )
                 .unwrap_or(false);
@@ -49,7 +52,7 @@ pub fn refresh_visible_entities(
             }
         }
 
-        for (entity, identity, game_id, pos, is_player, maybe_writer) in entity_query.iter() {
+        for (entity, identity, game_id, pos, dim, is_player, maybe_writer) in entity_query.iter() {
             if entity == player_entity {
                 continue;
             }
@@ -58,7 +61,7 @@ pub fn refresh_visible_entities(
                 continue;
             }
 
-            if !chunk_receiver.loaded.contains(&pos.chunk()) {
+            if !chunk_receiver.loaded.contains(&FullChunkPos::new(pos.chunk(), dim.0)) {
                 continue;
             }
 

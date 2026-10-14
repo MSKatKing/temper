@@ -31,6 +31,12 @@ impl Deref for FullChunkPos {
     }
 }
 
+impl Display for FullChunkPos {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "({} {}, {})", self.x(), self.z(), self.dimension.as_identifier())
+    }
+}
+
 impl FullChunkPos {
     pub fn new(pos: ChunkPos, dimension: Dimension) -> Self {
         FullChunkPos { pos, dimension }

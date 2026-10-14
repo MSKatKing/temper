@@ -1,4 +1,4 @@
-use bevy_ecs::prelude::{Entity, Query, World};
+use bevy_ecs::prelude::{Entity, MessageWriter, Query, World};
 use bevy_ecs::system::SystemParamItem;
 use temper_command_infra::args::EntityArg;
 use temper_command_infra::{ArgumentSpec, CommandArg, CommandHandler, CommandReader, CommandResult, CommandSource, ParseError, ParserKind, SuggestionInput, SuggestionProviderKind};
@@ -7,6 +7,7 @@ use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_core::dimension::Dimension;
 use temper_macros::Command;
+use temper_messages::dimension_change::DimensionChange;
 use temper_text::{NamedColor, TextComponentBuilder};
 
 #[derive(Command)]
@@ -56,11 +57,12 @@ impl CommandArg for DimensionArg {
 impl CommandHandler for DimensionCommand {
     type SystemParam<'w, 's> = (
         Query<'w, 's, (Entity, &'static Identity, Option<&'static PlayerMarker>)>,
-        Query<'w, 's, &'static mut CurrentDimension>,
+        Query<'w, 's, &'static CurrentDimension>,
+        MessageWriter<'w, DimensionChange>,
     );
 
     fn handle(self, source: CommandSource, params: &mut SystemParamItem<'_, '_, Self::SystemParam<'_, '_>>) -> CommandResult {
-        let (entities, dimensions) = params;
+        let (entities, dimensions, change_dim_writer) = params;
 
         let entity = match &self {
             Self::Query { entity } => entity,
@@ -97,16 +99,12 @@ impl CommandHandler for DimensionCommand {
                     let (entity, identity, _) = entities.get(entity).expect("should be present if resolved");
                     let identifier = format!("entity '{}' ({})", identity.name.as_ref().map(String::as_ref).unwrap_or("None"), identity.uuid);
 
-                    let mut dimension_component = match dimensions.get_mut(entity) {
-                        Ok(d) => d,
-                        Err(_) => {
-                            source.send_message(TextComponentBuilder::new(format!("Could not query dimension for {}", identifier)).color(NamedColor::Red).build());
-                            continue;
-                        }
-                    };
-
-                    *dimension_component = dimension.0.into();
-                    source.send_message(TextComponentBuilder::new(format!("Set dimension of {} to '{:?}'", identifier, dimension.0)).build());
+                    change_dim_writer.write(DimensionChange {
+                        entity,
+                        new_dimension: dimension.0,
+                        spawn_position: None, // will use the entities current position
+                    });
+                    source.send_message(TextComponentBuilder::new(format!("Changed dimension of {} to '{:?}'", identifier, dimension.0)).build());
                 }
             }
         }

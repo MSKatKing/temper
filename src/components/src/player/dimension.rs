@@ -1,9 +1,10 @@
-use std::ops::{Deref, DerefMut};
 use bevy_ecs::prelude::Component;
+use std::ops::{Deref, DerefMut};
+use serde::{Deserialize, Serialize};
 use temper_core::dimension::Dimension;
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, Component, Default)]
+#[derive(Copy, Clone, Debug, Component, Default, Serialize, Deserialize)]
 pub struct CurrentDimension(pub Dimension);
 
 impl Deref for CurrentDimension {
@@ -23,5 +24,11 @@ impl DerefMut for CurrentDimension {
 impl From<Dimension> for CurrentDimension {
     fn from(value: Dimension) -> Self {
         Self(value)
+    }
+}
+
+impl From<CurrentDimension> for Dimension {
+    fn from(value: CurrentDimension) -> Self {
+        value.0
     }
 }

@@ -1,6 +1,6 @@
 use crate::{ChunkStore, MutChunk, RefChunk, World};
 use temper_core::dimension::Dimension;
-use temper_core::pos::ChunkPos;
+use temper_core::pos::{ChunkPos, FullChunkPos};
 use temper_world_format::errors::WorldError;
 use temper_world_format::Chunk;
 use world_db::chunks::{
@@ -34,7 +34,7 @@ impl ChunkStore {
 
         let chunk = Chunk::new_empty();
         chunk.mark_dirty();
-        self.cache.insert((pos, dimension), chunk);
+        self.cache.insert(FullChunkPos::new(pos, dimension), chunk);
 
         Ok(())
     }
@@ -63,16 +63,17 @@ impl ChunkStore {
         pos: ChunkPos,
         dimension: Dimension,
     ) -> Result<RefChunk<'_>, WorldError> {
-        if let Some(chunk) = self.cache.get(&(pos, dimension)) {
+        let pos = FullChunkPos::new(pos, dimension);
+        if let Some(chunk) = self.cache.get(&pos) {
             return Ok(chunk);
         }
-        let chunk = load_chunk_internal(&self.storage_backend, pos, dimension, self.verify);
+        let chunk = load_chunk_internal(&self.storage_backend, *pos, dimension, self.verify);
         match chunk {
             Ok(c) => {
-                self.cache.insert((pos, dimension), c);
+                self.cache.insert(pos, c);
                 Ok(self
                     .cache
-                    .get(&(pos, dimension))
+                    .get(&pos)
                     .expect("Chunk was just inserted into the cache"))
             }
             Err(e) => Err(e),
@@ -87,16 +88,17 @@ impl ChunkStore {
         pos: ChunkPos,
         dimension: Dimension,
     ) -> Result<MutChunk<'_>, WorldError> {
-        if let Some(chunk) = self.cache.get_mut(&(pos, dimension)) {
+        let pos = FullChunkPos::new(pos, dimension);
+        if let Some(chunk) = self.cache.get_mut(&pos) {
             return Ok(chunk);
         }
-        let chunk = load_chunk_internal(&self.storage_backend, pos, dimension, self.verify);
+        let chunk = load_chunk_internal(&self.storage_backend, *pos, dimension, self.verify);
         match chunk {
             Ok(c) => {
-                self.cache.insert((pos, dimension), c);
+                self.cache.insert(pos, c);
                 Ok(self
                     .cache
-                    .get_mut(&(pos, dimension))
+                    .get_mut(&pos)
                     .expect("Chunk was just inserted into the cache"))
             }
             Err(e) => Err(e),
@@ -109,7 +111,7 @@ impl ChunkStore {
     /// chunk is not in the cache, it will check the storage backend for the chunk, returning true
     /// if it exists and false if it does not.
     pub fn chunk_exists(&self, pos: ChunkPos, dimension: Dimension) -> Result<bool, WorldError> {
-        if self.cache.contains_key(&(pos, dimension)) {
+        if self.cache.contains_key(&FullChunkPos::new(pos, dimension)) {
             return Ok(true);
         }
         chunk_exists_internal(&self.storage_backend, pos, dimension)
@@ -119,7 +121,7 @@ impl ChunkStore {
     ///
     /// This function will remove the chunk from the cache and delete it from the storage backend.
     pub fn delete_chunk(&self, pos: ChunkPos, dimension: Dimension) -> Result<(), WorldError> {
-        self.cache.remove(&(pos, dimension));
+        self.cache.remove(&FullChunkPos::new(pos, dimension));
         delete_chunk_internal(&self.storage_backend, pos, dimension)
     }
 
@@ -142,8 +144,8 @@ impl ChunkStore {
             }
 
             snapshots.push(ChunkSaveSnapshot {
-                pos: k.0,
-                dimension: k.1,
+                pos: **k,
+                dimension: k.dimension(),
                 chunk: v.clone_without_transient_noise(),
             });
             v.clear_dirty();

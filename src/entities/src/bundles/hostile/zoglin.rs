@@ -11,6 +11,7 @@ crate::define_mob! {
             metadata: temper_components::metadata::EntityMetadata => copy,
             combat: temper_components::combat::CombatProperties => copy,
             spawn: temper_components::spawn::SpawnProperties => clone,
+            dimension: temper_components::player::dimension::CurrentDimension => copy,
             position: temper_components::player::position::Position => copy,
             rotation: temper_components::player::rotation::Rotation => copy,
             velocity: temper_components::player::velocity::Velocity => copy,

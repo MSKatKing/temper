@@ -9,7 +9,7 @@ pub fn spawn_command_processor(
 ) {
     for command in spawn_commands.read() {
         mob_bundle_events.write(SpawnMobBundle {
-            bundle: MobBundle::new(command.entity_type, command.location),
+            bundle: MobBundle::new(command.entity_type, command.location, command.dimension),
             persist: true,
         });
     }

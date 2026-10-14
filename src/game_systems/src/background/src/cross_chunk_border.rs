@@ -17,12 +17,14 @@ use temper_messages::cross_chunk_boundary_event::ChunkBoundaryCrossed;
 use temper_state::GlobalStateResource;
 use temper_world::WorldError;
 use tracing::error;
+use temper_components::player::dimension::CurrentDimension;
 
 type MobQuery<'a> = (
     &'a Identity,
     &'a EntityMetadata,
     &'a CombatProperties,
     &'a SpawnProperties,
+    &'a CurrentDimension,
     &'a Position,
     &'a Rotation,
     &'a Velocity,
@@ -50,6 +52,7 @@ pub fn cross_chunk_border(
             metadata,
             combat,
             spawn,
+            dimension,
             position,
             rotation,
             velocity,
@@ -93,6 +96,7 @@ pub fn cross_chunk_border(
                     metadata,
                     combat,
                     spawn,
+                    dimension,
                     position,
                     rotation,
                     velocity,

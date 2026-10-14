@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::process::exit;
 use temper_config::ServerConfig;
 pub use temper_core::dimension::Dimension;
-use temper_core::pos::ChunkPos;
+use temper_core::pos::{ChunkPos, FullChunkPos};
 use temper_general_purpose::paths::get_root_path;
 use temper_storage::lmdb::StorageBackend;
 pub use temper_world_format::errors::WorldError;
@@ -134,9 +134,9 @@ impl ChunkStore {
     }
 }
 
-pub type ChunkCache = DashMap<(ChunkPos, Dimension), Chunk, WyHasherBuilder>;
-pub type MutChunk<'a> = dashmap::mapref::one::RefMut<'a, (ChunkPos, Dimension), Chunk>;
-pub type RefChunk<'a> = dashmap::mapref::one::Ref<'a, (ChunkPos, Dimension), Chunk>;
+pub type ChunkCache = DashMap<FullChunkPos, Chunk, WyHasherBuilder>;
+pub type MutChunk<'a> = dashmap::mapref::one::RefMut<'a, FullChunkPos, Chunk>;
+pub type RefChunk<'a> = dashmap::mapref::one::Ref<'a, FullChunkPos, Chunk>;
 
 fn check_config_validity(config: &ServerConfig) -> Result<(), WorldError> {
     // We don't actually check if the import path is valid here since that would brick a server

@@ -1,5 +1,5 @@
 use anyhow::Context;
-use bevy_ecs::prelude::{Entity, MessageWriter, Query, Res};
+use bevy_ecs::prelude::{Commands, Entity, MessageWriter, Query, Res};
 use std::cmp::max;
 use std::collections::HashSet;
 use std::sync::atomic::Ordering;
@@ -8,8 +8,7 @@ use temper_components::player::chunk_receiver::{ChunkReceiver, PreparedChunk, Re
 use temper_components::player::client_information::ClientInformationComponent;
 use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::position::Position;
-use temper_core::dimension::Dimension;
-use temper_core::pos::ChunkPos;
+use temper_core::pos::{ChunkPos, FullChunkPos};
 use temper_net_runtime::compression::compress_packet;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::chunk_and_light_data::ChunkAndLightData;
@@ -18,6 +17,7 @@ use temper_protocol::outgoing::chunk_batch_start::ChunkBatchStart;
 use temper_protocol::outgoing::set_center_chunk::SetCenterChunk;
 use temper_state::GlobalStateResource;
 use tracing::error;
+use temper_components::player::dimension::CurrentDimension;
 
 /// How many times a chunk may fail to prepare before we stop retrying it.
 const MAX_CHUNK_RETRIES: u8 = 3;
@@ -27,6 +27,7 @@ pub fn handle(
         Entity,
         &StreamWriter,
         &mut ChunkReceiver,
+        &CurrentDimension,
         &Position,
         &ClientInformationComponent,
         &EntityTracker,
@@ -44,7 +45,7 @@ pub fn handle(
     // costs memory instead of pool depth.
     let max_in_flight = state.0.thread_pool.core_count() * 6;
 
-    for (eid, conn, mut chunk_receiver, pos, client_info, entity_tracker) in query.iter_mut() {
+    for (eid, conn, mut chunk_receiver, dimension, pos, client_info, entity_tracker) in query.iter_mut() {
         if !state.0.players.is_connected(eid) {
             continue;
         }
@@ -54,12 +55,17 @@ pub fn handle(
         // Both phases need the same "is this chunk still worth working on"
         // test, so compute it once per player.
         let player_chunk = ChunkPos::from(pos.coords);
+        let player_dimension = dimension.0;
         let view_distance = max(
             u32::from(client_info.view_distance),
             state.0.config.chunk_render_distance,
         );
         let max_distance_sq = (view_distance * view_distance) as i32;
-        let in_view = |chunk_pos: ChunkPos| {
+        let in_view = |chunk_pos: FullChunkPos| {
+            if chunk_pos.dimension() != player_dimension {
+                return false;
+            }
+            
             let dx = chunk_pos.x() - player_chunk.x();
             let dz = chunk_pos.z() - player_chunk.z();
             dx * dx + dz * dz <= max_distance_sq
@@ -200,7 +206,7 @@ pub fn handle(
             }
         }
 
-        let mut needed_chunks: Vec<ChunkPos> = Vec::new();
+        let mut needed_chunks: Vec<FullChunkPos> = Vec::new();
 
         if sent_chunks < chunk_receiver.chunks_per_tick as usize {
             while let Some(coords) = chunk_receiver.loading.pop_front() {
@@ -238,7 +244,7 @@ pub fn handle(
                         let chunk_ref = state_clone
                             .0
                             .world
-                            .get_or_generate_chunk(coordinates, Dimension::Overworld)
+                            .get_or_generate_chunk(*coordinates, coordinates.dimension())
                             .context("load or generate failed")?;
 
                         (*chunk_ref).clone_without_transient_noise()
@@ -249,7 +255,7 @@ pub fn handle(
                         entities.push((*kv.key(), kv.value().0.to_entity_type().id));
                     }
 
-                    let packet = ChunkAndLightData::from_chunk(coordinates, &chunk_data)
+                    let packet = ChunkAndLightData::from_chunk(*coordinates, &chunk_data)
                         .context("building ChunkAndLightData failed")?;
 
                     let packet_data = compress_packet(

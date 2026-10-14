@@ -6,6 +6,7 @@ use temper_components::entity_identity::Identity;
 use temper_components::health::Health;
 use temper_components::last_synced_position::LastSyncedPosition;
 use temper_components::metadata::EntityMetadata;
+use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::grounded::OnGround;
 use temper_components::player::position::Position;
@@ -13,6 +14,7 @@ use temper_components::player::rotation::Rotation;
 use temper_components::player::velocity::Velocity;
 use temper_components::spawn::SpawnProperties;
 use temper_core::dimension::Dimension;
+use temper_core::pos::FullChunkPos;
 use temper_entities::mob_definition::StandardMobParts;
 use temper_entities::{MobBundle, MobKind};
 use temper_messages::{
@@ -27,6 +29,7 @@ type StandardMobQuery<'a> = (
     &'a EntityMetadata,
     &'a CombatProperties,
     &'a SpawnProperties,
+    &'a CurrentDimension,
     &'a Position,
     &'a Rotation,
     &'a Velocity,
@@ -142,7 +145,7 @@ pub fn load_mob_bundles(
             continue;
         }
 
-        let Ok(chunk) = state.0.world.get_chunk(event.0, Dimension::Overworld) else {
+        let Ok(chunk) = state.0.world.get_chunk(*event.0, event.0.dimension()) else {
             tracing::error!("Failed to load chunk {} for entity loading", event.0);
             continue;
         };
@@ -160,7 +163,7 @@ pub fn load_mob_bundles(
                 continue;
             };
 
-            if bundle.position().chunk() != event.0 {
+            if bundle.position().chunk() != *event.0 {
                 tracing::warn!(
                     "Removing persisted {:?} mob {:?} from chunk {}; position belongs to chunk {}",
                     kind,
@@ -211,6 +214,7 @@ pub fn save_mob_bundles(
             metadata,
             combat,
             spawn,
+            dimension,
             position,
             rotation,
             velocity,
@@ -219,7 +223,7 @@ pub fn save_mob_bundles(
             mob_kind,
         ) in query.iter()
         {
-            if position.chunk() != event.0 {
+            if FullChunkPos::new(position.chunk(), dimension.0) != event.0 {
                 continue;
             }
 
@@ -228,6 +232,7 @@ pub fn save_mob_bundles(
                 metadata,
                 combat,
                 spawn,
+                dimension,
                 position,
                 rotation,
                 velocity,
@@ -244,7 +249,7 @@ pub fn save_mob_bundles(
                 let chunk = state
                     .0
                     .world
-                    .get_or_generate_chunk(event.0, Dimension::Overworld)
+                    .get_or_generate_chunk(*event.0, event.0.dimension())
                     .expect("Failed to get or generate chunk");
 
                 let unchanged = chunk.entities.get(&uuid).is_some_and(|stored| {
@@ -275,13 +280,13 @@ pub fn save_mob_bundles(
 }
 
 pub fn queue_live_mob_chunk_saves(
-    query: Query<&Position, With<MobKind>>,
+    query: Query<(&Position, &CurrentDimension), With<MobKind>>,
     mut save_events: MessageWriter<SaveChunkEntities>,
 ) {
     let mut chunks = HashSet::new();
 
-    for position in query.iter() {
-        let chunk = position.chunk();
+    for (position, dimension) in query.iter() {
+        let chunk = FullChunkPos::new(position.chunk(), dimension.0);
         if chunks.insert(chunk) {
             save_events.write(SaveChunkEntities(chunk));
         }
@@ -291,10 +296,10 @@ pub fn queue_live_mob_chunk_saves(
 fn remove_stale_mob_entries(
     state: &GlobalStateResource,
     uuid: uuid::Uuid,
-    current_chunk: temper_core::pos::ChunkPos,
+    current_chunk: FullChunkPos,
 ) {
     for entry in state.0.world.get_cache() {
-        let ((chunk_pos, _), chunk) = entry.pair();
+        let (chunk_pos, chunk) = entry.pair();
         if *chunk_pos == current_chunk {
             continue;
         }
@@ -310,6 +315,7 @@ fn standard_mob_bundle(
     metadata: &EntityMetadata,
     combat: &CombatProperties,
     spawn: &SpawnProperties,
+    dimension: &CurrentDimension,
     position: &Position,
     rotation: &Rotation,
     velocity: &Velocity,
@@ -324,6 +330,7 @@ fn standard_mob_bundle(
             metadata,
             combat,
             spawn,
+            dimension,
             position,
             rotation,
             velocity,
