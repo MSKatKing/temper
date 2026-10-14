@@ -100,6 +100,7 @@ fn register_tick_systems(schedule: &mut Schedule) {
     schedule.add_systems(
         (
             player::new_connections::accept_new_connections,
+            background::dimension_change::handle_dimension_change,
             ApplyDeferred,
             player::chunk_calculator::handle,
             player::emit_player_joined::emit_player_joined,
@@ -116,7 +117,7 @@ fn register_tick_systems(schedule: &mut Schedule) {
     schedule.add_systems(player::damage_entity::damage_entity);
 
     temper_command_infra::register_command_systems(schedule);
-
+    
     schedule.add_systems(background::chunk_sending::handle.in_set(TickPhase::ChunkSending));
     mobs::register_load_systems(schedule);
     schedule.add_systems(

@@ -375,10 +375,12 @@ fn send_initial_play_packets(
 ) -> Result<(), NetError> {
     // Send login_play
     let game_mode = offline_data.gamemode;
+    let dimension = offline_data.dimension;
 
     conn_write.send_packet(LoginPlayPacket::new(
         player_id.get().0,
         game_mode as u8,
+        dimension,
         &state.config,
     ))?;
 

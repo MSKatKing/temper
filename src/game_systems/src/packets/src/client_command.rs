@@ -44,10 +44,7 @@ pub fn handle_client_command(
                 if let Err(err) = conn.send_packet(packet) {
                     error!("Failed to send respawn packet: {:?}", err);
                 }
-                let game_event = GameEventPacket {
-                    event_id: 13,
-                    value: 0.0,
-                };
+                let game_event = GameEventPacket::start_waiting_for_level_chunks();
                 if let Err(err) = conn.send_packet(game_event) {
                     error!("Failed to send game event packet: {:?}", err);
                 }

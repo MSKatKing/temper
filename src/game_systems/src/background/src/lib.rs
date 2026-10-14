@@ -5,6 +5,7 @@ pub mod connection_killer;
 pub mod cross_chunk_border;
 pub mod day_cycle;
 pub mod death_message;
+pub mod dimension_change;
 pub mod entity_sending;
 pub mod entity_tracking;
 pub mod entity_unloader;

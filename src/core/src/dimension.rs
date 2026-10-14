@@ -26,7 +26,7 @@ impl Dimension {
     pub fn as_identifier(&self) -> &'static str {
         match self {
             Self::Overworld => "minecraft:overworld",
-            Self::Nether => "minecraft:nether",
+            Self::Nether => "minecraft:the_nether",
             Self::End => "minecraft:the_end",
             _ => "temper:custom_dimension",
         }

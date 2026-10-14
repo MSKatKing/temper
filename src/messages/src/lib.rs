@@ -42,6 +42,7 @@ pub mod packet_messages;
 pub mod save_chunk_entities;
 pub mod teleport_entity;
 pub mod world_change;
+pub mod dimension_change;
 
 use crate::chunk_calc::ChunkCalc;
 use crate::cross_chunk_boundary_event::ChunkBoundaryCrossed;
@@ -59,6 +60,7 @@ pub use block_entity_placed::BlockEntityPlaced;
 pub use block_interaction::BlockInteractMessage;
 use temper_command_infra::{CommandDispatched, RebuildCommandGraph};
 use world_change::WorldChange;
+use crate::dimension_change::DimensionChange;
 
 pub fn register_messages(world: &mut World) {
     MessageRegistry::register_message::<Movement>(world);
@@ -93,4 +95,5 @@ pub fn register_messages(world: &mut World) {
     MessageRegistry::register_message::<ChunkBoundaryCrossed>(world);
     MessageRegistry::register_message::<BlockEntityPlaced>(world);
     MessageRegistry::register_message::<DamageEvent>(world);
+    MessageRegistry::register_message::<DimensionChange>(world);
 }
