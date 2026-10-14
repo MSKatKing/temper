@@ -70,6 +70,7 @@ pub fn accept_new_connections(
             player_properties: new_connection.player_properties,
             gamemode: GameModeComponent(player_data.gamemode),
             position,
+            dimension: player_data.dimension.into(),
             rotation: player_data.rotation,
             velocity: Velocity::zero(),
             last_synced_position: LastSyncedPosition::from_position(&position),

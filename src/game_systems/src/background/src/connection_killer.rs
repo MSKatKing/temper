@@ -19,6 +19,7 @@ use temper_permissions::player::PlayerPermission;
 use temper_state::GlobalStateResource;
 use temper_text::TextComponent;
 use tracing::{debug, info, trace, warn};
+use temper_components::player::dimension::CurrentDimension;
 
 // This type alias defines all the components of a "full" player
 type PlayerCacheQuery<'a> = (
@@ -27,7 +28,10 @@ type PlayerCacheQuery<'a> = (
     &'a Identity,
     &'a PlayerAbilities,
     &'a GameModeComponent,
-    &'a Position,
+    (
+        &'a CurrentDimension,
+        &'a Position,
+    ),
     &'a Rotation,
     &'a Inventory,
     &'a Health,
@@ -59,8 +63,11 @@ pub fn connection_killer(
             conn,
             player_identity,
             abilities,
-            gamemode,
-            pos,
+            gamemode, 
+            (
+                dimension,
+                pos,
+            ),
             rot,
             inv,
             health,
@@ -106,6 +113,7 @@ pub fn connection_killer(
             let data_to_cache = OfflinePlayerData {
                 abilities: *abilities,
                 gamemode: gamemode.0,
+                dimension: dimension.0,
                 position: (*pos).into(),
                 rotation: *rot,
                 inventory: inv.clone(),

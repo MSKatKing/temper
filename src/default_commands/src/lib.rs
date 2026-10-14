@@ -12,6 +12,7 @@ mod stop;
 mod summon;
 mod time;
 mod tp;
+mod dimension;
 
 /// Static library initialisation shenanigans.
 pub fn init() {}

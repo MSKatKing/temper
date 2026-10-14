@@ -10,11 +10,13 @@ use serde::{Deserialize, Serialize};
 use temper_inventories::inventory::Inventory;
 use temper_permissions::player::PlayerPermission;
 use type_hash::TypeHash;
+use temper_core::dimension::Dimension;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default, TypeHash)]
 pub struct OfflinePlayerData {
     pub abilities: PlayerAbilities,
     pub gamemode: GameMode,
+    pub dimension: Dimension,
     pub position: (f64, f64, f64),
     pub rotation: Rotation,
     pub inventory: Inventory,

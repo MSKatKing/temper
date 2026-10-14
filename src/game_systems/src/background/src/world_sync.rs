@@ -16,12 +16,14 @@ use temper_resources::world_sync_tracker::WorldSyncTracker;
 use temper_state::GlobalStateResource;
 use tracing::error;
 use uuid::Uuid;
+use temper_components::player::dimension::CurrentDimension;
 
 type PlayerSaveQuery<'a> = (
     &'a Identity,
     &'a PlayerAbilities,
     &'a GameModeComponent,
     &'a Position,
+    &'a CurrentDimension,
     &'a Rotation,
     &'a Inventory,
     &'a Health,
@@ -40,6 +42,7 @@ fn collect_player_data(player_query: &Query<PlayerSaveQuery>) -> Vec<(Uuid, Offl
         abilities,
         gamemode,
         position,
+        dimension,
         rotation,
         inventory,
         health,
@@ -53,6 +56,7 @@ fn collect_player_data(player_query: &Query<PlayerSaveQuery>) -> Vec<(Uuid, Offl
         let data = OfflinePlayerData {
             abilities: *abilities,
             gamemode: gamemode.0,
+            dimension: dimension.0,
             position: (*position).into(),
             rotation: *rotation,
             inventory: inventory.clone(),

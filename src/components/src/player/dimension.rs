@@ -3,7 +3,7 @@ use bevy_ecs::prelude::Component;
 use temper_core::dimension::Dimension;
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, Component)]
+#[derive(Copy, Clone, Debug, Component, Default)]
 pub struct CurrentDimension(pub Dimension);
 
 impl Deref for CurrentDimension {
