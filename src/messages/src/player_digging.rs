@@ -1,6 +1,7 @@
 use bevy_ecs::prelude::{Entity, Message};
 use temper_codec::net_types::network_position::NetworkPosition;
 use temper_codec::net_types::var_int::VarInt;
+use temper_core::dimension::Dimension;
 
 /// Fired when the client sends "start digging" (status 0).
 ///
@@ -34,5 +35,6 @@ pub struct PlayerCancelledDigging {
 pub struct PlayerFinishedDigging {
     pub player: Entity,
     pub position: NetworkPosition,
+    pub dimension: Dimension,
     pub sequence: VarInt,
 }

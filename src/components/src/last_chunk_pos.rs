@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::Component;
-use temper_core::pos::{ChunkPos, FullChunkPos};
+use temper_core::pos::FullChunkPos;
 
 #[derive(Component, Clone, Copy, Debug, Eq, PartialEq)]
 pub struct LastChunkPos(pub FullChunkPos);

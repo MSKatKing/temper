@@ -31,7 +31,7 @@ fn falling_entity_lands_when_velocity_step_crosses_floor() {
         let mut chunk = state
             .0
             .world
-            .get_or_generate_mut(ChunkPos::new(0, 0), Dimension::Overworld)
+            .get_or_generate_mut(ChunkPos::new(0, 0).full(Dimension::Overworld))
             .expect("Failed to create test chunk");
         chunk.set_block(ChunkBlockPos::new(0, 64, 0), block!("stone"));
     }
@@ -42,7 +42,7 @@ fn falling_entity_lands_when_velocity_step_crosses_floor() {
     MessageRegistry::register_message::<DamageEvent>(&mut world);
     MessageRegistry::register_message::<KillEntity>(&mut world);
 
-    let mut bundle = PigBundle::new(Position::new(0.5, 65.2, 0.5));
+    let mut bundle = PigBundle::new(Position::new(0.5, 65.2, 0.5), Dimension::Overworld.into());
     bundle.velocity = Velocity::new(0.0, -2.4, 0.0);
 
     let entity = world.spawn((bundle, Pig, HasCollisions)).id();
@@ -69,7 +69,7 @@ fn walking_entity_stops_flush_against_a_wall_on_a_partial_width_axis() {
         let mut chunk = state
             .0
             .world
-            .get_or_generate_mut(ChunkPos::new(0, 0), Dimension::Overworld)
+            .get_or_generate_mut(ChunkPos::new(0, 0).full(Dimension::Overworld))
             .expect("Failed to create test chunk");
         chunk.set_block(ChunkBlockPos::new(1, 64, 0), block!("stone"));
     }
@@ -82,7 +82,7 @@ fn walking_entity_stops_flush_against_a_wall_on_a_partial_width_axis() {
 
     // Pig is 0.9 blocks wide (half-width 0.45), which doesn't divide evenly into whole
     // blocks - this is what actually exercises the snapping math on a non-full-width axis.
-    let mut bundle = PigBundle::new(Position::new(0.0, 64.0, 0.5));
+    let mut bundle = PigBundle::new(Position::new(0.0, 64.0, 0.5), Dimension::Overworld.into());
     bundle.velocity = Velocity::new(2.0, 0.0, 0.0);
 
     let entity = world.spawn((bundle, Pig, HasCollisions)).id();
@@ -113,7 +113,7 @@ fn diagonal_movement_slides_along_a_wall_instead_of_stopping_dead() {
         let mut chunk = state
             .0
             .world
-            .get_or_generate_mut(ChunkPos::new(0, 0), Dimension::Overworld)
+            .get_or_generate_mut(ChunkPos::new(0, 0).full(Dimension::Overworld))
             .expect("Failed to create test chunk");
         chunk.set_block(ChunkBlockPos::new(1, 64, 0), block!("stone"));
     }
@@ -124,7 +124,7 @@ fn diagonal_movement_slides_along_a_wall_instead_of_stopping_dead() {
     MessageRegistry::register_message::<DamageEvent>(&mut world);
     MessageRegistry::register_message::<KillEntity>(&mut world);
 
-    let mut bundle = PigBundle::new(Position::new(0.0, 64.0, 0.5));
+    let mut bundle = PigBundle::new(Position::new(0.0, 64.0, 0.5), Dimension::Overworld.into());
     bundle.velocity = Velocity::new(2.0, 0.0, 1.5);
 
     let entity = world.spawn((bundle, Pig, HasCollisions)).id();
@@ -159,7 +159,7 @@ fn player_landing_on_ground_gets_marked_grounded_without_position_correction() {
         let mut chunk = state
             .0
             .world
-            .get_or_generate_mut(ChunkPos::new(0, 0), Dimension::Overworld)
+            .get_or_generate_mut(ChunkPos::new(0, 0).full(Dimension::Overworld))
             .expect("Failed to create test chunk");
         chunk.set_block(ChunkBlockPos::new(0, 64, 0), block!("stone"));
     }
@@ -216,7 +216,7 @@ fn player_predicted_next_step_can_detect_an_upcoming_landing() {
         let mut chunk = state
             .0
             .world
-            .get_or_generate_mut(ChunkPos::new(0, 0), Dimension::Overworld)
+            .get_or_generate_mut(ChunkPos::new(0, 0).full(Dimension::Overworld))
             .expect("Failed to create test chunk");
         chunk.set_block(ChunkBlockPos::new(0, 64, 0), block!("stone"));
     }
@@ -270,7 +270,7 @@ fn player_landing_with_negligible_horizontal_jitter_still_detected() {
         let mut chunk = state
             .0
             .world
-            .get_or_generate_mut(ChunkPos::new(0, 0), Dimension::Overworld)
+            .get_or_generate_mut(ChunkPos::new(0, 0).full(Dimension::Overworld))
             .expect("Failed to create test chunk");
         chunk.set_block(ChunkBlockPos::new(0, 64, 0), block!("stone"));
     }
@@ -324,7 +324,7 @@ fn player_walking_into_a_wall_gets_detected() {
         let mut chunk = state
             .0
             .world
-            .get_or_generate_mut(ChunkPos::new(0, 0), Dimension::Overworld)
+            .get_or_generate_mut(ChunkPos::new(0, 0).full(Dimension::Overworld))
             .expect("Failed to create test chunk");
         chunk.set_block(ChunkBlockPos::new(1, 65, 0), block!("stone"));
     }
@@ -391,7 +391,7 @@ fn player_landing_over_multiple_small_ticks_still_detected() {
         let mut chunk = state
             .0
             .world
-            .get_or_generate_mut(ChunkPos::new(0, 0), Dimension::Overworld)
+            .get_or_generate_mut(ChunkPos::new(0, 0).full(Dimension::Overworld))
             .expect("Failed to create test chunk");
         chunk.set_block(ChunkBlockPos::new(0, 64, 0), block!("stone"));
     }
@@ -438,7 +438,7 @@ fn player_landing_flush_on_a_whole_number_boundary_still_detected() {
         let mut chunk = state
             .0
             .world
-            .get_or_generate_mut(ChunkPos::new(0, 0), Dimension::Overworld)
+            .get_or_generate_mut(ChunkPos::new(0, 0).full(Dimension::Overworld))
             .expect("Failed to create test chunk");
         chunk.set_block(ChunkBlockPos::new(0, 71, 0), block!("stone"));
     }
@@ -491,7 +491,7 @@ fn player_jumping_off_ground_does_not_get_falsely_marked_as_hitting_it() {
         let mut chunk = state
             .0
             .world
-            .get_or_generate_mut(ChunkPos::new(0, 0), Dimension::Overworld)
+            .get_or_generate_mut(ChunkPos::new(0, 0).full(Dimension::Overworld))
             .expect("Failed to create test chunk");
         chunk.set_block(ChunkBlockPos::new(0, 71, 0), block!("stone"));
     }
@@ -567,7 +567,7 @@ fn repeated_predicted_player_landing_only_marks_the_first_tick_as_new_ground_con
         let mut chunk = state
             .0
             .world
-            .get_or_generate_mut(ChunkPos::new(0, 0), Dimension::Overworld)
+            .get_or_generate_mut(ChunkPos::new(0, 0).full(Dimension::Overworld))
             .expect("Failed to create test chunk");
         chunk.set_block(ChunkBlockPos::new(0, 64, 0), block!("stone"));
     }

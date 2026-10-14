@@ -2,13 +2,13 @@ use bevy_ecs::prelude::{Entity, Has, Query};
 use temper_components::entity_identity::Identity;
 use temper_components::game_id::GameID;
 use temper_components::player::chunk_receiver::ChunkReceiver;
+use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
+use temper_core::pos::FullChunkPos;
 use temper_net_runtime::connection::StreamWriter;
 use tracing::trace;
-use temper_components::player::dimension::CurrentDimension;
-use temper_core::pos::FullChunkPos;
 
 pub fn refresh_visible_entities(
     mut player_query: Query<(Entity, &StreamWriter, &ChunkReceiver, &mut EntityTracker)>,
@@ -41,7 +41,9 @@ pub fn refresh_visible_entities(
                             return false;
                         }
 
-                        chunk_receiver.loaded.contains(&FullChunkPos::new(pos.chunk(), dim.0))
+                        chunk_receiver
+                            .loaded
+                            .contains(&FullChunkPos::new(pos.chunk(), dim.0))
                     },
                 )
                 .unwrap_or(false);
@@ -61,7 +63,10 @@ pub fn refresh_visible_entities(
                 continue;
             }
 
-            if !chunk_receiver.loaded.contains(&FullChunkPos::new(pos.chunk(), dim.0)) {
+            if !chunk_receiver
+                .loaded
+                .contains(&FullChunkPos::new(pos.chunk(), dim.0))
+            {
                 continue;
             }
 

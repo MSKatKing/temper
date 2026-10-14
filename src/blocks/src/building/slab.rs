@@ -10,7 +10,7 @@ impl BlockBehavior for SlabBlock {
     fn get_placement_state(&mut self, context: PlacementContext) -> PlacedBlocks {
         let block = context
             .level
-            .get_chunk(context.block_pos.chunk(), context.dimension)
+            .get_chunk(context.block_pos.full_chunk(context.dimension))
             .map(|c| c.get_block(context.block_pos.chunk_block_pos()))
             .unwrap_or(BlockStateId::new(0));
 
@@ -20,7 +20,7 @@ impl BlockBehavior for SlabBlock {
             } else {
                 // This will cause a bug where if you place a slab onto a slab of a different type it will replace the block with the one you're placing,
                 // but this can't really be fixed until BlockBehavior is updated
-                return PlacedBlocks::default(); // TODO: When BlockBehavior is updated with a return value for Option<Self>, return None here
+                return PlacedBlocks::new(context.dimension); // TODO: When BlockBehavior is updated with a return value for Option<Self>, return None here
             }
         } else {
             match context.face {
@@ -38,7 +38,7 @@ impl BlockBehavior for SlabBlock {
 
         self.waterlogged = match_block!("water", block);
 
-        PlacedBlocks::default()
+        PlacedBlocks::new(context.dimension)
     }
 
     fn can_be_replaced(&self, context: PlacementContext) -> bool {

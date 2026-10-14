@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use type_hash::TypeHash;
 use temper_codec::net_types::var_int::VarInt;
+use type_hash::TypeHash;
 
 /// Represents a dimension in the world. The first three variants are the standard Minecraft
 /// dimensions, and the `Custom` variant can be used for modded dimensions or other custom implementations.
@@ -19,7 +19,7 @@ impl Dimension {
             Self::Overworld => VarInt::from(0),
             Self::Nether => VarInt::from(1),
             Self::End => VarInt::from(2),
-            Self::Custom(v) => VarInt::from(*v as i32 + 2),
+            Self::Custom(v) => VarInt::from(i32::from(*v) + 2),
         }
     }
 

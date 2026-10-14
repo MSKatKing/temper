@@ -446,7 +446,7 @@ macro_rules! define_mob_registry {
                     )+
                 }
             }
-            
+
             pub fn dimension(&self) -> temper_core::dimension::Dimension {
                 match self {
                     $(

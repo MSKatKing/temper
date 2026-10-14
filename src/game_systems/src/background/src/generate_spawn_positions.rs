@@ -57,7 +57,7 @@ pub fn generate_spawn_positions(state: Res<GlobalStateResource>) {
             let chunk = state
                 .0
                 .world
-                .get_or_generate_chunk(chunk_pos, Overworld)
+                .get_or_generate_chunk(chunk_pos.full(Overworld)) // this should always be overworld because its spawn positions
                 .expect("Failed to generate chunk");
 
             found_coords += enqueue_spawn_positions_from_chunk(&state, chunk_pos, &chunk);

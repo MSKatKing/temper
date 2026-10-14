@@ -64,7 +64,15 @@ impl CommandArg for EntityTypeArg {
 impl CommandHandler for SummonCommand {
     type SystemParam<'w, 's> = (
         MessageWriter<'w, SpawnMobCommand>,
-        Query<'w, 's, (&'static CurrentDimension, &'static Position, &'static Rotation)>,
+        Query<
+            'w,
+            's,
+            (
+                &'static CurrentDimension,
+                &'static Position,
+                &'static Rotation,
+            ),
+        >,
     );
 
     fn handle(
@@ -82,20 +90,20 @@ impl CommandHandler for SummonCommand {
                 let (dim, pos, rot) = query
                     .get(player_entity)
                     .map_err(|_| "player entity does not exist")?;
-                (mob_type.kind, mob_type.name, pos.offset_forward(rot, 2.0), dim.0)
+                (
+                    mob_type.kind,
+                    mob_type.name,
+                    pos.offset_forward(rot, 2.0),
+                    dim.0,
+                )
             }
             SummonCommand::AtPos { mob_type, pos } => {
                 let (dim, source_pos, _) = query
                     .get(player_entity)
                     .map_err(|_| "player entity does not exist")?;
 
-                (
-                    mob_type.kind,
-                    mob_type.name,
-                    pos.resolve(source_pos),
-                    dim.0,
-                )
-            },
+                (mob_type.kind, mob_type.name, pos.resolve(source_pos), dim.0)
+            }
         };
 
         writer.write(SpawnMobCommand {

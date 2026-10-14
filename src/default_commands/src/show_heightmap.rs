@@ -1,8 +1,8 @@
 use bevy_ecs::prelude::{MessageWriter, Query, Res};
 use bevy_math::Vec3A;
 use temper_command_infra::{CommandHandler, CommandResult, CommandSource};
+use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::position::Position;
-use temper_core::dimension::Dimension::Overworld;
 use temper_macros::Command;
 use temper_messages::particle::SendParticle;
 use temper_particles::ParticleType;
@@ -15,7 +15,7 @@ struct ShowHeightmap;
 impl CommandHandler for ShowHeightmap {
     type SystemParam<'w, 's> = (
         Res<'w, GlobalStateResource>,
-        Query<'w, 's, &'static Position>,
+        Query<'w, 's, (&'static Position, &'static CurrentDimension)>,
         MessageWriter<'w, SendParticle>,
     );
 
@@ -26,7 +26,7 @@ impl CommandHandler for ShowHeightmap {
     ) -> CommandResult {
         let (global_state, positions, particle_writer) = params;
 
-        let player_pos = match source {
+        let (player_pos, player_dimension) = match source {
             CommandSource::Server => return Err("Only players can view heightmap.".into()),
             CommandSource::Player(entity) => {
                 positions.get(entity).map_err(|_| "sender does not exist")?
@@ -36,7 +36,7 @@ impl CommandHandler for ShowHeightmap {
         let chunk = global_state
             .0
             .world
-            .get_chunk(player_pos.chunk(), Overworld)
+            .get_chunk(player_pos.chunk().full(player_dimension.0))
             .expect("Chunk not found");
 
         for x in 0..16 {

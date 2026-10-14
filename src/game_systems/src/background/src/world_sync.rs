@@ -3,6 +3,7 @@ use temper_components::active_effects::ActiveEffects;
 use temper_components::entity_identity::Identity;
 use temper_components::health::Health;
 use temper_components::player::abilities::PlayerAbilities;
+use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::experience::Experience;
 use temper_components::player::gamemode::GameModeComponent;
 use temper_components::player::gameplay_state::ender_chest::EnderChest;
@@ -16,7 +17,6 @@ use temper_resources::world_sync_tracker::WorldSyncTracker;
 use temper_state::GlobalStateResource;
 use tracing::error;
 use uuid::Uuid;
-use temper_components::player::dimension::CurrentDimension;
 
 type PlayerSaveQuery<'a> = (
     &'a Identity,

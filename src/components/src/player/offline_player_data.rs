@@ -7,10 +7,10 @@ use crate::player::gameplay_state::ender_chest::EnderChest;
 use crate::player::hunger::Hunger;
 use crate::player::rotation::Rotation;
 use serde::{Deserialize, Serialize};
+use temper_core::dimension::Dimension;
 use temper_inventories::inventory::Inventory;
 use temper_permissions::player::PlayerPermission;
 use type_hash::TypeHash;
-use temper_core::dimension::Dimension;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default, TypeHash)]
 pub struct OfflinePlayerData {

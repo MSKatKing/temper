@@ -17,9 +17,9 @@ use temper_protocol::{
 };
 use temper_state::GlobalStateResource;
 use temper_text::{Color, NamedColor, TextComponent, TextComponentBuilder, TextContent};
-use temper_world::Dimension;
 use temper_world_format::block_entities::BlockEntityKind;
 
+use temper_components::player::dimension::CurrentDimension;
 use tracing::{error, trace};
 
 /// A sanity bound on sign line length. Vanilla's client limits by rendered
@@ -59,9 +59,11 @@ pub fn handle_sign_update(
     receiver: Res<SignUpdateReceiver>,
     state: Res<GlobalStateResource>,
     players: Query<(&StreamWriter, &Position)>,
+    dimension: Query<&CurrentDimension>,
 ) {
     for (event, eid) in receiver.0.try_iter() {
         let block_pos: BlockPos = event.position.into();
+        let dimension = dimension.get(eid).expect("players should have dimension");
 
         if [&event.line_1, &event.line_2, &event.line_3, &event.line_4]
             .iter()
@@ -78,10 +80,7 @@ pub fn handle_sign_update(
             continue;
         }
 
-        let Ok(chunk) = state
-            .0
-            .world
-            .get_chunk(block_pos.chunk(), Dimension::Overworld)
+        let Ok(chunk) = state.0.world.get_chunk(block_pos.chunk().full(dimension.0))
         // todo: dimensions
         else {
             error!("Failed to get chunk for sign update at {block_pos}");
@@ -176,12 +175,7 @@ pub fn handle_sign_interact(
     for event in events.read() {
         let block_pos = event.position;
 
-        let Ok(chunk) = state
-            .0
-            .world
-            .get_chunk(block_pos.chunk(), Dimension::Overworld)
-        // todo: dimensions
-        else {
+        let Ok(chunk) = state.0.world.get_chunk(block_pos.full_chunk()) else {
             continue;
         };
 

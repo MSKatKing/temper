@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::Component;
-use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
+use std::ops::{Deref, DerefMut};
 use temper_core::dimension::Dimension;
 
 #[repr(transparent)]

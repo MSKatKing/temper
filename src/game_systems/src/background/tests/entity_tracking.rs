@@ -5,9 +5,12 @@ use std::sync::{Arc, Mutex};
 use temper_components::entity_identity::Identity;
 use temper_components::game_id::GameID;
 use temper_components::player::chunk_receiver::ChunkReceiver;
+use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
+use temper_core::dimension::Dimension;
+use temper_core::pos::FullChunkPos;
 use temper_encryption::write::EncryptedWriter;
 use temper_net_runtime::connection::StreamWriter;
 use temper_state::create_test_state;
@@ -53,12 +56,20 @@ async fn visible_mobs_without_stream_writers_stay_tracked() {
 
     let mut world = World::new();
     let mob_position = Position::new(8.0, 64.0, 8.0);
+    let mob_dimension = CurrentDimension(Dimension::Overworld);
     let mob_entity = world
-        .spawn((Identity::new(None), GameID::new(), mob_position))
+        .spawn((
+            Identity::new(None),
+            GameID::new(),
+            mob_position,
+            mob_dimension,
+        ))
         .id();
 
     let mut chunk_receiver = ChunkReceiver::default();
-    chunk_receiver.loaded.insert(mob_position.chunk());
+    chunk_receiver
+        .loaded
+        .insert(FullChunkPos::new(mob_position.chunk(), mob_dimension.0));
 
     let mut tracker = EntityTracker::default();
     tracker.tracking.insert(mob_entity);
@@ -66,6 +77,7 @@ async fn visible_mobs_without_stream_writers_stay_tracked() {
     world.spawn((
         Identity::new(Some("player".to_string())),
         Position::new(0.0, 64.0, 0.0),
+        CurrentDimension(mob_dimension.0),
         PlayerMarker,
         chunk_receiver,
         tracker,

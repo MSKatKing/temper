@@ -12,6 +12,7 @@ use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_components::player::velocity::Velocity;
 use temper_core::dimension::Dimension;
+use temper_core::pos::FullChunkPos;
 use temper_entities::MobBundle;
 use temper_entities::entity_types::EntityTypeEnum;
 use temper_entities::markers::entity_types::{Axolotl, Bat, Cow, Fox, Pig, Warden};
@@ -36,51 +37,78 @@ struct SpawnedMob {
 
 fn emit_spawn_bundles(mut writer: MessageWriter<SpawnMobBundle>) {
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Pig(PigBundle::new(Position::new(5.5, 64.0, 7.5))),
+        bundle: MobBundle::Pig(PigBundle::new(
+            Position::new(5.5, 64.0, 7.5),
+            Dimension::Overworld.into(),
+        )),
         persist: true,
     });
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Fox(FoxBundle::new(Position::new(8.5, 64.0, 9.5))),
+        bundle: MobBundle::Fox(FoxBundle::new(
+            Position::new(8.5, 64.0, 9.5),
+            Dimension::Overworld.into(),
+        )),
         persist: true,
     });
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Cow(CowBundle::new(Position::new(11.5, 64.0, 9.5))),
+        bundle: MobBundle::Cow(CowBundle::new(
+            Position::new(11.5, 64.0, 9.5),
+            Dimension::Overworld.into(),
+        )),
         persist: true,
     });
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Bat(BatBundle::new(Position::new(14.5, 70.0, 9.5))),
+        bundle: MobBundle::Bat(BatBundle::new(
+            Position::new(14.5, 70.0, 9.5),
+            Dimension::Overworld.into(),
+        )),
         persist: true,
     });
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Axolotl(AxolotlBundle::new(Position::new(17.5, 62.0, 9.5))),
+        bundle: MobBundle::Axolotl(AxolotlBundle::new(
+            Position::new(17.5, 62.0, 9.5),
+            Dimension::Overworld.into(),
+        )),
         persist: true,
     });
 }
 
 fn emit_unpersisted_cow(mut writer: MessageWriter<SpawnMobBundle>) {
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Cow(CowBundle::new(Position::new(21.5, 64.0, 9.5))),
+        bundle: MobBundle::Cow(CowBundle::new(
+            Position::new(21.5, 64.0, 9.5),
+            Dimension::Overworld.into(),
+        )),
         persist: false,
     });
 }
 
 fn emit_persisted_cow(mut writer: MessageWriter<SpawnMobBundle>) {
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Cow(CowBundle::new(Position::new(22.5, 64.0, 9.5))),
+        bundle: MobBundle::Cow(CowBundle::new(
+            Position::new(22.5, 64.0, 9.5),
+            Dimension::Overworld.into(),
+        )),
         persist: true,
     });
 }
 
 fn emit_pig(mut writer: MessageWriter<SpawnMobBundle>) {
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Pig(PigBundle::new(Position::new(24.5, 64.0, 9.5))),
+        bundle: MobBundle::Pig(PigBundle::new(
+            Position::new(24.5, 64.0, 9.5),
+            Dimension::Overworld.into(),
+        )),
         persist: false,
     });
 }
 
 fn emit_warden(mut writer: MessageWriter<SpawnMobBundle>) {
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Warden(WardenBundle::new(Position::new(27.5, 64.0, 9.5))),
+        bundle: MobBundle::Warden(WardenBundle::new(
+            Position::new(27.5, 64.0, 9.5),
+            Dimension::Overworld.into(),
+        )),
         persist: false,
     });
 }
@@ -88,7 +116,7 @@ fn emit_warden(mut writer: MessageWriter<SpawnMobBundle>) {
 fn emit_all_mob_bundles(mut writer: MessageWriter<SpawnMobBundle>) {
     for (index, kind) in MobBundle::all_kinds().iter().copied().enumerate() {
         let position = Position::new(index as f64 + 0.5, 80.0, 32.5);
-        let bundle = MobBundle::new(kind, position);
+        let bundle = MobBundle::new(kind, position, Dimension::Overworld);
         let data = bundle.serialize_for_chunk();
         let decoded = MobBundle::deserialize(kind, &data).expect("bundle should deserialize");
 
@@ -168,14 +196,17 @@ fn assert_spawn_profile(
     assert_eq!(mob.gravity, gravity);
     assert_eq!(mob.collisions, collisions);
     assert_eq!(mob.water_drag, water_drag);
-    assert_eq!(mob.last_chunk.0, mob.position.chunk());
+    assert_eq!(
+        mob.last_chunk.0,
+        FullChunkPos::new(mob.position.chunk(), Dimension::Overworld)
+    );
 }
 
 fn assert_stored(state: &GlobalStateResource, mob: &SpawnedMob, kind: EntityTypeEnum, label: &str) {
     let chunk = state
         .0
         .world
-        .get_chunk(mob.position.chunk(), Dimension::Overworld)
+        .get_chunk(mob.position.chunk().full(Dimension::Overworld))
         .unwrap_or_else(|_| panic!("{label} chunk should be present"));
     let stored = chunk
         .entities
@@ -187,37 +218,55 @@ fn assert_stored(state: &GlobalStateResource, mob: &SpawnedMob, kind: EntityType
 #[test]
 fn mob_registry_round_trips_supported_bundle_metadata() {
     assert_registry_round_trip(
-        MobBundle::Pig(PigBundle::new(Position::new(1.5, 64.0, 2.5))),
+        MobBundle::Pig(PigBundle::new(
+            Position::new(1.5, 64.0, 2.5),
+            Dimension::Overworld.into(),
+        )),
         EntityTypeEnum::Pig,
         MobProfile::Ground,
         Position::new(1.5, 64.0, 2.5),
     );
     assert_registry_round_trip(
-        MobBundle::Fox(FoxBundle::new(Position::new(3.5, 64.0, 4.5))),
+        MobBundle::Fox(FoxBundle::new(
+            Position::new(3.5, 64.0, 4.5),
+            Dimension::Overworld.into(),
+        )),
         EntityTypeEnum::Fox,
         MobProfile::Ground,
         Position::new(3.5, 64.0, 4.5),
     );
     assert_registry_round_trip(
-        MobBundle::Cow(CowBundle::new(Position::new(5.5, 64.0, 6.5))),
+        MobBundle::Cow(CowBundle::new(
+            Position::new(5.5, 64.0, 6.5),
+            Dimension::Overworld.into(),
+        )),
         EntityTypeEnum::Cow,
         MobProfile::Ground,
         Position::new(5.5, 64.0, 6.5),
     );
     assert_registry_round_trip(
-        MobBundle::Bat(BatBundle::new(Position::new(7.5, 70.0, 8.5))),
+        MobBundle::Bat(BatBundle::new(
+            Position::new(7.5, 70.0, 8.5),
+            Dimension::Overworld.into(),
+        )),
         EntityTypeEnum::Bat,
         MobProfile::CollisionOnly,
         Position::new(7.5, 70.0, 8.5),
     );
     assert_registry_round_trip(
-        MobBundle::Axolotl(AxolotlBundle::new(Position::new(9.5, 62.0, 10.5))),
+        MobBundle::Axolotl(AxolotlBundle::new(
+            Position::new(9.5, 62.0, 10.5),
+            Dimension::Overworld.into(),
+        )),
         EntityTypeEnum::Axolotl,
         MobProfile::GravityNoDrag,
         Position::new(9.5, 62.0, 10.5),
     );
     assert_registry_round_trip(
-        MobBundle::Warden(WardenBundle::new(Position::new(11.5, 64.0, 12.5))),
+        MobBundle::Warden(WardenBundle::new(
+            Position::new(11.5, 64.0, 12.5),
+            Dimension::Overworld.into(),
+        )),
         EntityTypeEnum::Warden,
         MobProfile::Ground,
         Position::new(11.5, 64.0, 12.5),
@@ -264,7 +313,7 @@ fn every_registered_mob_kind_constructs_round_trips_and_spawns() {
 
         assert_eq!(spawned_position.xyz(), position.xyz());
 
-        match MobBundle::new(kind, position).profile() {
+        match MobBundle::new(kind, position, Dimension::Overworld).profile() {
             MobProfile::Ground => {
                 assert!(*gravity, "{kind:?} should have gravity");
                 assert!(*collisions, "{kind:?} should have collisions");
@@ -349,7 +398,7 @@ fn spawn_mob_bundle_respects_persist_flag() {
     let chunk = state
         .0
         .world
-        .get_chunk(cow_position.chunk(), Dimension::Overworld);
+        .get_chunk(cow_position.chunk().full(Dimension::Overworld));
     if let Ok(chunk) = chunk {
         assert!(
             chunk.entities.get(&cow_uuid).is_none(),
@@ -382,7 +431,7 @@ fn despawn_mob_message_removes_entity_and_persisted_data() {
     let chunk = state
         .0
         .world
-        .get_chunk(cow_position.chunk(), Dimension::Overworld)
+        .get_chunk(cow_position.chunk().full(Dimension::Overworld))
         .expect("cow chunk should be present");
     assert!(
         chunk.entities.get(&cow_uuid).is_some(),
@@ -409,7 +458,7 @@ fn despawn_mob_message_removes_entity_and_persisted_data() {
     let chunk = state
         .0
         .world
-        .get_chunk(cow_position.chunk(), Dimension::Overworld)
+        .get_chunk(cow_position.chunk().full(Dimension::Overworld))
         .expect("cow chunk should still be present");
     assert!(
         chunk.entities.get(&cow_uuid).is_none(),

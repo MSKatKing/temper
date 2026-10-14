@@ -24,6 +24,8 @@ pub struct PlacedBlocks {
     /// Any extra blocks placed by the function
     pub blocks: HashMap<BlockPos, BlockStateId>,
 
+    pub dimension: Dimension,
+
     /// Whether an item is taken from the player's inventory or not
     pub take_item: bool,
 
@@ -37,6 +39,7 @@ pub struct PlacedBlocks {
 pub struct BrokenBlocks {
     /// Any extra blocks broken by the function
     pub blocks: Vec<BlockPos>,
+    pub dimension: Dimension,
 }
 
 /// Result of the interact function
@@ -44,14 +47,17 @@ pub struct BrokenBlocks {
 pub struct BlockUpdates {
     /// Any other blocks that are updated by the function
     pub blocks: HashMap<BlockPos, BlockStateId>,
+
+    pub dimension: Dimension,
 }
 
-impl Default for PlacedBlocks {
-    fn default() -> Self {
+impl PlacedBlocks {
+    pub fn new(dimension: Dimension) -> Self {
         Self {
-            blocks: HashMap::default(),
             take_item: true,
             place_original: true,
+            blocks: HashMap::default(),
+            dimension,
         }
     }
 }

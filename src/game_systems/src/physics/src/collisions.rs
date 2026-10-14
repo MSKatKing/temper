@@ -8,6 +8,7 @@ use std::cmp::max;
 use std::time::Instant;
 use temper_components::bounds::CollisionBounds;
 use temper_components::entity_identity::Identity;
+use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::gamemode::{GameMode, GameModeComponent};
 use temper_components::player::grounded::OnGround;
 use temper_components::player::old_position::OldPosition;
@@ -15,8 +16,7 @@ use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_components::player::velocity::Velocity;
 use temper_core::block_properties;
-use temper_core::dimension::Dimension;
-use temper_core::pos::{BlockPos, ChunkPos};
+use temper_core::pos::{BlockPos, ChunkPos, FullBlockPos};
 use temper_data::attributes::Attribute;
 use temper_entities::PhysicalRegistry;
 use temper_entities::components::Baby;
@@ -33,6 +33,7 @@ type CollisionQueryItem<'a> = (
     Entity,
     Option<&'a OldPosition>,
     Mut<'a, Position>,
+    &'a CurrentDimension,
     Option<&'a EntityMetadata>,
     Option<&'a mut Velocity>,
     Option<&'a CollisionBounds>,
@@ -56,6 +57,7 @@ pub fn handle(
         eid,
         old_pos,
         mut pos,
+        dim,
         metadata,
         vel,
         collision_bounds,
@@ -161,7 +163,7 @@ pub fn handle(
                             let chunk = state
                                 .0
                                 .world
-                                .get_or_generate_chunk(chunk_pos, Dimension::Overworld)
+                                .get_or_generate_chunk(chunk_pos.full(dim.0))
                                 .expect("Failed to load or generate chunk");
                             loaded_chunk = Some((chunk_pos, chunk));
                         }
@@ -314,11 +316,10 @@ pub fn handle(
     }
 }
 
-pub fn is_solid_block(state: &GlobalState, pos: BlockPos) -> bool {
-    let chunk_coordinates = pos.chunk();
+pub fn is_solid_block(state: &GlobalState, pos: FullBlockPos) -> bool {
     let block_state = state
         .world
-        .get_or_generate_mut(chunk_coordinates, Dimension::Overworld)
+        .get_or_generate_mut(pos.full_chunk())
         .expect("Failed to load or generate chunk")
         .get_block(pos.chunk_block_pos());
 

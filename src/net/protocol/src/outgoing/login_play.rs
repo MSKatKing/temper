@@ -38,7 +38,14 @@ impl LoginPlayPacket<'_> {
         Self {
             entity_id: conn_id,
             is_hardcore: false,
-            dimension_names: LengthPrefixedVec::new(["minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"].into()),
+            dimension_names: LengthPrefixedVec::new(
+                [
+                    "minecraft:overworld",
+                    "minecraft:the_nether",
+                    "minecraft:the_end",
+                ]
+                .into(),
+            ),
             max_players: VarInt::from(config.max_players as i32),
             view_distance: VarInt::from(config.chunk_render_distance as i32),
             simulation_distance: VarInt::from(config.chunk_render_distance as i32),

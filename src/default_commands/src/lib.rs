@@ -1,6 +1,7 @@
 pub mod bossbar;
 mod credits;
 mod damage;
+mod dimension;
 pub mod echo;
 pub mod gamemode;
 mod kill;
@@ -12,7 +13,6 @@ mod stop;
 mod summon;
 mod time;
 mod tp;
-mod dimension;
 
 /// Static library initialisation shenanigans.
 pub fn init() {}

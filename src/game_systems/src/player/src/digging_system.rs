@@ -5,10 +5,11 @@ use temper_blocks::BlockDispatch;
 use temper_codec::net_types::network_position::NetworkPosition;
 use temper_codec::net_types::var_int::VarInt;
 use temper_components::player::abilities::PlayerAbilities;
+use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::gameplay_state::digging::PlayerDigging;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::dimension::Dimension;
-use temper_core::pos::BlockPos;
+use temper_core::pos::{BlockPos, FullBlockPos};
 use temper_data::blocks::types::Block;
 use temper_macros::block;
 use temper_messages::player_digging::*;
@@ -27,6 +28,7 @@ pub fn handle_start_digging(
     mut commands: Commands,
     mut events: MessageReader<PlayerStartedDigging>,
     mut player_query: Query<DiggingPlayerQuery, With<PlayerAbilities>>,
+    dim_query: Query<&CurrentDimension>,
     state: Res<GlobalStateResource>,
 ) {
     for event in events.read() {
@@ -35,13 +37,14 @@ pub fn handle_start_digging(
             event.player, event.position
         );
 
+        let dim = dim_query
+            .get(event.player)
+            .expect("players should have current dimension");
+
         // --- 1. Get BlockStateId from the world ---
         let pos: BlockPos = event.position.clone().into();
-        let chunk = match state
-            .0
-            .world
-            .get_or_generate_chunk(pos.chunk(), Dimension::Overworld)
-        {
+        let pos = pos.full(dim.0);
+        let chunk = match state.0.world.get_or_generate_chunk(pos.full_chunk()) {
             Ok(chunk) => chunk,
             Err(e) => {
                 warn!(
@@ -166,7 +169,7 @@ pub fn handle_finish_digging(
     mut events: MessageReader<PlayerFinishedDigging>,
     state: Res<GlobalStateResource>,
     mut player_query: Query<DiggingPlayerQuery>,
-    broadcast_query: Query<(Entity, &StreamWriter)>, // For broadcasting the break
+    broadcast_query: Query<(Entity, &StreamWriter, &CurrentDimension)>, // For broadcasting the break
     mut block_break_writer: MessageWriter<temper_messages::BlockBrokenEvent>,
     mut world_change: MessageWriter<WorldChange>,
 ) {
@@ -227,7 +230,7 @@ pub fn handle_finish_digging(
             let chunk = match state
                 .0
                 .world
-                .get_or_generate_chunk(pos.chunk(), Dimension::Overworld)
+                .get_or_generate_chunk(pos.full_chunk(event.dimension))
             {
                 Ok(chunk) => chunk,
                 Err(e) => {
@@ -264,6 +267,7 @@ pub fn handle_finish_digging(
                 &state,
                 &broadcast_query,
                 &event.position,
+                event.dimension,
                 &mut block_break_writer,
                 &mut world_change,
             )
@@ -286,36 +290,35 @@ pub fn handle_finish_digging(
 /// Helper function to contain the block-breaking logic (replaces `try` block)
 fn break_block(
     state: &Res<GlobalStateResource>,
-    broadcast_query: &Query<(Entity, &StreamWriter)>,
-    position: &temper_codec::net_types::network_position::NetworkPosition,
+    broadcast_query: &Query<(Entity, &StreamWriter, &CurrentDimension)>,
+    position: &NetworkPosition,
+    dimension: Dimension,
     block_break_writer: &mut MessageWriter<temper_messages::BlockBrokenEvent>,
     world_change: &mut MessageWriter<WorldChange>,
 ) {
     let pos: BlockPos = position.clone().into();
+    let pos = pos.full(dimension);
 
-    let Ok(id) = state.0.world.get_block(pos, Dimension::Overworld) else {
+    let Ok(id) = state.0.world.get_block(pos) else {
         error!("Failed to get block at {}", pos);
         return;
     };
 
-    let mut broken_positions = id.try_break(&state.0.world, pos).blocks;
-    broken_positions.push(pos);
+    let mut broken_positions = id.try_break(&state.0.world, pos);
+    broken_positions.blocks.push(*pos);
 
     world_change.write(WorldChange {
-        chunk: Some(pos.chunk()),
+        chunk: Some(pos.full_chunk()),
     });
 
-    for pos in &broken_positions {
+    for pos in &broken_positions.blocks {
         block_break_writer.write(temper_messages::BlockBrokenEvent { position: *pos });
+        let pos = pos.full(broken_positions.dimension);
 
-        if let Err(world_error) = state
-            .0
-            .world
-            .set_block(*pos, Dimension::Overworld, block!("air"))
-        {
+        if let Err(world_error) = state.0.world.set_block(pos, block!("air")) {
             error!("Failed to break block at {}: {}", pos, world_error)
         }
-        remove_block_entity(state, *pos);
+        remove_block_entity(state, pos);
     }
 
     // Broadcast the block break to all players
@@ -323,11 +326,17 @@ fn break_block(
         location: position.clone(),
         block_state_id: VarInt::from(BlockStateId::default()),
     };
-    for (eid, conn) in broadcast_query {
+    for (eid, conn, dim) in broadcast_query {
         if !state.0.players.is_connected(eid) {
             continue;
         }
-        for broken_pos in &broken_positions {
+
+        if broken_positions.dimension != dim.0 {
+            continue; // dont send updates for players in other dimensions
+        }
+
+        // TODO: dont send updates if out of range
+        for broken_pos in &broken_positions.blocks {
             let update = BlockUpdate {
                 location: NetworkPosition {
                     x: broken_pos.pos.x,
@@ -354,12 +363,8 @@ fn break_block(
 
 /// Removes block entity data when its block is broken, so a later block
 /// entity at the same position doesn't inherit stale data.
-fn remove_block_entity(state: &GlobalStateResource, block_pos: BlockPos) {
-    let Ok(chunk) = state
-        .0
-        .world
-        .get_chunk(block_pos.chunk(), Dimension::Overworld)
-    else {
+fn remove_block_entity(state: &GlobalStateResource, block_pos: FullBlockPos) {
+    let Ok(chunk) = state.0.world.get_chunk(block_pos.full_chunk()) else {
         return;
     };
 

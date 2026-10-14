@@ -6,6 +6,7 @@ use temper_components::entity_identity::Identity;
 use temper_components::last_chunk_pos::LastChunkPos;
 use temper_components::player::position::Position;
 use temper_core::dimension::Dimension;
+use temper_core::pos::FullChunkPos;
 use temper_entities::entity_types::EntityTypeEnum;
 use temper_entities::markers::entity_types::Fox;
 use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
@@ -15,7 +16,7 @@ use temper_messages::save_chunk_entities::SaveChunkEntities;
 use temper_state::create_test_state;
 
 fn emit_save_for(
-    chunk: temper_core::pos::ChunkPos,
+    chunk: temper_core::pos::FullChunkPos,
 ) -> impl FnMut(MessageWriter<SaveChunkEntities>) {
     move |mut writer: MessageWriter<SaveChunkEntities>| {
         writer.write(SaveChunkEntities(chunk));
@@ -23,7 +24,7 @@ fn emit_save_for(
 }
 
 fn emit_load_for(
-    chunk: temper_core::pos::ChunkPos,
+    chunk: temper_core::pos::FullChunkPos,
 ) -> impl FnMut(MessageWriter<LoadChunkEntities>) {
     move |mut writer: MessageWriter<LoadChunkEntities>| {
         writer.write(LoadChunkEntities(chunk));
@@ -40,9 +41,9 @@ fn mob_crossing_a_chunk_border_reloads_from_its_new_chunk() {
 
     let old_position = Position::new(15.5, 64.0, 8.0);
     let new_position = Position::new(16.5, 64.0, 8.0);
-    let old_chunk = old_position.chunk();
-    let new_chunk = new_position.chunk();
-    let fox_bundle = FoxBundle::new(old_position);
+    let old_chunk = FullChunkPos::new(old_position.chunk(), Dimension::Overworld);
+    let new_chunk = FullChunkPos::new(new_position.chunk(), Dimension::Overworld);
+    let fox_bundle = FoxBundle::new(old_position, Dimension::Overworld.into());
     let expected_identity = fox_bundle.identity.clone();
 
     let fox_entity = world
@@ -61,7 +62,7 @@ fn mob_crossing_a_chunk_border_reloads_from_its_new_chunk() {
         let old_chunk_ref = state
             .0
             .world
-            .get_or_generate_chunk(old_chunk, Dimension::Overworld)
+            .get_or_generate_chunk(old_chunk.full(Dimension::Overworld))
             .expect("old chunk should be cached");
         old_chunk_ref.entities.clear();
         old_chunk_ref.mark_dirty();
@@ -92,7 +93,7 @@ fn mob_crossing_a_chunk_border_reloads_from_its_new_chunk() {
         let old_chunk_ref = state
             .0
             .world
-            .get_chunk(old_chunk, Dimension::Overworld)
+            .get_chunk(old_chunk.full(Dimension::Overworld))
             .expect("old chunk should exist");
         assert!(
             !old_chunk_ref.entities.contains_key(&expected_identity.uuid),
@@ -103,7 +104,7 @@ fn mob_crossing_a_chunk_border_reloads_from_its_new_chunk() {
         let new_chunk_ref = state
             .0
             .world
-            .get_chunk(new_chunk, Dimension::Overworld)
+            .get_chunk(new_chunk.full(Dimension::Overworld))
             .expect("new chunk should exist");
         let stored = new_chunk_ref
             .entities

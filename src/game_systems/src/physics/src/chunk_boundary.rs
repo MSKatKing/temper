@@ -8,7 +8,10 @@ use temper_core::pos::FullChunkPos;
 use temper_messages::cross_chunk_boundary_event::ChunkBoundaryCrossed;
 
 pub fn handle(
-    mut query: Query<(Entity, Ref<Position>, &CurrentDimension, &mut LastChunkPos), Without<PlayerMarker>>,
+    mut query: Query<
+        (Entity, Ref<Position>, &CurrentDimension, &mut LastChunkPos),
+        Without<PlayerMarker>,
+    >,
     mut writer: MessageWriter<ChunkBoundaryCrossed>,
 ) {
     for (entity, pos, dim, mut last_chunk) in query.iter_mut() {

@@ -3,11 +3,12 @@ use bevy_ecs::prelude::{Entity, Query, Res};
 use temper_codec::net_types::network_position::NetworkPosition;
 use temper_components::player::position::Position;
 use temper_components::{bounds::CollisionBounds, player::sneak::SneakState};
-use temper_core::pos::BlockPos;
+use temper_core::pos::{BlockPos, FullBlockPos};
 use temper_messages::{BlockEntityPlaced, BlockInteractMessage};
 
 use bevy_math::{DVec3, IVec3, Vec3A};
 use temper_blocks::BlockDispatch;
+use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::rotation::Rotation;
 use temper_core::block_state_id::{BlockStateId, ITEM_TO_BLOCK_MAPPING};
 use temper_core::dimension::Dimension;
@@ -38,6 +39,7 @@ pub fn handle(
         &StreamWriter,
         &Inventory,
         &Hotbar,
+        &CurrentDimension,
         &Position,
         &Rotation,
         &SneakState,
@@ -48,7 +50,7 @@ pub fn handle(
     mut block_entity_placed: MessageWriter<BlockEntityPlaced>,
 ) {
     'ev_loop: for (event, eid) in receiver.0.try_iter() {
-        let Ok((entity, conn, inventory, hotbar, _pos, rot, sneak)) = query.get(eid) else {
+        let Ok((entity, conn, inventory, hotbar, dim, _pos, rot, sneak)) = query.get(eid) else {
             debug!("Could not get connection for entity {:?}", eid);
             continue;
         };
@@ -60,10 +62,12 @@ pub fn handle(
         // dispatch an interaction and skip block placement entirely.
         {
             let clicked_pos: BlockPos = event.position.clone().into();
+            let clicked_pos = clicked_pos.full(dim.0);
+
             let chunk = state
                 .0
                 .world
-                .get_or_generate_chunk(clicked_pos.chunk(), Dimension::Overworld)
+                .get_or_generate_chunk(clicked_pos.full_chunk())
                 .expect("Failed to load chunk for interaction check");
             let clicked_block = chunk.get_block(clicked_pos.chunk_block_pos());
             if !sneak.is_sneaking && clicked_block.is_interactable() {
@@ -92,6 +96,7 @@ pub fn handle(
                         continue 'ev_loop;
                     };
                     let block_pos: BlockPos = event.position.into();
+                    let block_pos = block_pos.full(dim.0);
                     if block_pos.pos.y > 319 {
                         mq::queue(
                             TextComponentBuilder::new(
@@ -127,8 +132,7 @@ pub fn handle(
                             (event.cursor_z * 2.0 - 1.0) as i32,
                         );
 
-                    let Ok(curr_state) = state.0.world.get_block(offset_pos, Dimension::Overworld)
-                    else {
+                    let Ok(curr_state) = state.0.world.get_block(offset_pos) else {
                         error!("Can't get block at {}", offset_pos);
                         continue 'ev_loop;
                     };
@@ -174,8 +178,8 @@ pub fn handle(
                             f64::from(event.cursor_y),
                             f64::from(event.cursor_z),
                         ),
-                        block_clicked: block_pos,
-                        block_pos: offset_pos,
+                        block_clicked: *block_pos,
+                        block_pos: *offset_pos,
                         level: &state.0.world,
                         dimension: Dimension::Overworld,
                         player_rotation: rot,
@@ -187,9 +191,7 @@ pub fn handle(
                         // If the block cannot be replaced, try to replace the block adjacent to the face clicked
                         offset_pos = block_pos + event.face.get_normal();
 
-                        let Ok(curr_state) =
-                            state.0.world.get_block(offset_pos, Dimension::Overworld)
-                        else {
+                        let Ok(curr_state) = state.0.world.get_block(offset_pos) else {
                             error!("Can't get block at {}", offset_pos);
                             continue 'ev_loop;
                         };
@@ -215,23 +217,25 @@ pub fn handle(
                             continue 'ev_loop;
                         }
 
-                        placement_context.block_pos = offset_pos;
+                        placement_context.block_pos = *offset_pos;
                     }
 
                     let mut placed_blocks = block_state.get_placement_state(placement_context);
 
                     if placed_blocks.place_original {
-                        placed_blocks.blocks.insert(offset_pos, block_state);
+                        placed_blocks.blocks.insert(*offset_pos, block_state);
                     }
 
                     for (block_pos, block_state) in placed_blocks.blocks.iter() {
+                        let block_pos = block_pos.full(placed_blocks.dimension);
+
                         state
                             .0
                             .world
-                            .set_block(*block_pos, Dimension::Overworld, *block_state)
+                            .set_block(block_pos, *block_state)
                             .unwrap_or_else(|_| error!("Failed to update block {}", block_pos));
 
-                        if let Some(kind) = create_block_entity(&state, *block_pos, *block_state) {
+                        if let Some(kind) = create_block_entity(&state, block_pos, *block_state) {
                             block_entity_placed.write(BlockEntityPlaced {
                                 player: entity,
                                 position: *block_pos,
@@ -239,7 +243,7 @@ pub fn handle(
                             });
                         }
 
-                        let block_chunk = block_pos.chunk();
+                        let block_chunk = block_pos.full_chunk();
                         world_change.write(WorldChange {
                             chunk: Some(block_chunk),
                         });
@@ -255,7 +259,11 @@ pub fn handle(
 
                         let (block_chunk_x, block_chunk_z) = (block_chunk.x(), block_chunk.z());
                         let render_distance = state.0.config.chunk_render_distance as i32;
-                        for (_, conn, _, _, pos, _, _) in query.iter() {
+                        for (_, conn, _, _, dim, pos, _, _) in query.iter() {
+                            if dim.0 != placed_blocks.dimension {
+                                continue; // we don't need to send block updates to players in other dimensions
+                            }
+
                             let chunk = pos.chunk();
                             let (chunk_x, chunk_z) = (chunk.x(), chunk.z());
 
@@ -290,7 +298,7 @@ pub fn handle(
 /// kind created, so the caller can notify type-specific systems.
 fn create_block_entity(
     state: &GlobalStateResource,
-    block_pos: BlockPos,
+    block_pos: FullBlockPos,
     block_state: BlockStateId,
 ) -> Option<BlockEntityKind> {
     let protocol_id = temper_data::blocks::block_entity_type_for_state(block_state.raw())?;
@@ -316,11 +324,7 @@ fn create_block_entity(
         }
     };
 
-    let Ok(chunk) = state
-        .0
-        .world
-        .get_chunk(block_pos.chunk(), Dimension::Overworld)
-    else {
+    let Ok(chunk) = state.0.world.get_chunk(block_pos.full_chunk()) else {
         error!("Failed to get chunk for block entity at {block_pos}");
         return None;
     };

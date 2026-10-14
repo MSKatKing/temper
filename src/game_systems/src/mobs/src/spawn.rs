@@ -13,7 +13,6 @@ use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_components::player::velocity::Velocity;
 use temper_components::spawn::SpawnProperties;
-use temper_core::dimension::Dimension;
 use temper_core::pos::FullChunkPos;
 use temper_entities::mob_definition::StandardMobParts;
 use temper_entities::{MobBundle, MobKind};
@@ -48,12 +47,13 @@ pub fn handle_spawn_mob_bundle(
         let kind = event.bundle.kind();
         let uuid = event.bundle.identity().uuid;
         let position = event.bundle.position();
+        let dimension = event.bundle.dimension();
 
         if event.persist {
             let chunk = state
                 .0
                 .world
-                .get_or_generate_chunk(position.chunk(), Dimension::Overworld)
+                .get_or_generate_chunk(position.chunk().full(dimension))
                 .expect("Failed to get or generate chunk");
             chunk
                 .entities
@@ -90,7 +90,15 @@ pub fn handle_spawn_mob_bundle(
 pub fn handle_despawn_mob(
     mut commands: Commands,
     mut events: MessageReader<DespawnMob>,
-    query: Query<(&Position, &Identity, Option<&BossbarOwner>), With<MobKind>>,
+    query: Query<
+        (
+            &Position,
+            &CurrentDimension,
+            &Identity,
+            Option<&BossbarOwner>,
+        ),
+        With<MobKind>,
+    >,
     trackers: Query<&EntityTracker>,
     state: Res<GlobalStateResource>,
     bossbar_res: Option<Res<BossBarResource>>,
@@ -102,15 +110,12 @@ pub fn handle_despawn_mob(
             continue;
         }
 
-        let Ok((position, identity, bossbar_owner)) = query.get(event.entity) else {
+        let Ok((position, dimension, identity, bossbar_owner)) = query.get(event.entity) else {
             continue;
         };
 
         if event.remove_from_chunk
-            && let Ok(chunk) = state
-                .0
-                .world
-                .get_chunk(position.chunk(), Dimension::Overworld)
+            && let Ok(chunk) = state.0.world.get_chunk(position.chunk().full(dimension.0))
             && chunk.entities.remove(&identity.uuid).is_some()
         {
             chunk.mark_dirty();
@@ -145,7 +150,7 @@ pub fn load_mob_bundles(
             continue;
         }
 
-        let Ok(chunk) = state.0.world.get_chunk(*event.0, event.0.dimension()) else {
+        let Ok(chunk) = state.0.world.get_chunk(event.0) else {
             tracing::error!("Failed to load chunk {} for entity loading", event.0);
             continue;
         };
@@ -249,7 +254,7 @@ pub fn save_mob_bundles(
                 let chunk = state
                     .0
                     .world
-                    .get_or_generate_chunk(*event.0, event.0.dimension())
+                    .get_or_generate_chunk(event.0)
                     .expect("Failed to get or generate chunk");
 
                 let unchanged = chunk.entities.get(&uuid).is_some_and(|stored| {

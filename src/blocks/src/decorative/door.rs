@@ -6,7 +6,7 @@ use temper_block_properties::{Direction, DoorHingeSide, DoubleBlockHalf};
 use temper_blocks_generated::DoorBlock;
 use temper_core::block_face::BlockFace;
 use temper_core::block_state_id::BlockStateId;
-use temper_core::pos::BlockPos;
+use temper_core::pos::FullBlockPos;
 use temper_world::World;
 use tracing::error;
 
@@ -20,7 +20,7 @@ impl BlockBehavior for DoorBlock {
             BlockFace::Top => Direction::from_yaw(context.player_rotation.yaw),
             _ => {
                 error!("Invalid block face clicked");
-                return PlacedBlocks::default(); // TODO: should return None or Err in the future
+                return PlacedBlocks::new(context.dimension); // TODO: should return None or Err in the future
             }
         };
 
@@ -32,7 +32,7 @@ impl BlockBehavior for DoorBlock {
         let mut top_half = self.clone();
         top_half.half = DoubleBlockHalf::Upper;
 
-        let mut placed_blocks = PlacedBlocks::default();
+        let mut placed_blocks = PlacedBlocks::new(context.dimension);
         placed_blocks.blocks.insert(
             context.block_pos.above(),
             BlockStateId::new(top_half.try_into().unwrap()),
@@ -41,7 +41,7 @@ impl BlockBehavior for DoorBlock {
         placed_blocks
     }
 
-    fn interact(&mut self, world: &World, pos: BlockPos) -> BlockUpdates {
+    fn interact(&mut self, world: &World, pos: FullBlockPos) -> BlockUpdates {
         self.open = !self.open;
 
         let mut blocks = HashMap::new();
@@ -61,10 +61,13 @@ impl BlockBehavior for DoorBlock {
             );
         }
 
-        BlockUpdates { blocks }
+        BlockUpdates {
+            blocks: blocks.into_iter().map(|(pos, id)| (*pos, id)).collect(),
+            dimension: pos.dimension(),
+        }
     }
 
-    fn try_break(&self, world: &World, pos: BlockPos) -> BrokenBlocks {
+    fn try_break(&self, world: &World, pos: FullBlockPos) -> BrokenBlocks {
         let pos = match self.half {
             DoubleBlockHalf::Upper => pos.below(),
             DoubleBlockHalf::Lower => pos.above(),
@@ -72,10 +75,12 @@ impl BlockBehavior for DoorBlock {
 
         BrokenBlocks {
             blocks: if world.block_is::<DoorBlock>(pos) {
-                vec![pos]
+                vec![*pos]
             } else {
                 vec![]
             },
+
+            dimension: pos.dimension(),
         }
     }
 

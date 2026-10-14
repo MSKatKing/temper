@@ -9,9 +9,9 @@ use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::set_held_slot::SetHeldItem;
 use temper_state::GlobalStateResource;
 
+use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::position::Position;
-use temper_core::dimension::Dimension;
-use temper_core::pos::{ChunkBlockPos, ChunkPos};
+use temper_core::pos::ChunkBlockPos;
 use temper_protocol::PickItemFromBlockReceiver;
 use tracing::{debug, error, warn};
 
@@ -21,6 +21,7 @@ pub fn handle(
     mut player_inv_query: Query<(
         Entity,
         &Identity,
+        &CurrentDimension,
         &PlayerAbilities,
         &mut Inventory,
         &mut Hotbar,
@@ -29,7 +30,7 @@ pub fn handle(
 ) {
     for (packet, sender_entity) in events.0.try_iter() {
         // 1. Get player's components
-        let (entity, identity, abilities, mut inventory, mut hotbar, writer) =
+        let (entity, identity, dimension, abilities, mut inventory, mut hotbar, writer) =
             match player_inv_query.get_mut(sender_entity) {
                 Ok(data) => data,
                 Err(e) => {
@@ -52,7 +53,7 @@ pub fn handle(
         let chunk = match state
             .0
             .world
-            .get_or_generate_chunk(ChunkPos::from(pos.coords), Dimension::Overworld)
+            .get_or_generate_chunk(pos.chunk().full(dimension.0))
         {
             Ok(chunk) => chunk,
             Err(e) => {

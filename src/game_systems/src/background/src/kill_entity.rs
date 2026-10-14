@@ -3,9 +3,9 @@ use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
 use temper_components::bossbar::BossbarOwner;
 use temper_components::entity_identity::Identity;
 use temper_components::game_id::GameID;
+use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
-use temper_core::dimension::Dimension::Overworld;
 use temper_entities::MobKind;
 use temper_messages::DespawnMob;
 use temper_messages::kill_entity::KillEntity;
@@ -24,6 +24,7 @@ pub fn kill_entity_system(
     query: Query<(
         Entity,
         &Position,
+        &CurrentDimension,
         &Identity,
         &GameID,
         Has<PlayerMarker>,
@@ -41,6 +42,7 @@ pub fn kill_entity_system(
         if let Ok((
             _,
             position,
+            dimension,
             identity,
             game_id,
             has_player_marker,
@@ -72,7 +74,7 @@ pub fn kill_entity_system(
                     bossbar_res.remove_bar(owner.id());
                 }
 
-                let Ok(chunk) = state.0.world.get_chunk(position.chunk(), Overworld) else {
+                let Ok(chunk) = state.0.world.get_chunk(position.chunk().full(dimension.0)) else {
                     continue;
                 };
                 if chunk.entities.remove(&identity.uuid).is_some() {
@@ -94,7 +96,7 @@ pub fn kill_entity_system(
         entity_ids: LengthPrefixedVec::new(destroyed_entities),
     };
 
-    for (_, _, _, _, has_player_marker, _, conn_opt, _) in query.iter() {
+    for (_, _, _, _, _, has_player_marker, _, conn_opt, _) in query.iter() {
         if has_player_marker
             && let Some(conn) = conn_opt
             && let Err(err) = conn.send_packet_ref(&packet)

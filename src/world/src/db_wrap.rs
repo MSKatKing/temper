@@ -172,37 +172,24 @@ impl ChunkStore {
 }
 
 impl World {
-    pub fn insert_chunk(
-        &self,
-        pos: ChunkPos,
-        dimension: Dimension,
-        chunk: Chunk,
-    ) -> Result<(), WorldError> {
-        self.chunks.insert_chunk(pos, dimension, chunk)
+    pub fn insert_chunk(&self, pos: FullChunkPos, chunk: Chunk) -> Result<(), WorldError> {
+        self.chunks.insert_chunk(*pos, pos.dimension(), chunk)
     }
 
-    pub fn get_chunk(
-        &'_ self,
-        pos: ChunkPos,
-        dimension: Dimension,
-    ) -> Result<RefChunk<'_>, WorldError> {
-        self.chunks.get_chunk(pos, dimension)
+    pub fn get_chunk(&'_ self, pos: FullChunkPos) -> Result<RefChunk<'_>, WorldError> {
+        self.chunks.get_chunk(*pos, pos.dimension())
     }
 
-    pub fn get_chunk_mut(
-        &'_ self,
-        pos: ChunkPos,
-        dimension: Dimension,
-    ) -> Result<MutChunk<'_>, WorldError> {
-        self.chunks.get_chunk_mut(pos, dimension)
+    pub fn get_chunk_mut(&'_ self, pos: FullChunkPos) -> Result<MutChunk<'_>, WorldError> {
+        self.chunks.get_chunk_mut(*pos, pos.dimension())
     }
 
-    pub fn chunk_exists(&self, pos: ChunkPos, dimension: Dimension) -> Result<bool, WorldError> {
-        self.chunks.chunk_exists(pos, dimension)
+    pub fn chunk_exists(&self, pos: FullChunkPos) -> Result<bool, WorldError> {
+        self.chunks.chunk_exists(*pos, pos.dimension())
     }
 
-    pub fn delete_chunk(&self, pos: ChunkPos, dimension: Dimension) -> Result<(), WorldError> {
-        self.chunks.delete_chunk(pos, dimension)
+    pub fn delete_chunk(&self, pos: FullChunkPos) -> Result<(), WorldError> {
+        self.chunks.delete_chunk(*pos, pos.dimension())
     }
 
     pub fn sync(&self) -> Result<(), WorldError> {
@@ -238,7 +225,9 @@ mod tests {
         let mut chunk = Chunk::new_empty();
         chunk.stage = GenStage::FEATURES.raw();
         chunk.mark_dirty();
-        store.cache.insert((pos, Dimension::Overworld), chunk);
+        store
+            .cache
+            .insert(FullChunkPos::new(pos, Dimension::Overworld), chunk);
 
         store
             .sync(GenStage::FULL.raw())
@@ -246,7 +235,7 @@ mod tests {
 
         let cached = store
             .get_cache()
-            .get(&(pos, Dimension::Overworld))
+            .get(&FullChunkPos::new(pos, Dimension::Overworld))
             .expect("skipped chunk should stay cached");
         assert!(
             cached.is_dirty(),
@@ -271,7 +260,9 @@ mod tests {
         let mut chunk = Chunk::new_empty();
         chunk.stage = GenStage::FULL.raw();
         chunk.mark_dirty();
-        store.cache.insert((pos, Dimension::Overworld), chunk);
+        store
+            .cache
+            .insert(FullChunkPos::new(pos, Dimension::Overworld), chunk);
 
         store
             .sync(GenStage::FULL.raw())
@@ -279,7 +270,7 @@ mod tests {
 
         let cached = store
             .get_cache()
-            .get(&(pos, Dimension::Overworld))
+            .get(&FullChunkPos::new(pos, Dimension::Overworld))
             .expect("saved chunk should stay cached");
         assert!(
             !cached.is_dirty(),

@@ -4,6 +4,7 @@ use std::fmt::Result;
 use std::ops::Range;
 use std::ops::{Add, Deref};
 
+use crate::dimension::Dimension;
 use bevy_math::IVec2;
 use bevy_math::IVec3;
 use bevy_math::U8Vec2;
@@ -15,7 +16,6 @@ use deepsize::DeepSizeOf;
 use serde::{Deserialize, Serialize};
 use temper_codec::net_types::network_position::NetworkPosition;
 use type_hash::TypeHash;
-use crate::dimension::Dimension;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FullChunkPos {
@@ -33,7 +33,13 @@ impl Deref for FullChunkPos {
 
 impl Display for FullChunkPos {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "({} {}, {})", self.x(), self.z(), self.dimension.as_identifier())
+        write!(
+            f,
+            "({} {}, {})",
+            self.x(),
+            self.z(),
+            self.dimension.as_identifier()
+        )
     }
 }
 
@@ -52,6 +58,56 @@ impl FullChunkPos {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FullBlockPos {
+    pos: BlockPos,
+    dimension: Dimension,
+}
+
+impl Deref for FullBlockPos {
+    type Target = BlockPos;
+
+    fn deref(&self) -> &Self::Target {
+        &self.pos
+    }
+}
+
+impl Display for FullBlockPos {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "({}, {})", self.pos, self.dimension.as_identifier())
+    }
+}
+
+impl Add<IVec3> for FullBlockPos {
+    type Output = FullBlockPos;
+
+    fn add(self, rhs: IVec3) -> Self::Output {
+        Self::new(self.pos + rhs, self.dimension)
+    }
+}
+
+impl FullBlockPos {
+    pub fn new(pos: BlockPos, dimension: Dimension) -> Self {
+        FullBlockPos { pos, dimension }
+    }
+
+    pub fn above(&self) -> FullBlockPos {
+        FullBlockPos::new(self.pos.above(), self.dimension)
+    }
+
+    pub fn below(&self) -> FullBlockPos {
+        FullBlockPos::new(self.pos.below(), self.dimension)
+    }
+
+    pub fn dimension(&self) -> Dimension {
+        self.dimension
+    }
+
+    pub fn full_chunk(&self) -> FullChunkPos {
+        FullChunkPos::new(self.chunk(), self.dimension())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct BlockPos {
     /// (i26, i12, i26)
     pub pos: IVec3,
@@ -64,12 +120,20 @@ impl BlockPos {
         }
     }
 
+    pub fn full(&self, dimension: Dimension) -> FullBlockPos {
+        FullBlockPos::new(*self, dimension)
+    }
+
     pub fn column(&self) -> ColumnPos {
         ColumnPos { pos: self.pos.xz() }
     }
 
     pub fn chunk(&self) -> ChunkPos {
         self.column().chunk()
+    }
+
+    pub fn full_chunk(&self, dimension: Dimension) -> FullChunkPos {
+        FullChunkPos::new(self.chunk(), dimension)
     }
 
     pub fn chunk_block_pos(self) -> ChunkBlockPos {
@@ -211,6 +275,10 @@ impl ChunkPos {
         Self {
             pos: IVec2::new(x * 16, z * 16),
         }
+    }
+
+    pub fn full(&self, dimension: Dimension) -> FullChunkPos {
+        FullChunkPos::new(*self, dimension)
     }
 
     pub fn center(&self) -> ColumnPos {

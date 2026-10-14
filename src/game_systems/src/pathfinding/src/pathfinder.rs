@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::*;
 use temper_components::pathfinder::Pathfinder;
+use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::position::Position;
 use temper_core::pos::BlockPos;
 use temper_entities::PhysicalRegistry;
@@ -21,6 +22,7 @@ type PathfinderQuery<'w, 's> = Query<
         &'static mut Pathfinder,
         Option<&'static mut PathfinderSearch>,
         &'static Position,
+        &'static CurrentDimension,
         &'static EntityMetadata,
         Has<Baby>,
     ),
@@ -36,7 +38,7 @@ pub fn tick_pathfinder(
 ) {
     let world = &state.0.world;
 
-    for (entity, mut pf, search, pos, metadata, is_baby) in &mut query {
+    for (entity, mut pf, search, pos, dimension, metadata, is_baby) in &mut query {
         let Some(props) = registry.get(metadata.protocol_id(), is_baby) else {
             continue;
         };
@@ -62,7 +64,13 @@ pub fn tick_pathfinder(
                     pf.waypoint = 1; // already at goal, nothing to traverse
                     pf.is_searching = false;
                 } else {
-                    search.0 = Some(AStarSearch::new(start, goal, pf.max_nodes, props));
+                    search.0 = Some(AStarSearch::new(
+                        start,
+                        goal,
+                        dimension.0,
+                        pf.max_nodes,
+                        props,
+                    ));
                     pf.is_searching = true;
                 }
             }
@@ -133,7 +141,7 @@ mod tests {
                 let mut chunk = state
                     .0
                     .world
-                    .get_or_generate_mut(chunk_pos, Dimension::Overworld)
+                    .get_or_generate_mut(chunk_pos.full(Dimension::Overworld))
                     .unwrap();
                 for x in 0u8..16 {
                     for z in 0u8..16 {
@@ -160,6 +168,7 @@ mod tests {
                     Pathfinder::default(),
                     PathfinderSearch::default(),
                     Position::new(x, 65.0, z),
+                    CurrentDimension(Dimension::Overworld),
                     EntityMetadata::from_vanilla(&VanillaEntityType::PIG),
                 ))
                 .id()
@@ -203,6 +212,7 @@ mod tests {
                 Pathfinder::new(1, 500),
                 PathfinderSearch::default(),
                 Position::new(0.0, 65.0, 0.0),
+                CurrentDimension(Dimension::Overworld),
                 EntityMetadata::from_vanilla(&VanillaEntityType::PIG),
             ))
             .id();
@@ -241,6 +251,7 @@ mod tests {
                 Pathfinder::new(1, 500),
                 PathfinderSearch::default(),
                 Position::new(0.0, 65.0, 0.0),
+                CurrentDimension(Dimension::Overworld),
                 EntityMetadata::from_vanilla(&VanillaEntityType::PIG),
             ))
             .id();

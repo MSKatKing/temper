@@ -3,13 +3,13 @@ use temper_components::combat::CombatProperties;
 use temper_components::entity_identity::Identity;
 use temper_components::last_synced_position::LastSyncedPosition;
 use temper_components::metadata::EntityMetadata;
+use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::grounded::OnGround;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_components::player::velocity::Velocity;
 use temper_components::spawn::SpawnProperties;
-use temper_core::dimension::Dimension::Overworld;
 use temper_entities::mob_definition::StandardMobParts;
 use temper_entities::{MobBundle, MobKind};
 use temper_messages::chunk_calc::ChunkCalc;
@@ -17,7 +17,6 @@ use temper_messages::cross_chunk_boundary_event::ChunkBoundaryCrossed;
 use temper_state::GlobalStateResource;
 use temper_world::WorldError;
 use tracing::error;
-use temper_components::player::dimension::CurrentDimension;
 
 type MobQuery<'a> = (
     &'a Identity,
@@ -66,7 +65,7 @@ pub fn cross_chunk_border(
             let new_chunk_cords = event.new_chunk;
             // Remove the stale chunk entry before writing a fresh bundle below. We have to do it this way cos holding locks on multiple chunks at once can easily deadlock
             {
-                let chunk = state.0.world.get_chunk(old_chunk_cords, Overworld);
+                let chunk = state.0.world.get_chunk(old_chunk_cords.full(dimension.0));
                 match chunk {
                     Ok(chunk) => {
                         chunk.entities.remove(&identity.uuid);
@@ -110,7 +109,7 @@ pub fn cross_chunk_border(
                 let chunk = state
                     .0
                     .world
-                    .get_or_generate_chunk(new_chunk_cords, Overworld)
+                    .get_or_generate_chunk(new_chunk_cords.full(dimension.0))
                     .expect("Failed to get or generate new chunk in ChunkBoundaryCrossed event");
                 chunk
                     .entities

@@ -1,6 +1,7 @@
 use bevy_ecs::prelude::{Commands, Entity, MessageWriter, Query, Res};
 use temper_components::entity_identity::Identity;
 use temper_components::game_id::GameID;
+use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::offline_player_data::OfflinePlayerData;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
@@ -19,7 +20,6 @@ use temper_permissions::player::PlayerPermission;
 use temper_state::GlobalStateResource;
 use temper_text::TextComponent;
 use tracing::{debug, info, trace, warn};
-use temper_components::player::dimension::CurrentDimension;
 
 // This type alias defines all the components of a "full" player
 type PlayerCacheQuery<'a> = (
@@ -28,10 +28,7 @@ type PlayerCacheQuery<'a> = (
     &'a Identity,
     &'a PlayerAbilities,
     &'a GameModeComponent,
-    (
-        &'a CurrentDimension,
-        &'a Position,
-    ),
+    (&'a CurrentDimension, &'a Position),
     &'a Rotation,
     &'a Inventory,
     &'a Health,
@@ -63,11 +60,8 @@ pub fn connection_killer(
             conn,
             player_identity,
             abilities,
-            gamemode, 
-            (
-                dimension,
-                pos,
-            ),
+            gamemode,
+            (dimension, pos),
             rot,
             inv,
             health,

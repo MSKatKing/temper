@@ -76,6 +76,7 @@ pub(crate) struct AStarSearch {
     came_from: FxHashMap<BlockPos, BlockPos>,
     start: BlockPos,
     goal: BlockPos,
+    dimension: Dimension,
     dims: EntityDimensions,
     pub nodes_expanded: usize,
     pub max_nodes: usize,
@@ -85,6 +86,7 @@ impl AStarSearch {
     pub(crate) fn new(
         start: BlockPos,
         goal: BlockPos,
+        dimension: Dimension,
         max_nodes: usize,
         physical: &PhysicalProperties,
     ) -> Self {
@@ -103,6 +105,7 @@ impl AStarSearch {
             came_from: FxHashMap::default(),
             start,
             goal,
+            dimension,
             dims,
             nodes_expanded: 0,
             max_nodes,
@@ -131,7 +134,7 @@ impl AStarSearch {
                 continue;
             }
 
-            for (neighbor, move_cost) in neighbors(world, pos, self.dims) {
+            for (neighbor, move_cost) in neighbors(world, pos, self.dimension, self.dims) {
                 let tentative_g = real_cost + move_cost;
                 if self
                     .g_score
@@ -166,6 +169,7 @@ pub fn find_path(
     world: &temper_world::World,
     start: BlockPos,
     goal: BlockPos,
+    dimension: Dimension,
     max_nodes: usize,
     physical: &PhysicalProperties,
 ) -> Option<Path> {
@@ -173,7 +177,7 @@ pub fn find_path(
         return Some(Path { nodes: vec![goal] });
     }
 
-    let mut search = AStarSearch::new(start, goal, max_nodes, physical);
+    let mut search = AStarSearch::new(start, goal, dimension, max_nodes, physical);
     match search.step(world, usize::MAX) {
         SearchStep::Found(nodes) => Some(Path { nodes }),
         SearchStep::NoPath | SearchStep::Continue => None,
@@ -235,13 +239,14 @@ const MAX_NEIGHBORS: usize = 8;
 fn neighbors(
     world: &temper_world::World,
     pos: BlockPos,
+    dimension: Dimension,
     dims: EntityDimensions,
 ) -> ArrayVec<(BlockPos, i32), MAX_NEIGHBORS> {
     let mut result = ArrayVec::new();
 
     // Cardinal directions
     for (dx, dz) in CARDINALS {
-        if let Some((dest, cost)) = try_move(world, pos, dx, dz, COST_CARDINAL, dims) {
+        if let Some((dest, cost)) = try_move(world, pos, dimension, dx, dz, COST_CARDINAL, dims) {
             result.push((dest, cost));
         }
     }
@@ -249,14 +254,24 @@ fn neighbors(
     // Diagonal directions (require both adjacent cardinal directions to be passable)
     for (dx, dz) in DIAGONALS {
         // Check corner-cutting: both adjacent cells must be passable at feet level
-        let side1_passable =
-            block_penalty(get_block(world, pos.pos.x + dx, pos.pos.y, pos.pos.z)) != IMPASSABLE;
-        let side2_passable =
-            block_penalty(get_block(world, pos.pos.x, pos.pos.y, pos.pos.z + dz)) != IMPASSABLE;
+        let side1_passable = block_penalty(get_block(
+            world,
+            pos.pos.x + dx,
+            pos.pos.y,
+            pos.pos.z,
+            dimension,
+        )) != IMPASSABLE;
+        let side2_passable = block_penalty(get_block(
+            world,
+            pos.pos.x,
+            pos.pos.y,
+            pos.pos.z + dz,
+            dimension,
+        )) != IMPASSABLE;
 
         if side1_passable
             && side2_passable
-            && let Some((dest, cost)) = try_move(world, pos, dx, dz, COST_DIAGONAL, dims)
+            && let Some((dest, cost)) = try_move(world, pos, dimension, dx, dz, COST_DIAGONAL, dims)
         {
             result.push((dest, cost));
         }
@@ -270,6 +285,7 @@ fn neighbors(
 fn try_move(
     world: &temper_world::World,
     pos: BlockPos,
+    dimension: Dimension,
     dx: i32,
     dz: i32,
     base_cost: i32,
@@ -279,13 +295,19 @@ fn try_move(
     let nz = pos.pos.z + dz;
 
     // Walk flat
-    if let Some(terrain_cost) = can_stand_at(world, nx, pos.pos.y, nz, dims) {
+    if let Some(terrain_cost) = can_stand_at(world, nx, pos.pos.y, nz, dimension, dims) {
         return Some((BlockPos::of(nx, pos.pos.y, nz), base_cost + terrain_cost));
     }
 
     // Step up 1 block — need space above current position for the full entity height
-    if is_clear_above(world, pos.pos.x, pos.pos.y, pos.pos.z, dims.height_blocks)
-        && let Some(terrain_cost) = can_stand_at(world, nx, pos.pos.y + 1, nz, dims)
+    if is_clear_above(
+        world,
+        pos.pos.x,
+        pos.pos.y,
+        pos.pos.z,
+        dimension,
+        dims.height_blocks,
+    ) && let Some(terrain_cost) = can_stand_at(world, nx, pos.pos.y + 1, nz, dimension, dims)
     {
         return Some((
             BlockPos::of(nx, pos.pos.y + 1, nz),
@@ -294,8 +316,8 @@ fn try_move(
     }
 
     // Step down 1 block — neighbor column must be open at current height
-    if block_penalty(get_block(world, nx, pos.pos.y, nz)) != IMPASSABLE
-        && let Some(terrain_cost) = can_stand_at(world, nx, pos.pos.y - 1, nz, dims)
+    if block_penalty(get_block(world, nx, pos.pos.y, nz, dimension)) != IMPASSABLE
+        && let Some(terrain_cost) = can_stand_at(world, nx, pos.pos.y - 1, nz, dimension, dims)
     {
         return Some((
             BlockPos::of(nx, pos.pos.y - 1, nz),
@@ -316,17 +338,18 @@ fn can_stand_at(
     x: i32,
     y: i32,
     z: i32,
+    dimension: Dimension,
     dims: EntityDimensions,
 ) -> Option<i32> {
     // Check for solid floor (shared definition with the collision system)
-    if !block_properties::is_solid(get_block(world, x, y - 1, z)) {
+    if !block_properties::is_solid(get_block(world, x, y - 1, z, dimension)) {
         return None; // no solid floor
     }
 
     // Check all blocks occupied by the body
     let mut total_penalty = 0;
     for dy in 0..i32::from(dims.height_blocks) {
-        let body_penalty = block_penalty(get_block(world, x, y + dy, z));
+        let body_penalty = block_penalty(get_block(world, x, y + dy, z, dimension));
         if body_penalty == IMPASSABLE {
             return None;
         }
@@ -338,19 +361,32 @@ fn can_stand_at(
 
 /// Check if there's enough vertical clearance above a position.
 /// Used for step-up checks where the entity needs headroom.
-fn is_clear_above(world: &temper_world::World, x: i32, y: i32, z: i32, height: u8) -> bool {
+fn is_clear_above(
+    world: &temper_world::World,
+    x: i32,
+    y: i32,
+    z: i32,
+    dimension: Dimension,
+    height: u8,
+) -> bool {
     for dy in 1..=i32::from(height) {
-        if block_penalty(get_block(world, x, y + dy, z)) == IMPASSABLE {
+        if block_penalty(get_block(world, x, y + dy, z, dimension)) == IMPASSABLE {
             return false;
         }
     }
     true
 }
 
-fn get_block(world: &temper_world::World, x: i32, y: i32, z: i32) -> BlockStateId {
+fn get_block(
+    world: &temper_world::World,
+    x: i32,
+    y: i32,
+    z: i32,
+    dimension: Dimension,
+) -> BlockStateId {
     let pos = BlockPos::of(x, y, z);
     world
-        .get_chunk(pos.chunk(), Dimension::Overworld)
+        .get_chunk(pos.full_chunk(dimension))
         .map(|chunk| chunk.get_block(pos.chunk_block_pos()))
         .unwrap_or_default() // chunk not in cache or DB = air; mob won't path there (no solid floor)
 }
@@ -394,7 +430,7 @@ mod tests {
                 .state
                 .0
                 .world
-                .get_or_generate_mut(chunk_pos, Dimension::Overworld)
+                .get_or_generate_mut(chunk_pos.full(Dimension::Overworld))
                 .expect("Failed to get chunk");
             for x in 0u8..16 {
                 for z in 0u8..16 {
@@ -413,7 +449,7 @@ mod tests {
                 .state
                 .0
                 .world
-                .get_or_generate_mut(pos.chunk(), Dimension::Overworld)
+                .get_or_generate_mut(pos.full_chunk(Dimension::Overworld))
                 .expect("Failed to get chunk");
             chunk.set_block(pos.chunk_block_pos(), id);
         }
@@ -452,9 +488,10 @@ mod tests {
             &self,
             start: BlockPos,
             goal: BlockPos,
+            dimension: Dimension,
             physical: &PhysicalProperties,
         ) -> Option<Path> {
-            find_path(&self.state.0.world, start, goal, 1000, physical)
+            find_path(&self.state.0.world, start, goal, dimension, 1000, physical)
         }
 
         /// Runs pathfinding with a specific node budget.
@@ -462,10 +499,18 @@ mod tests {
             &self,
             start: BlockPos,
             goal: BlockPos,
+            dimension: Dimension,
             max_nodes: usize,
             physical: &PhysicalProperties,
         ) -> Option<Path> {
-            find_path(&self.state.0.world, start, goal, max_nodes, physical)
+            find_path(
+                &self.state.0.world,
+                start,
+                goal,
+                dimension,
+                max_nodes,
+                physical,
+            )
         }
     }
     #[test]
@@ -475,7 +520,7 @@ mod tests {
         let goal = BlockPos::of(3, 65, 0);
 
         let path = env
-            .find(start, goal, &pig())
+            .find(start, goal, Dimension::Overworld, &pig())
             .expect("Should find a path on flat ground");
 
         assert_eq!(path.nodes.first(), Some(&start));
@@ -489,7 +534,7 @@ mod tests {
         let goal = BlockPos::of(3, 65, 3);
 
         let path = env
-            .find(start, goal, &pig())
+            .find(start, goal, Dimension::Overworld, &pig())
             .expect("Should find a diagonal path");
 
         // With diagonals: (0,0) -> (1,1) -> (2,2) -> (3,3) = 4 nodes
@@ -509,7 +554,7 @@ mod tests {
         let goal = BlockPos::of(10, 65, 5);
 
         let path = env
-            .find(start, goal, &pig())
+            .find(start, goal, Dimension::Overworld, &pig())
             .expect("Should find a path around the wall");
 
         assert!(path.nodes.len() > 10, "Path should be longer due to wall");
@@ -524,7 +569,7 @@ mod tests {
         let goal = BlockPos::of(5, 66, 5);
 
         let path = env
-            .find(start, goal, &pig())
+            .find(start, goal, Dimension::Overworld, &pig())
             .expect("Should find a path stepping up");
 
         assert_eq!(path.nodes.last(), Some(&goal));
@@ -539,7 +584,7 @@ mod tests {
         let goal = BlockPos::of(4, 65, 5);
 
         let path = env
-            .find(start, goal, &pig())
+            .find(start, goal, Dimension::Overworld, &pig())
             .expect("Should find a path stepping down");
 
         assert_eq!(path.nodes.last(), Some(&goal));
@@ -553,7 +598,7 @@ mod tests {
         let start = BlockPos::of(2, 65, 2);
         let goal = BlockPos::of(10, 65, 10);
 
-        let path = env.find(start, goal, &pig());
+        let path = env.find(start, goal, Dimension::Overworld, &pig());
 
         assert!(
             path.is_none(),
@@ -567,7 +612,7 @@ mod tests {
         let pos = BlockPos::of(5, 65, 5);
 
         let path = env
-            .find(pos, pos, &pig())
+            .find(pos, pos, Dimension::Overworld, &pig())
             .expect("Should return a path for same start and goal");
 
         assert_eq!(path.nodes.len(), 1);
@@ -584,13 +629,15 @@ mod tests {
 
         // Pig (height < 1 block) should pass
         assert!(
-            env.find(start, goal, &pig()).is_some(),
+            env.find(start, goal, Dimension::Overworld, &pig())
+                .is_some(),
             "Pig should fit under low ceiling"
         );
 
         // Zombie (height ~2 blocks) should not pass
         assert!(
-            env.find(start, goal, &zombie()).is_none(),
+            env.find(start, goal, Dimension::Overworld, &zombie())
+                .is_none(),
             "Zombie should not fit under low ceiling"
         );
     }
@@ -601,7 +648,7 @@ mod tests {
         let start = BlockPos::of(0, 65, 0);
         let goal = BlockPos::of(15, 65, 15);
 
-        let path = env.find_with_budget(start, goal, 5, &pig());
+        let path = env.find_with_budget(start, goal, Dimension::Overworld, 5, &pig());
 
         assert!(
             path.is_none(),

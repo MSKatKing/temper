@@ -37,7 +37,7 @@ fn place_torch(context: PlacementContext, ty: TorchBlock) -> PlacedBlocks {
         BlockFace::Top | BlockFace::Bottom => {
             if context
                 .level
-                .get_block(context.block_pos.below(), context.dimension)
+                .get_block(context.block_pos.below().full(context.dimension))
                 .unwrap_or_default()
                 .is_solid()
             {
@@ -45,6 +45,7 @@ fn place_torch(context: PlacementContext, ty: TorchBlock) -> PlacedBlocks {
                     .expect("Should be able to convert TorchBlock to id")
             } else {
                 return PlacedBlocks {
+                    dimension: context.dimension,
                     blocks: HashMap::with_capacity(0),
                     take_item: false,
                     place_original: false,
@@ -72,6 +73,7 @@ fn place_torch(context: PlacementContext, ty: TorchBlock) -> PlacedBlocks {
     };
 
     PlacedBlocks {
+        dimension: context.dimension,
         blocks: [(context.block_pos, BlockStateId::new(block))]
             .into_iter()
             .collect::<HashMap<_, _>>(),

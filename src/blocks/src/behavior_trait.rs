@@ -1,7 +1,7 @@
 use crate::BLOCK_MAPPINGS;
 use temper_block_data::{BlockUpdates, BrokenBlocks, PlacedBlocks, PlacementContext};
 use temper_core::block_state_id::BlockStateId;
-use temper_core::pos::BlockPos;
+use temper_core::pos::FullBlockPos;
 use temper_world::World;
 
 /// Macro to autogenerate the `BlockBehavior` trait and associated VTable structs.
@@ -155,13 +155,13 @@ macro_rules! block_behavior_trait {
 //
 // This is the only place where the `block_behavior_trait!` macro should be used.
 block_behavior_trait!(
-    fn get_placement_state(mut; _context: PlacementContext) -> PlacedBlocks; PlacedBlocks::default(),
-    fn interact(mut; _world: &World, _pos: BlockPos) -> BlockUpdates; BlockUpdates::default(),
-    fn try_break(; _world: &World, _pos: BlockPos) -> BrokenBlocks; BrokenBlocks::default(),
+    fn get_placement_state(mut; _context: PlacementContext) -> PlacedBlocks; PlacedBlocks::new(Default::default()),
+    fn interact(mut; _world: &World, _pos: FullBlockPos) -> BlockUpdates; BlockUpdates::default(),
+    fn try_break(; _world: &World, _pos: FullBlockPos) -> BrokenBlocks; BrokenBlocks::default(),
 
     fn is_interactable(;) -> bool; false,
     fn is_solid(;) -> bool; true, // Used for fence and pane connections
 
     fn can_be_replaced(; _context: PlacementContext) -> bool; false,
-    fn update(mut; _world: &World, _pos: BlockPos) -> bool; false, // The boolean returned is whether to emit more adjacent updates from this block
+    fn update(mut; _world: &World, _pos: FullBlockPos) -> bool; false, // The boolean returned is whether to emit more adjacent updates from this block
 );

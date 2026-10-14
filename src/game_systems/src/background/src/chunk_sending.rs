@@ -1,11 +1,12 @@
 use anyhow::Context;
-use bevy_ecs::prelude::{Commands, Entity, MessageWriter, Query, Res};
+use bevy_ecs::prelude::{Entity, MessageWriter, Query, Res};
 use std::cmp::max;
 use std::collections::HashSet;
 use std::sync::atomic::Ordering;
 use temper_codec::encode::NetEncodeOpts;
 use temper_components::player::chunk_receiver::{ChunkReceiver, PreparedChunk, ReadyChunk};
 use temper_components::player::client_information::ClientInformationComponent;
+use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::position::Position;
 use temper_core::pos::{ChunkPos, FullChunkPos};
@@ -17,7 +18,6 @@ use temper_protocol::outgoing::chunk_batch_start::ChunkBatchStart;
 use temper_protocol::outgoing::set_center_chunk::SetCenterChunk;
 use temper_state::GlobalStateResource;
 use tracing::error;
-use temper_components::player::dimension::CurrentDimension;
 
 /// How many times a chunk may fail to prepare before we stop retrying it.
 const MAX_CHUNK_RETRIES: u8 = 3;
@@ -45,7 +45,9 @@ pub fn handle(
     // costs memory instead of pool depth.
     let max_in_flight = state.0.thread_pool.core_count() * 6;
 
-    for (eid, conn, mut chunk_receiver, dimension, pos, client_info, entity_tracker) in query.iter_mut() {
+    for (eid, conn, mut chunk_receiver, dimension, pos, client_info, entity_tracker) in
+        query.iter_mut()
+    {
         if !state.0.players.is_connected(eid) {
             continue;
         }
@@ -65,7 +67,7 @@ pub fn handle(
             if chunk_pos.dimension() != player_dimension {
                 return false;
             }
-            
+
             let dx = chunk_pos.x() - player_chunk.x();
             let dz = chunk_pos.z() - player_chunk.z();
             dx * dx + dz * dz <= max_distance_sq
@@ -244,7 +246,7 @@ pub fn handle(
                         let chunk_ref = state_clone
                             .0
                             .world
-                            .get_or_generate_chunk(*coordinates, coordinates.dimension())
+                            .get_or_generate_chunk(coordinates)
                             .context("load or generate failed")?;
 
                         (*chunk_ref).clone_without_transient_noise()

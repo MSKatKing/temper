@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use temper_components::last_chunk_pos::LastChunkPos;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::player_marker::PlayerMarker;
-use temper_core::dimension::Dimension::Overworld;
 use temper_core::pos::ChunkPos;
 use temper_entities::MobKind;
 use temper_messages::DespawnMob;
@@ -71,11 +70,13 @@ pub fn handle(
             continue;
         }
 
-        if let Some((pos, chunk)) =
-            state.0.world.get_cache().remove(chunk_pos)
-        {
+        if let Some((pos, chunk)) = state.0.world.get_cache().remove(chunk_pos) {
             // drop this chunk's completed job entries
-            state.0.world.chunk_generator.forget_chunk(pos.dimension(), *pos);
+            state
+                .0
+                .world
+                .chunk_generator
+                .forget_chunk(pos.dimension(), *pos);
 
             // despawn orphaned entities
             for (entity, last_chunk, is_player, is_mob) in entity_query.iter() {
@@ -106,7 +107,7 @@ pub fn handle(
         let state_clone = state.clone();
         state.0.thread_pool.oneshot(move || {
             for (pos, chunk) in chunks_to_write {
-                if let Err(err) = state_clone.0.world.insert_chunk(*pos, pos.dimension(), chunk) {
+                if let Err(err) = state_clone.0.world.insert_chunk(pos, chunk) {
                     error!("Failed to write chunk {} back to storage: {:?}", pos, err);
                 }
             }

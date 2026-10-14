@@ -1,7 +1,10 @@
 use bevy_ecs::prelude::{Entity, MessageWriter, Query, World};
 use bevy_ecs::system::SystemParamItem;
 use temper_command_infra::args::EntityArg;
-use temper_command_infra::{ArgumentSpec, CommandArg, CommandHandler, CommandReader, CommandResult, CommandSource, ParseError, ParserKind, SuggestionInput, SuggestionProviderKind};
+use temper_command_infra::{
+    ArgumentSpec, CommandArg, CommandHandler, CommandReader, CommandResult, CommandSource,
+    ParseError, ParserKind, SuggestionInput, SuggestionProviderKind,
+};
 use temper_components::entity_identity::Identity;
 use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::player_marker::PlayerMarker;
@@ -14,14 +17,12 @@ use temper_text::{NamedColor, TextComponentBuilder};
 #[command("dimension")]
 enum DimensionCommand {
     #[literal("query")]
-    Query {
-        entity: EntityArg,
-    },
+    Query { entity: EntityArg },
     #[literal("set")]
     Set {
         entity: EntityArg,
         dimension: DimensionArg,
-    }
+    },
 }
 
 struct DimensionArg(Dimension);
@@ -50,7 +51,11 @@ impl CommandArg for DimensionArg {
     fn suggest(input: SuggestionInput<'_>, _world: &mut World) -> Vec<String> {
         const DIMENSIONS: &[&str] = &["overworld", "nether", "end"]; // todo: replace with a world query of some sort
 
-        DIMENSIONS.iter().filter_map(|dim| dim.starts_with(input.current_token).then(|| dim.to_string())).collect()
+        DIMENSIONS
+            .iter()
+            .filter(|dim| dim.starts_with(input.current_token))
+            .map(|dim| dim.to_string())
+            .collect()
     }
 }
 
@@ -61,7 +66,11 @@ impl CommandHandler for DimensionCommand {
         MessageWriter<'w, DimensionChange>,
     );
 
-    fn handle(self, source: CommandSource, params: &mut SystemParamItem<'_, '_, Self::SystemParam<'_, '_>>) -> CommandResult {
+    fn handle(
+        self,
+        source: CommandSource,
+        params: &mut SystemParamItem<'_, '_, Self::SystemParam<'_, '_>>,
+    ) -> CommandResult {
         let (entities, dimensions, change_dim_writer) = params;
 
         let entity = match &self {
@@ -72,39 +81,72 @@ impl CommandHandler for DimensionCommand {
         let resolved = entity.resolve(entities.iter());
 
         if resolved.is_empty() {
-            source.send_message(TextComponentBuilder::new("No entities selected.").color(NamedColor::Red).build());
+            source.send_message(
+                TextComponentBuilder::new("No entities selected.")
+                    .color(NamedColor::Red)
+                    .build(),
+            );
 
-            return Ok(())
+            return Ok(());
         }
 
         match self {
             Self::Query { .. } => {
                 for entity in resolved {
-                    let (entity, identity, _) = entities.get(entity).expect("should be present if resolved");
-                    let identifier = format!("entity '{}' ({})", identity.name.as_ref().map(String::as_ref).unwrap_or("None"), identity.uuid);
+                    let (entity, identity, _) =
+                        entities.get(entity).expect("should be present if resolved");
+                    let identifier = format!(
+                        "entity '{}' ({})",
+                        identity.name.as_ref().map(String::as_ref).unwrap_or("None"),
+                        identity.uuid
+                    );
 
                     let dimension = match dimensions.get(entity) {
                         Ok(d) => d,
                         Err(_) => {
-                            source.send_message(TextComponentBuilder::new(format!("Could not query dimension for {}", identifier)).color(NamedColor::Red).build());
+                            source.send_message(
+                                TextComponentBuilder::new(format!(
+                                    "Could not query dimension for {}",
+                                    identifier
+                                ))
+                                .color(NamedColor::Red)
+                                .build(),
+                            );
                             continue;
                         }
                     };
 
-                    source.send_message(TextComponentBuilder::new(format!("Dimension of {} is '{:?}'", identifier, dimension.0)).build());
+                    source.send_message(
+                        TextComponentBuilder::new(format!(
+                            "Dimension of {} is '{:?}'",
+                            identifier, dimension.0
+                        ))
+                        .build(),
+                    );
                 }
             }
             Self::Set { dimension, .. } => {
                 for entity in resolved {
-                    let (entity, identity, _) = entities.get(entity).expect("should be present if resolved");
-                    let identifier = format!("entity '{}' ({})", identity.name.as_ref().map(String::as_ref).unwrap_or("None"), identity.uuid);
+                    let (entity, identity, _) =
+                        entities.get(entity).expect("should be present if resolved");
+                    let identifier = format!(
+                        "entity '{}' ({})",
+                        identity.name.as_ref().map(String::as_ref).unwrap_or("None"),
+                        identity.uuid
+                    );
 
                     change_dim_writer.write(DimensionChange {
                         entity,
                         new_dimension: dimension.0,
                         spawn_position: None, // will use the entities current position
                     });
-                    source.send_message(TextComponentBuilder::new(format!("Changed dimension of {} to '{:?}'", identifier, dimension.0)).build());
+                    source.send_message(
+                        TextComponentBuilder::new(format!(
+                            "Changed dimension of {} to '{:?}'",
+                            identifier, dimension.0
+                        ))
+                        .build(),
+                    );
                 }
             }
         }
