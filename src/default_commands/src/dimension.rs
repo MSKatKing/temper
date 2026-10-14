@@ -137,8 +137,10 @@ impl CommandHandler for DimensionCommand {
 
                     change_dim_writer.write(DimensionChange {
                         entity,
+                        is_respawn: false,
                         new_dimension: dimension.0,
                         spawn_position: None, // will use the entities current position
+                        spawn_rotation: None, // will use the entities current rotation
                     });
                     source.send_message(
                         TextComponentBuilder::new(format!(

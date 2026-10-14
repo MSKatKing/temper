@@ -17,8 +17,8 @@ use tracing::warn;
 
 pub fn handle_dimension_change(
     mut messages: MessageReader<DimensionChange>,
-    mut entities: Query<(&mut Position, &mut CurrentDimension)>,
-    mut writers: Query<(&StreamWriter, &GameModeComponent, &Rotation, &mut Velocity)>,
+    mut entities: Query<(&Position, &Rotation, &mut CurrentDimension)>,
+    mut writers: Query<(&StreamWriter, &GameModeComponent, &mut Velocity)>,
     mut chunk_calc_writer: MessageWriter<ChunkCalc>,
     mut teleport_writer: MessageWriter<TeleportEntity>,
     mut commands: Commands,
@@ -26,7 +26,7 @@ pub fn handle_dimension_change(
     for change_request in messages.read() {
         let entity = change_request.entity;
 
-        let Ok((mut position, mut dimension)) = entities.get_mut(entity) else {
+        let Ok((position, rotation, mut dimension)) = entities.get_mut(entity) else {
             warn!(
                 "Could not change dimension of {} because it did not have a Position or CurrentDimension component",
                 entity
@@ -34,7 +34,7 @@ pub fn handle_dimension_change(
             continue;
         };
 
-        if dimension.0 == change_request.new_dimension {
+        if dimension.0 == change_request.new_dimension && !change_request.is_respawn {
             warn!(
                 "Can't change dimension of entity {}; it's already in the requested dimension",
                 entity
@@ -44,28 +44,37 @@ pub fn handle_dimension_change(
 
         *dimension = change_request.new_dimension.into();
 
-        if let Some(spawn_position) = change_request.spawn_position {
-            *position = spawn_position;
-        }
+        let position = match change_request.spawn_position {
+            Some(pos) => pos,
+            None => *position,
+        };
 
-        if let Ok((stream, game_mode, rot, mut vel)) = writers.get_mut(entity) {
-            stream
-                .send_packet(RespawnPacket {
-                    dimension_type: change_request.new_dimension.as_var_int(),
-                    dimension_name: change_request.new_dimension.as_identifier(),
-                    seed_hash: 0,
-                    gamemode: game_mode.0,
-                    previous_gamemode: -1,
-                    is_debug: false,
-                    is_flat: false,
-                    has_death_location: false,
-                    death_dimension_name: None,
-                    death_location: None,
-                    portal_cooldown: VarInt::new(20),
-                    sea_level: VarInt::new(0),
-                    data_kept: 3, // keep attributes and metadata
-                })
-                .unwrap_or_else(|err| warn!("failed to send packet to player: {err}"));
+        let rotation = match change_request.spawn_rotation {
+            Some(rot) => rot,
+            None => *rotation,
+        };
+
+        if let Ok((stream, game_mode, mut vel)) = writers.get_mut(entity) {
+            // respawns already sent this packet with different fields, no need to send here
+            if !change_request.is_respawn {
+                stream
+                    .send_packet(RespawnPacket {
+                        dimension_type: change_request.new_dimension.as_var_int(),
+                        dimension_name: change_request.new_dimension.as_identifier(),
+                        seed_hash: 0,
+                        gamemode: game_mode.0,
+                        previous_gamemode: -1,
+                        is_debug: false,
+                        is_flat: false,
+                        has_death_location: false,
+                        death_dimension_name: None,
+                        death_location: None,
+                        portal_cooldown: VarInt::new(20),
+                        sea_level: VarInt::new(0),
+                        data_kept: 3, // keep attributes and metadata
+                    })
+                    .unwrap_or_else(|err| warn!("failed to send packet to player: {err}"));
+            }
 
             stream
                 .send_packet(GameEventPacket::start_waiting_for_level_chunks())
@@ -82,10 +91,10 @@ pub fn handle_dimension_change(
             ));
 
             teleport_writer.write(TeleportEntity {
-                position: *position,
-                rotation: *rot,
-                velocity: *vel,
                 entity,
+                position,
+                rotation,
+                velocity: *vel,
             });
         }
     }
