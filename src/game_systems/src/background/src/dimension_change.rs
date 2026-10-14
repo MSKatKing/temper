@@ -14,11 +14,15 @@ use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::game_event::GameEventPacket;
 use temper_protocol::outgoing::respawn::RespawnPacket;
 use tracing::warn;
+use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
+use temper_inventories::inventory::Inventory;
+use temper_inventories::slot::InventorySlot;
+use temper_protocol::outgoing::set_container_content::SetContainerContent;
 
 pub fn handle_dimension_change(
     mut messages: MessageReader<DimensionChange>,
     mut entities: Query<(&Position, &Rotation, &mut CurrentDimension)>,
-    mut writers: Query<(&StreamWriter, &GameModeComponent, &mut Velocity)>,
+    mut writers: Query<(&StreamWriter, &GameModeComponent, &Inventory, &mut Velocity)>,
     mut chunk_calc_writer: MessageWriter<ChunkCalc>,
     mut teleport_writer: MessageWriter<TeleportEntity>,
     mut commands: Commands,
@@ -54,7 +58,7 @@ pub fn handle_dimension_change(
             None => *rotation,
         };
 
-        if let Ok((stream, game_mode, mut vel)) = writers.get_mut(entity) {
+        if let Ok((stream, game_mode, inventory, mut vel)) = writers.get_mut(entity) {
             // respawns already sent this packet with different fields, no need to send here
             if !change_request.is_respawn {
                 stream
@@ -78,6 +82,16 @@ pub fn handle_dimension_change(
 
             stream
                 .send_packet(GameEventPacket::start_waiting_for_level_chunks())
+                .unwrap_or_else(|err| warn!("failed to send packet to player: {err}"));
+
+            // sync inventory otherwise it shows as empty
+            stream
+                .send_packet(SetContainerContent {
+                    window_id: VarInt::new(0),
+                    state_id: VarInt::new(0),
+                    slots: LengthPrefixedVec::new(inventory.slots.iter().map(|v| v.as_ref().cloned().unwrap_or(InventorySlot::empty())).collect()),
+                    carried_item: InventorySlot::empty(),
+                })
                 .unwrap_or_else(|err| warn!("failed to send packet to player: {err}"));
 
             chunk_calc_writer.write(ChunkCalc(entity));
