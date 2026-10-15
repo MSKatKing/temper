@@ -19,7 +19,7 @@ impl Dimension {
             Self::Overworld => VarInt::from(0),
             Self::Nether => VarInt::from(1),
             Self::End => VarInt::from(2),
-            Self::Custom(v) => VarInt::from(i32::from(*v) + 2),
+            Self::Custom(v) => VarInt::from(i32::from(*v) + 3),
         }
     }
 
