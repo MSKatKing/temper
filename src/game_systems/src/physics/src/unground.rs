@@ -1,7 +1,6 @@
 use super::collisions::is_solid_block;
 use bevy_ecs::message::MessageReader;
 use bevy_ecs::prelude::{Has, Query, Res, With};
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::grounded::OnGround;
 use temper_components::player::position::Position;
 use temper_core::pos::BlockPos;
@@ -19,13 +18,7 @@ use tracing::trace;
 pub fn handle(
     mut events: MessageReader<BlockBrokenEvent>,
     mut entities: Query<
-        (
-            &Position,
-            &CurrentDimension,
-            &EntityMetadata,
-            Has<Baby>,
-            &mut OnGround,
-        ),
+        (&Position, &EntityMetadata, Has<Baby>, &mut OnGround),
         With<HasCollisions>,
     >,
     state: Res<GlobalStateResource>,
@@ -39,7 +32,7 @@ pub fn handle(
         );
 
         // Check all entities with collisions
-        for (pos, dim, metadata, is_baby, mut grounded) in entities.iter_mut() {
+        for (pos, metadata, is_baby, mut grounded) in entities.iter_mut() {
             let Some(physical) = registry.get_or_adult(metadata.protocol_id(), is_baby) else {
                 continue;
             };
@@ -85,7 +78,7 @@ pub fn handle(
                             continue;
                         }
 
-                        let check_pos = BlockPos::of(x, feet_y, z).full(dim.0);
+                        let check_pos = BlockPos::of(x, feet_y, z).full(pos.dimension);
                         if is_solid_block(&state.0, check_pos) {
                             has_support = true;
                             break;

@@ -130,11 +130,11 @@ pub fn teleport_entities(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use bevy_ecs::message::MessageRegistry;
     use bevy_ecs::prelude::{IntoScheduleConfigs, MessageWriter, Res, Resource, Schedule, World};
     use temper_components::entity_identity::Identity;
-
-    use super::*;
+    use temper_core::dimension::Dimension;
 
     #[derive(Resource)]
     struct TeleportTarget(Entity);
@@ -142,7 +142,7 @@ mod tests {
     fn emit_mob_teleport(target: Res<TeleportTarget>, mut writer: MessageWriter<TeleportEntity>) {
         writer.write(TeleportEntity::new(
             target.0,
-            Position::new(10.0, 65.0, -3.0),
+            Position::new(10.0, 65.0, -3.0, Dimension::Overworld),
             Rotation::new(90.0, 15.0),
         ));
     }
@@ -158,7 +158,7 @@ mod tests {
             .spawn((
                 Identity::default(),
                 GameID::new(),
-                Position::new(0.0, 64.0, 0.0),
+                Position::new(0.0, 64.0, 0.0, Dimension::Overworld),
                 Rotation::default(),
                 Velocity::new(1.0, 0.0, 0.0),
             ))

@@ -17,6 +17,8 @@ use serde::{Deserialize, Serialize};
 use temper_codec::net_types::network_position::NetworkPosition;
 use type_hash::TypeHash;
 
+/// A wrapper around [ChunkPos] that also holds a dimension. This should be used anywhere the
+/// dimension of the chunk is needed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FullChunkPos {
     pos: ChunkPos,
@@ -57,6 +59,8 @@ impl FullChunkPos {
     }
 }
 
+/// A wrapper around [BlockPos] that also holds a dimension. This should be used anywhere the
+/// dimension of the block referred to is needed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FullBlockPos {
     pos: BlockPos,

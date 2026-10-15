@@ -2,11 +2,9 @@ use bevy_ecs::prelude::{Entity, Has, Query};
 use temper_components::entity_identity::Identity;
 use temper_components::game_id::GameID;
 use temper_components::player::chunk_receiver::ChunkReceiver;
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
-use temper_core::pos::FullChunkPos;
 use temper_net_runtime::connection::StreamWriter;
 use tracing::trace;
 
@@ -17,7 +15,6 @@ pub fn refresh_visible_entities(
         &Identity,
         &GameID,
         &Position,
-        &CurrentDimension,
         Has<PlayerMarker>,
         Option<&StreamWriter>,
     )>,
@@ -32,7 +29,7 @@ pub fn refresh_visible_entities(
             let should_keep = entity_query
                 .get(tracked_entity)
                 .map(
-                    |(entity, _identity, _game_id, pos, dim, is_player, maybe_writer)| {
+                    |(entity, _identity, _game_id, pos, is_player, maybe_writer)| {
                         if entity == player_entity {
                             return false;
                         }
@@ -41,9 +38,7 @@ pub fn refresh_visible_entities(
                             return false;
                         }
 
-                        chunk_receiver
-                            .loaded
-                            .contains(&FullChunkPos::new(pos.chunk(), dim.0))
+                        chunk_receiver.loaded.contains(&pos.chunk())
                     },
                 )
                 .unwrap_or(false);
@@ -54,7 +49,7 @@ pub fn refresh_visible_entities(
             }
         }
 
-        for (entity, identity, game_id, pos, dim, is_player, maybe_writer) in entity_query.iter() {
+        for (entity, identity, game_id, pos, is_player, maybe_writer) in entity_query.iter() {
             if entity == player_entity {
                 continue;
             }
@@ -63,10 +58,7 @@ pub fn refresh_visible_entities(
                 continue;
             }
 
-            if !chunk_receiver
-                .loaded
-                .contains(&FullChunkPos::new(pos.chunk(), dim.0))
-            {
+            if !chunk_receiver.loaded.contains(&pos.chunk()) {
                 continue;
             }
 

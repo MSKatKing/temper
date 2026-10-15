@@ -42,7 +42,7 @@ fn falling_entity_lands_when_velocity_step_crosses_floor() {
     MessageRegistry::register_message::<DamageEvent>(&mut world);
     MessageRegistry::register_message::<KillEntity>(&mut world);
 
-    let mut bundle = PigBundle::new(Position::new(0.5, 65.2, 0.5), Dimension::Overworld.into());
+    let mut bundle = PigBundle::new(Position::new(0.5, 65.2, 0.5, Dimension::Overworld));
     bundle.velocity = Velocity::new(0.0, -2.4, 0.0);
 
     let entity = world.spawn((bundle, Pig, HasCollisions)).id();
@@ -82,7 +82,7 @@ fn walking_entity_stops_flush_against_a_wall_on_a_partial_width_axis() {
 
     // Pig is 0.9 blocks wide (half-width 0.45), which doesn't divide evenly into whole
     // blocks - this is what actually exercises the snapping math on a non-full-width axis.
-    let mut bundle = PigBundle::new(Position::new(0.0, 64.0, 0.5), Dimension::Overworld.into());
+    let mut bundle = PigBundle::new(Position::new(0.0, 64.0, 0.5, Dimension::Overworld));
     bundle.velocity = Velocity::new(2.0, 0.0, 0.0);
 
     let entity = world.spawn((bundle, Pig, HasCollisions)).id();
@@ -124,7 +124,7 @@ fn diagonal_movement_slides_along_a_wall_instead_of_stopping_dead() {
     MessageRegistry::register_message::<DamageEvent>(&mut world);
     MessageRegistry::register_message::<KillEntity>(&mut world);
 
-    let mut bundle = PigBundle::new(Position::new(0.0, 64.0, 0.5), Dimension::Overworld.into());
+    let mut bundle = PigBundle::new(Position::new(0.0, 64.0, 0.5, Dimension::Overworld));
     bundle.velocity = Velocity::new(2.0, 0.0, 1.5);
 
     let entity = world.spawn((bundle, Pig, HasCollisions)).id();
@@ -172,7 +172,7 @@ fn player_landing_on_ground_gets_marked_grounded_without_position_correction() {
 
     // The client already reported landing a bit into the floor - we shouldn't correct a
     // player's Position (that's left to the client), but OnGround still needs to flip.
-    let requested_pos = Position::new(0.5, 64.98, 0.5);
+    let requested_pos = Position::new(0.5, 64.98, 0.5, Dimension::Overworld);
     let mut bundle = PlayerBundle {
         identity: Identity::new(Some("Steve".to_string())),
         position: requested_pos,
@@ -191,7 +191,7 @@ fn player_landing_on_ground_gets_marked_grounded_without_position_correction() {
         .spawn((
             bundle,
             HasCollisions,
-            OldPosition::from(Position::new(0.5, 65.2, 0.5)),
+            OldPosition::from(Position::new(0.5, 65.2, 0.5, Dimension::Overworld)),
         ))
         .id();
 
@@ -227,7 +227,7 @@ fn player_predicted_next_step_can_detect_an_upcoming_landing() {
     MessageRegistry::register_message::<DamageEvent>(&mut world);
     MessageRegistry::register_message::<KillEntity>(&mut world);
 
-    let requested_pos = Position::new(0.5, 65.3, 0.5);
+    let requested_pos = Position::new(0.5, 65.3, 0.5, Dimension::Overworld);
     let mut bundle = PlayerBundle {
         identity: Identity::new(Some("Steve".to_string())),
         position: requested_pos,
@@ -246,7 +246,7 @@ fn player_predicted_next_step_can_detect_an_upcoming_landing() {
         .spawn((
             bundle,
             HasCollisions,
-            OldPosition::from(Position::new(0.5, 65.7, 0.5)),
+            OldPosition::from(Position::new(0.5, 65.7, 0.5, Dimension::Overworld)),
         ))
         .id();
 
@@ -281,7 +281,7 @@ fn player_landing_with_negligible_horizontal_jitter_still_detected() {
     MessageRegistry::register_message::<DamageEvent>(&mut world);
     MessageRegistry::register_message::<KillEntity>(&mut world);
 
-    let requested_pos = Position::new(0.5000001, 64.98, 0.5);
+    let requested_pos = Position::new(0.5000001, 64.98, 0.5, Dimension::Overworld);
     let mut bundle = PlayerBundle {
         identity: Identity::new(Some("Steve".to_string())),
         position: requested_pos,
@@ -300,7 +300,7 @@ fn player_landing_with_negligible_horizontal_jitter_still_detected() {
         .spawn((
             bundle,
             HasCollisions,
-            OldPosition::from(Position::new(0.5, 65.2, 0.5)),
+            OldPosition::from(Position::new(0.5, 65.2, 0.5, Dimension::Overworld)),
         ))
         .id();
 
@@ -335,7 +335,7 @@ fn player_walking_into_a_wall_gets_detected() {
     MessageRegistry::register_message::<DamageEvent>(&mut world);
     MessageRegistry::register_message::<KillEntity>(&mut world);
 
-    let requested_pos = Position::new(1.0, 65.0, 0.5);
+    let requested_pos = Position::new(1.0, 65.0, 0.5, Dimension::Overworld);
     let mut bundle = PlayerBundle {
         identity: Identity::new(Some("Steve".to_string())),
         position: requested_pos,
@@ -354,7 +354,7 @@ fn player_walking_into_a_wall_gets_detected() {
         .spawn((
             bundle,
             HasCollisions,
-            OldPosition::from(Position::new(0.5, 65.0, 0.5)),
+            OldPosition::from(Position::new(0.5, 65.0, 0.5, Dimension::Overworld)),
         ))
         .id();
 
@@ -404,7 +404,7 @@ fn player_landing_over_multiple_small_ticks_still_detected() {
 
     let mut bundle = PlayerBundle {
         identity: Identity::new(Some("Steve".to_string())),
-        position: Position::new(0.5, 66.0, 0.5),
+        position: Position::new(0.5, 66.0, 0.5, Dimension::Overworld),
         collision_bounds: CollisionBounds::new(
             Vec3A::new(-0.3, 0.0, -0.3),
             Vec3A::new(0.3, 1.8, 0.3),
@@ -418,9 +418,21 @@ fn player_landing_over_multiple_small_ticks_still_detected() {
 
     let entity = world.spawn((bundle, HasCollisions)).id();
 
-    run_tick(&mut world, entity, Position::new(0.5, 65.5, 0.5));
-    run_tick(&mut world, entity, Position::new(0.5, 65.05, 0.5));
-    run_tick(&mut world, entity, Position::new(0.5, 64.98, 0.5));
+    run_tick(
+        &mut world,
+        entity,
+        Position::new(0.5, 65.5, 0.5, Dimension::Overworld),
+    );
+    run_tick(
+        &mut world,
+        entity,
+        Position::new(0.5, 65.05, 0.5, Dimension::Overworld),
+    );
+    run_tick(
+        &mut world,
+        entity,
+        Position::new(0.5, 64.98, 0.5, Dimension::Overworld),
+    );
 
     let grounded = world.get::<OnGround>(entity).unwrap();
     assert!(
@@ -451,7 +463,7 @@ fn player_landing_flush_on_a_whole_number_boundary_still_detected() {
 
     let mut bundle = PlayerBundle {
         identity: Identity::new(Some("Steve".to_string())),
-        position: Position::new(0.5, 72.0, 0.5),
+        position: Position::new(0.5, 72.0, 0.5, Dimension::Overworld),
         collision_bounds: CollisionBounds::new(
             Vec3A::new(-0.3, 0.0, -0.3),
             Vec3A::new(0.3, 1.8, 0.3),
@@ -467,7 +479,7 @@ fn player_landing_flush_on_a_whole_number_boundary_still_detected() {
         .spawn((
             bundle,
             HasCollisions,
-            OldPosition::from(Position::new(0.5, 72.1213, 0.5)),
+            OldPosition::from(Position::new(0.5, 72.1213, 0.5, Dimension::Overworld)),
         ))
         .id();
 
@@ -504,7 +516,7 @@ fn player_jumping_off_ground_does_not_get_falsely_marked_as_hitting_it() {
 
     let mut bundle = PlayerBundle {
         identity: Identity::new(Some("Steve".to_string())),
-        position: Position::new(0.5, 72.42, 0.5),
+        position: Position::new(0.5, 72.42, 0.5, Dimension::Overworld),
         collision_bounds: CollisionBounds::new(
             Vec3A::new(-0.3, 0.0, -0.3),
             Vec3A::new(0.3, 1.8, 0.3),
@@ -520,7 +532,7 @@ fn player_jumping_off_ground_does_not_get_falsely_marked_as_hitting_it() {
         .spawn((
             bundle,
             HasCollisions,
-            OldPosition::from(Position::new(0.5, 72.0, 0.5)),
+            OldPosition::from(Position::new(0.5, 72.0, 0.5, Dimension::Overworld)),
         ))
         .id();
 
@@ -580,7 +592,7 @@ fn repeated_predicted_player_landing_only_marks_the_first_tick_as_new_ground_con
 
     let mut bundle = PlayerBundle {
         identity: Identity::new(Some("Steve".to_string())),
-        position: Position::new(0.5, 65.7, 0.5),
+        position: Position::new(0.5, 65.7, 0.5, Dimension::Overworld),
         collision_bounds: CollisionBounds::new(
             Vec3A::new(-0.3, 0.0, -0.3),
             Vec3A::new(0.3, 1.8, 0.3),
@@ -594,7 +606,12 @@ fn repeated_predicted_player_landing_only_marks_the_first_tick_as_new_ground_con
 
     let entity = world.spawn((bundle, HasCollisions)).id();
 
-    run_tick(&mut world, entity, Position::new(0.5, 65.3, 0.5), false);
+    run_tick(
+        &mut world,
+        entity,
+        Position::new(0.5, 65.3, 0.5, Dimension::Overworld),
+        false,
+    );
 
     let grounded = world.get::<OnGround>(entity).unwrap();
     assert!(grounded.currently_grounded);
@@ -603,7 +620,12 @@ fn repeated_predicted_player_landing_only_marks_the_first_tick_as_new_ground_con
         "the first predictive landing should look like a new ground contact"
     );
 
-    run_tick(&mut world, entity, Position::new(0.5, 64.9, 0.5), false);
+    run_tick(
+        &mut world,
+        entity,
+        Position::new(0.5, 64.9, 0.5, Dimension::Overworld),
+        false,
+    );
 
     let grounded = world.get::<OnGround>(entity).unwrap();
     assert!(grounded.currently_grounded);

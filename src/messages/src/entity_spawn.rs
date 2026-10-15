@@ -1,6 +1,5 @@
 use bevy_ecs::prelude::{Entity, Message};
 use temper_components::player::position::Position;
-use temper_core::dimension::Dimension;
 pub(crate) use temper_entities::entity_types::EntityTypeEnum;
 use temper_entities::MobBundle;
 
@@ -12,7 +11,6 @@ use temper_entities::MobBundle;
 pub struct SpawnMobCommand {
     pub entity_type: EntityTypeEnum,
     pub location: Position,
-    pub dimension: Dimension,
 }
 
 #[derive(Message)]

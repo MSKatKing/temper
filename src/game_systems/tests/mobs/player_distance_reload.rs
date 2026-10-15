@@ -10,11 +10,9 @@ use temper_components::last_chunk_pos::LastChunkPos;
 use temper_components::last_synced_position::LastSyncedPosition;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::client_information::ClientInformationComponent;
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_core::dimension::Dimension;
-use temper_core::pos::FullChunkPos;
 use temper_entities::FoxBundle;
 use temper_entities::MobKind;
 use temper_entities::entity_types::EntityTypeEnum;
@@ -37,9 +35,9 @@ fn player_can_unload_entities_by_moving_away_and_reload_them_after_returning() {
     let (state, _temp_dir) = create_test_state();
     world.insert_resource(state.clone());
 
-    let fox_position = Position::new(8.0, 64.0, 8.0);
-    let fox_chunk = FullChunkPos::new(fox_position.chunk(), Dimension::Overworld);
-    let fox_bundle = FoxBundle::new(fox_position, Dimension::Overworld.into());
+    let fox_position = Position::new(8.0, 64.0, 8.0, Dimension::Overworld);
+    let fox_chunk = fox_position.chunk();
+    let fox_bundle = FoxBundle::new(fox_position);
     let expected_identity = fox_bundle.identity.clone();
     let expected_last_synced = fox_bundle.last_synced_position;
 
@@ -48,8 +46,7 @@ fn player_can_unload_entities_by_moving_away_and_reload_them_after_returning() {
 
     let player_entity = world
         .spawn((
-            Position::new(8.0, 64.0, 8.0),
-            CurrentDimension(Dimension::Overworld),
+            Position::new(8.0, 64.0, 8.0, Dimension::Overworld),
             receiver,
             ClientInformationComponent {
                 view_distance: 2,
@@ -83,7 +80,7 @@ fn player_can_unload_entities_by_moving_away_and_reload_them_after_returning() {
         let mut player_pos = world
             .get_mut::<Position>(player_entity)
             .expect("player should exist");
-        *player_pos = Position::new(2048.0, 64.0, 2048.0);
+        *player_pos = Position::new(2048.0, 64.0, 2048.0, Dimension::Overworld);
     }
 
     let mut chunk_calc_schedule = Schedule::default();

@@ -9,7 +9,6 @@ use temper_components::entity_identity::Identity;
 use temper_components::last_chunk_pos::LastChunkPos;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::client_information::ClientInformationComponent;
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_core::dimension::Dimension;
@@ -35,7 +34,6 @@ fn spawn_test_player(world: &mut World, position: Position, loaded_chunk: FullCh
     world
         .spawn((
             position,
-            CurrentDimension(loaded_chunk.dimension()),
             receiver,
             ClientInformationComponent {
                 view_distance: 2,
@@ -54,12 +52,12 @@ fn multiple_entities_in_one_chunk_reload_together_when_player_returns() {
     let (state, _temp_dir) = create_test_state();
     world.insert_resource(state.clone());
 
-    let fox_position = Position::new(8.0, 64.0, 8.0);
-    let pig_position = Position::new(9.0, 64.0, 9.0);
+    let fox_position = Position::new(8.0, 64.0, 8.0, Dimension::Overworld);
+    let pig_position = Position::new(9.0, 64.0, 9.0, Dimension::Overworld);
     let chunk = fox_position.chunk();
 
-    let fox_bundle = FoxBundle::new(fox_position, Dimension::Overworld.into());
-    let pig_bundle = PigBundle::new(pig_position, Dimension::Overworld.into());
+    let fox_bundle = FoxBundle::new(fox_position);
+    let pig_bundle = PigBundle::new(pig_position);
     let expected_fox_uuid = fox_bundle.identity.uuid;
     let expected_pig_uuid = pig_bundle.identity.uuid;
 
@@ -99,7 +97,7 @@ fn multiple_entities_in_one_chunk_reload_together_when_player_returns() {
         let mut player_pos = world
             .get_mut::<Position>(player_entity)
             .expect("player should exist");
-        *player_pos = Position::new(2048.0, 64.0, 2048.0);
+        *player_pos = Position::new(2048.0, 64.0, 2048.0, Dimension::Overworld);
     }
 
     let mut chunk_calc_schedule = Schedule::default();
@@ -201,9 +199,9 @@ fn chunk_stays_loaded_while_a_second_player_keeps_it_visible() {
     let (state, _temp_dir) = create_test_state();
     world.insert_resource(state.clone());
 
-    let fox_position = Position::new(8.0, 64.0, 8.0);
+    let fox_position = Position::new(8.0, 64.0, 8.0, Dimension::Overworld);
     let chunk = fox_position.chunk();
-    let fox_bundle = FoxBundle::new(fox_position, Dimension::Overworld.into());
+    let fox_bundle = FoxBundle::new(fox_position);
     let fox_uuid = fox_bundle.identity.uuid;
 
     let moving_player =
@@ -235,7 +233,7 @@ fn chunk_stays_loaded_while_a_second_player_keeps_it_visible() {
         let mut player_pos = world
             .get_mut::<Position>(moving_player)
             .expect("moving player should exist");
-        *player_pos = Position::new(2048.0, 64.0, 2048.0);
+        *player_pos = Position::new(2048.0, 64.0, 2048.0, Dimension::Overworld);
     }
 
     let mut chunk_calc_schedule = Schedule::default();

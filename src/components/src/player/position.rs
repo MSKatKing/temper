@@ -1,23 +1,19 @@
 use bevy_ecs::prelude::Component;
 use bevy_math::DVec3;
 use serde::{Deserialize, Serialize};
-use std::ops::DerefMut;
+use std::ops::{Add, DerefMut};
 use std::{
     fmt::{Debug, Display, Formatter},
     ops::Deref,
 };
 use temper_codec::net_types::network_position::NetworkPosition;
-use temper_core::pos::ChunkPos;
+use temper_core::dimension::Dimension;
+use temper_core::pos::{ChunkPos, FullChunkPos};
 
 #[derive(Component, Clone, Copy, Serialize, Deserialize)]
 pub struct Position {
     pub coords: DVec3,
-}
-
-impl From<NetworkPosition> for Position {
-    fn from(pos: NetworkPosition) -> Self {
-        Self::new(f64::from(pos.x), f64::from(pos.y), f64::from(pos.z))
-    }
+    pub dimension: Dimension,
 }
 
 impl From<Position> for NetworkPosition {
@@ -32,10 +28,19 @@ impl From<Position> for NetworkPosition {
 
 // Helper functions:
 impl Position {
-    pub fn new(x: f64, y: f64, z: f64) -> Self {
+    pub fn new(x: f64, y: f64, z: f64, dimension: Dimension) -> Self {
         Self {
             coords: DVec3::new(x, y, z),
+            dimension,
         }
+    }
+
+    pub fn update(&mut self, position: impl Into<DVec3>) {
+        self.coords = position.into();
+    }
+
+    pub fn update_dimension(&mut self, dimension: impl Into<Dimension>) {
+        self.dimension = dimension.into();
     }
 
     /// Returns a new position offset forward by the given distance based on rotation.
@@ -64,6 +69,7 @@ impl Position {
             self.x - (f64::from(yaw_radians.sin()) * distance),
             self.y,
             self.z + (f64::from(yaw_radians.cos()) * distance),
+            self.dimension,
         )
     }
 
@@ -83,10 +89,10 @@ impl Position {
         (self.x, self.y, self.z)
     }
 
-    pub fn chunk(&self) -> ChunkPos {
+    pub fn chunk(&self) -> FullChunkPos {
         let chunk_x = (self.x.floor() as i32) >> 4;
         let chunk_z = (self.z.floor() as i32) >> 4;
-        ChunkPos::new(chunk_x, chunk_z)
+        FullChunkPos::new(ChunkPos::new(chunk_x, chunk_z), self.dimension)
     }
 }
 
@@ -107,37 +113,13 @@ impl DerefMut for Position {
 // Implementations:
 impl Default for Position {
     fn default() -> Self {
-        Self::new(0.0, 0.0, 0.0)
-    }
-}
-
-impl From<(f64, f64, f64)> for Position {
-    fn from((x, y, z): (f64, f64, f64)) -> Self {
-        Self::new(x, y, z)
+        Self::new(0.0, 0.0, 0.0, Dimension::default())
     }
 }
 
 impl From<Position> for (f64, f64, f64) {
     fn from(pos: Position) -> Self {
         (pos.x, pos.y, pos.z)
-    }
-}
-
-impl From<&(f64, f64, f64)> for Position {
-    fn from((x, y, z): &(f64, f64, f64)) -> Self {
-        Self::new(*x, *y, *z)
-    }
-}
-
-impl From<DVec3> for Position {
-    fn from(vec: DVec3) -> Self {
-        Self::new(vec.x, vec.y, vec.z)
-    }
-}
-
-impl From<&DVec3> for Position {
-    fn from(vec: &DVec3) -> Self {
-        Self::new(vec.x, vec.y, vec.z)
     }
 }
 
@@ -154,7 +136,7 @@ impl From<&Position> for DVec3 {
 }
 
 impl Debug for Position {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "Position {{ x: {:.2}, y: {:.2}, z: {:.2} }}",
@@ -166,5 +148,16 @@ impl Debug for Position {
 impl Display for Position {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "({:.2}, {:.2}, {:.2})", self.x, self.y, self.z)
+    }
+}
+
+impl Add<DVec3> for Position {
+    type Output = Position;
+
+    fn add(self, rhs: DVec3) -> Self::Output {
+        Position {
+            dimension: self.dimension,
+            coords: self.coords + rhs,
+        }
     }
 }

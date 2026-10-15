@@ -22,6 +22,7 @@ use temper_components::game_id::GameID;
 use temper_components::player::gamemode::GameMode;
 use temper_components::player::offline_player_data::OfflinePlayerData;
 use temper_components::player::player_properties::{PlayerProperties, PlayerProperty};
+use temper_components::player::position::Position;
 use temper_config::ServerConfig;
 use temper_protocol::ConnState;
 use temper_protocol::errors::{NetAuthenticationError, NetError, PacketError};
@@ -410,7 +411,12 @@ async fn sync_player_position(
 
     // Send position sync
     conn_write.send_packet(SynchronizePlayerPositionPacket::from_position_rotation(
-        &offline_player_data.position.into(),
+        &Position::new(
+            offline_player_data.position.0,
+            offline_player_data.position.1,
+            offline_player_data.position.2,
+            offline_player_data.dimension,
+        ),
         &offline_player_data.rotation,
         VarInt::new(teleport_id_i32),
     ))?;

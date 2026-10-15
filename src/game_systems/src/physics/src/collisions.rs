@@ -8,7 +8,6 @@ use std::cmp::max;
 use std::time::Instant;
 use temper_components::bounds::CollisionBounds;
 use temper_components::entity_identity::Identity;
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::gamemode::{GameMode, GameModeComponent};
 use temper_components::player::grounded::OnGround;
 use temper_components::player::old_position::OldPosition;
@@ -33,7 +32,6 @@ type CollisionQueryItem<'a> = (
     Entity,
     Option<&'a OldPosition>,
     Mut<'a, Position>,
-    &'a CurrentDimension,
     Option<&'a EntityMetadata>,
     Option<&'a mut Velocity>,
     Option<&'a CollisionBounds>,
@@ -57,7 +55,6 @@ pub fn handle(
         eid,
         old_pos,
         mut pos,
-        dim,
         metadata,
         vel,
         collision_bounds,
@@ -163,7 +160,7 @@ pub fn handle(
                             let chunk = state
                                 .0
                                 .world
-                                .get_or_generate_chunk(chunk_pos.full(dim.0))
+                                .get_or_generate_chunk(chunk_pos.full(pos.dimension))
                                 .expect("Failed to load or generate chunk");
                             loaded_chunk = Some((chunk_pos, chunk));
                         }

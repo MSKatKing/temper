@@ -6,6 +6,7 @@ use temper_components::entity_identity::Identity;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_components::player::velocity::Velocity;
+use temper_core::dimension::Dimension;
 use temper_macros::Command;
 use temper_permissions::Permissions;
 
@@ -31,7 +32,11 @@ impl CommandHandler for MotionCommand {
 
         let entities = self.target.resolve(entity_query.iter());
 
-        let offset = self.offset.resolve(&Position::new(0f64, 0f64, 0f64));
+        // use a dummy dimension here because we throw it out immediately
+        let offset = self
+            .offset
+            .resolve(&Position::new(0f64, 0f64, 0f64, Dimension::Overworld));
+        let offset = offset.coords;
 
         for entity in &entities {
             if let Ok((_, mut velocity)) = motion_targets.get_mut(*entity) {

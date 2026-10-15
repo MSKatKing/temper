@@ -5,8 +5,8 @@ use temper_blocks::BlockDispatch;
 use temper_codec::net_types::network_position::NetworkPosition;
 use temper_codec::net_types::var_int::VarInt;
 use temper_components::player::abilities::PlayerAbilities;
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::gameplay_state::digging::PlayerDigging;
+use temper_components::player::position::Position;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::dimension::Dimension;
 use temper_core::pos::{BlockPos, FullBlockPos};
@@ -28,7 +28,7 @@ pub fn handle_start_digging(
     mut commands: Commands,
     mut events: MessageReader<PlayerStartedDigging>,
     mut player_query: Query<DiggingPlayerQuery, With<PlayerAbilities>>,
-    dim_query: Query<&CurrentDimension>,
+    pos_query: Query<&Position>,
     state: Res<GlobalStateResource>,
 ) {
     for event in events.read() {
@@ -37,13 +37,13 @@ pub fn handle_start_digging(
             event.player, event.position
         );
 
-        let dim = dim_query
+        let position = pos_query
             .get(event.player)
             .expect("players should have current dimension");
 
         // --- 1. Get BlockStateId from the world ---
         let pos: BlockPos = event.position.clone().into();
-        let pos = pos.full(dim.0);
+        let pos = pos.full(position.dimension);
         let chunk = match state.0.world.get_or_generate_chunk(pos.full_chunk()) {
             Ok(chunk) => chunk,
             Err(e) => {
@@ -169,7 +169,7 @@ pub fn handle_finish_digging(
     mut events: MessageReader<PlayerFinishedDigging>,
     state: Res<GlobalStateResource>,
     mut player_query: Query<DiggingPlayerQuery>,
-    broadcast_query: Query<(Entity, &StreamWriter, &CurrentDimension)>, // For broadcasting the break
+    broadcast_query: Query<(Entity, &StreamWriter, &Position)>, // For broadcasting the break
     mut block_break_writer: MessageWriter<temper_messages::BlockBrokenEvent>,
     mut world_change: MessageWriter<WorldChange>,
 ) {
@@ -290,7 +290,7 @@ pub fn handle_finish_digging(
 /// Helper function to contain the block-breaking logic (replaces `try` block)
 fn break_block(
     state: &Res<GlobalStateResource>,
-    broadcast_query: &Query<(Entity, &StreamWriter, &CurrentDimension)>,
+    broadcast_query: &Query<(Entity, &StreamWriter, &Position)>,
     position: &NetworkPosition,
     dimension: Dimension,
     block_break_writer: &mut MessageWriter<temper_messages::BlockBrokenEvent>,
@@ -326,12 +326,12 @@ fn break_block(
         location: position.clone(),
         block_state_id: VarInt::from(BlockStateId::default()),
     };
-    for (eid, conn, dim) in broadcast_query {
+    for (eid, conn, pos) in broadcast_query {
         if !state.0.players.is_connected(eid) {
             continue;
         }
 
-        if broken_positions.dimension != dim.0 {
+        if broken_positions.dimension != pos.dimension {
             continue; // dont send updates for players in other dimensions
         }
 

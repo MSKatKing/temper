@@ -1,10 +1,9 @@
 use bevy_ecs::prelude::{Has, Query, Res, With};
 use bevy_math::{IVec3, Vec3A};
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::position::Position;
 use temper_components::player::velocity::Velocity;
 use temper_core::block_state_id::BlockStateId;
-use temper_core::pos::{ChunkBlockPos, ChunkPos};
+use temper_core::pos::ChunkBlockPos;
 use temper_entities::PhysicalRegistry;
 use temper_entities::components::{Baby, EntityMetadata};
 use temper_entities::markers::HasWaterDrag;
@@ -12,28 +11,19 @@ use temper_macros::match_block;
 use temper_state::GlobalStateResource;
 
 pub fn handle(
-    mut query: Query<
-        (
-            &mut Velocity,
-            &Position,
-            &CurrentDimension,
-            &EntityMetadata,
-            Has<Baby>,
-        ),
-        With<HasWaterDrag>,
-    >,
+    mut query: Query<(&mut Velocity, &Position, &EntityMetadata, Has<Baby>), With<HasWaterDrag>>,
     state: Res<GlobalStateResource>,
     registry: Res<PhysicalRegistry>,
 ) {
-    for (mut vel, pos, dimension, metadata, is_baby) in query.iter_mut() {
+    for (mut vel, pos, metadata, is_baby) in query.iter_mut() {
         let Some(physical) = registry.get_or_adult(metadata.protocol_id(), is_baby) else {
             continue;
         };
-        let chunk_pos = ChunkPos::from(pos.coords);
+        let chunk_pos = pos.chunk();
         let chunk = state
             .0
             .world
-            .get_or_generate_mut(chunk_pos.full(dimension.0))
+            .get_or_generate_mut(chunk_pos)
             .expect("Failed to load or generate chunk");
 
         // Check if the entity's center (middle of body) is in water

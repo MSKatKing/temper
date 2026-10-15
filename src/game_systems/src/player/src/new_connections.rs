@@ -9,6 +9,7 @@ use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::grounded::OnGround;
 use temper_components::player::keepalive::KeepAliveTracker;
 use temper_components::player::player_marker::PlayerMarker;
+use temper_components::player::position::Position;
 use temper_components::player::teleport_tracker::TeleportTracker;
 use temper_components::player::velocity::Velocity;
 use temper_components::player::{
@@ -62,7 +63,10 @@ pub fn accept_new_connections(
         );
 
         // --- 2. Build the PlayerBundle ---
-        let position = player_data.position.into();
+        let position = Position {
+            coords: player_data.position.into(),
+            dimension: player_data.dimension,
+        };
         let player_bundle = PlayerBundle {
             identity: new_connection.player_identity.clone(),
             game_id: new_connection.game_id,
@@ -70,7 +74,6 @@ pub fn accept_new_connections(
             player_properties: new_connection.player_properties,
             gamemode: GameModeComponent(player_data.gamemode),
             position,
-            dimension: player_data.dimension.into(),
             rotation: player_data.rotation,
             velocity: Velocity::zero(),
             last_synced_position: LastSyncedPosition::from_position(&position),

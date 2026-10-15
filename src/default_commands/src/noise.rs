@@ -1,6 +1,5 @@
 use bevy_ecs::prelude::{Query, Res};
 use temper_command_infra::{CommandHandler, CommandResult, CommandSource};
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::position::Position;
 use temper_macros::Command;
 use temper_state::GlobalStateResource;
@@ -17,7 +16,7 @@ struct NoiseCommand;
 impl CommandHandler for NoiseCommand {
     type SystemParam<'w, 's> = (
         Res<'w, GlobalStateResource>,
-        Query<'w, 's, (&'static Position, &'static CurrentDimension)>,
+        Query<'w, 's, &'static Position>,
     );
 
     fn handle(
@@ -27,7 +26,7 @@ impl CommandHandler for NoiseCommand {
     ) -> CommandResult {
         let (global_state, positions) = params;
 
-        let (player_pos, player_dimension) = match source {
+        let player_pos = match source {
             CommandSource::Server => return Err("Only players can view terrain noise.".into()),
             CommandSource::Player(entity) => {
                 positions.get(entity).map_err(|_| "sender does not exist")?
@@ -44,7 +43,7 @@ impl CommandHandler for NoiseCommand {
         let chunk = global_state
             .0
             .world
-            .get_chunk(chunk_pos.full(player_dimension.0))
+            .get_chunk(chunk_pos)
             .map_err(|err| format!("Chunk {chunk_pos} is not loaded: {err}"))?;
 
         let x = usize::from(local_x);

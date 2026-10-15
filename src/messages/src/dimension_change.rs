@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::{Entity, Message};
-use temper_components::player::position::Position;
+use bevy_math::DVec3;
 use temper_components::player::rotation::Rotation;
 use temper_core::dimension::Dimension;
 
@@ -8,6 +8,6 @@ pub struct DimensionChange {
     pub entity: Entity,
     pub is_respawn: bool,
     pub new_dimension: Dimension,
-    pub spawn_position: Option<Position>,
+    pub spawn_position: Option<DVec3>,
     pub spawn_rotation: Option<Rotation>,
 }

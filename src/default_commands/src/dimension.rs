@@ -6,8 +6,8 @@ use temper_command_infra::{
     ParseError, ParserKind, SuggestionInput, SuggestionProviderKind,
 };
 use temper_components::entity_identity::Identity;
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::player_marker::PlayerMarker;
+use temper_components::player::position::Position;
 use temper_core::dimension::Dimension;
 use temper_macros::Command;
 use temper_messages::dimension_change::DimensionChange;
@@ -62,7 +62,7 @@ impl CommandArg for DimensionArg {
 impl CommandHandler for DimensionCommand {
     type SystemParam<'w, 's> = (
         Query<'w, 's, (Entity, &'static Identity, Option<&'static PlayerMarker>)>,
-        Query<'w, 's, &'static CurrentDimension>,
+        Query<'w, 's, &'static Position>,
         MessageWriter<'w, DimensionChange>,
     );
 
@@ -71,7 +71,7 @@ impl CommandHandler for DimensionCommand {
         source: CommandSource,
         params: &mut SystemParamItem<'_, '_, Self::SystemParam<'_, '_>>,
     ) -> CommandResult {
-        let (entities, dimensions, change_dim_writer) = params;
+        let (entities, positions, change_dim_writer) = params;
 
         let entity = match &self {
             Self::Query { entity } => entity,
@@ -101,7 +101,7 @@ impl CommandHandler for DimensionCommand {
                         identity.uuid
                     );
 
-                    let dimension = match dimensions.get(entity) {
+                    let position = match positions.get(entity) {
                         Ok(d) => d,
                         Err(_) => {
                             source.send_message(
@@ -119,7 +119,7 @@ impl CommandHandler for DimensionCommand {
                     source.send_message(
                         TextComponentBuilder::new(format!(
                             "Dimension of {} is '{:?}'",
-                            identifier, dimension.0
+                            identifier, position.dimension,
                         ))
                         .build(),
                     );

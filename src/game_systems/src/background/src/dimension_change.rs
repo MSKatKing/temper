@@ -1,7 +1,6 @@
 use bevy_ecs::prelude::{Commands, MessageReader, MessageWriter, Query};
 use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
 use temper_codec::net_types::var_int::VarInt;
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::gamemode::GameModeComponent;
 use temper_components::player::old_position::OldPosition;
 use temper_components::player::position::Position;
@@ -21,7 +20,7 @@ use tracing::warn;
 
 pub fn handle_dimension_change(
     mut messages: MessageReader<DimensionChange>,
-    mut entities: Query<(&Position, &Rotation, &mut CurrentDimension)>,
+    mut entities: Query<(&mut Position, &Rotation)>,
     mut writers: Query<(&StreamWriter, &GameModeComponent, &Inventory, &mut Velocity)>,
     mut chunk_calc_writer: MessageWriter<ChunkCalc>,
     mut teleport_writer: MessageWriter<TeleportEntity>,
@@ -30,7 +29,7 @@ pub fn handle_dimension_change(
     for change_request in messages.read() {
         let entity = change_request.entity;
 
-        let Ok((position, rotation, mut dimension)) = entities.get_mut(entity) else {
+        let Ok((mut position, rotation)) = entities.get_mut(entity) else {
             warn!(
                 "Could not change dimension of {} because it did not have a Position or CurrentDimension component",
                 entity
@@ -38,7 +37,7 @@ pub fn handle_dimension_change(
             continue;
         };
 
-        if dimension.0 == change_request.new_dimension && !change_request.is_respawn {
+        if position.dimension == change_request.new_dimension && !change_request.is_respawn {
             warn!(
                 "Can't change dimension of entity {}; it's already in the requested dimension",
                 entity
@@ -46,11 +45,15 @@ pub fn handle_dimension_change(
             continue;
         }
 
-        *dimension = change_request.new_dimension.into();
+        position.update_dimension(change_request.new_dimension);
 
         let position = match change_request.spawn_position {
             Some(pos) => pos,
-            None => *position,
+            None => **position,
+        };
+        let position = Position {
+            coords: position,
+            dimension: change_request.new_dimension,
         };
 
         let rotation = match change_request.spawn_rotation {
@@ -107,7 +110,7 @@ pub fn handle_dimension_change(
                 TeleportTracker {
                     waiting_for_confirm: false,
                 },
-                OldPosition::new(position.coords.x, position.coords.y, position.coords.z),
+                OldPosition::from(position),
             ));
 
             teleport_writer.write(TeleportEntity {

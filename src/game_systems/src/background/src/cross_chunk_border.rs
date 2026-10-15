@@ -3,7 +3,6 @@ use temper_components::combat::CombatProperties;
 use temper_components::entity_identity::Identity;
 use temper_components::last_synced_position::LastSyncedPosition;
 use temper_components::metadata::EntityMetadata;
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::grounded::OnGround;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
@@ -23,7 +22,6 @@ type MobQuery<'a> = (
     &'a EntityMetadata,
     &'a CombatProperties,
     &'a SpawnProperties,
-    &'a CurrentDimension,
     &'a Position,
     &'a Rotation,
     &'a Velocity,
@@ -51,7 +49,6 @@ pub fn cross_chunk_border(
             metadata,
             combat,
             spawn,
-            dimension,
             position,
             rotation,
             velocity,
@@ -65,7 +62,10 @@ pub fn cross_chunk_border(
             let new_chunk_cords = event.new_chunk;
             // Remove the stale chunk entry before writing a fresh bundle below. We have to do it this way cos holding locks on multiple chunks at once can easily deadlock
             {
-                let chunk = state.0.world.get_chunk(old_chunk_cords.full(dimension.0));
+                let chunk = state
+                    .0
+                    .world
+                    .get_chunk(old_chunk_cords.full(position.dimension));
                 match chunk {
                     Ok(chunk) => {
                         chunk.entities.remove(&identity.uuid);
@@ -95,7 +95,6 @@ pub fn cross_chunk_border(
                     metadata,
                     combat,
                     spawn,
-                    dimension,
                     position,
                     rotation,
                     velocity,
@@ -109,7 +108,7 @@ pub fn cross_chunk_border(
                 let chunk = state
                     .0
                     .world
-                    .get_or_generate_chunk(new_chunk_cords.full(dimension.0))
+                    .get_or_generate_chunk(new_chunk_cords.full(position.dimension))
                     .expect("Failed to get or generate new chunk in ChunkBoundaryCrossed event");
                 chunk
                     .entities

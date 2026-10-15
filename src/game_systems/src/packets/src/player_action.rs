@@ -6,7 +6,7 @@ use temper_messages::player_digging::*;
 use temper_blocks::BlockDispatch;
 use temper_codec::net_types::network_position::NetworkPosition;
 use temper_codec::net_types::var_int::VarInt;
-use temper_components::player::dimension::CurrentDimension;
+use temper_components::player::position::Position;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::BlockPos;
 use temper_macros::block;
@@ -20,8 +20,8 @@ use tracing::{error, warn};
 pub fn handle(
     receiver: Res<PlayerActionReceiver>,
     state: Res<GlobalStateResource>,
-    broadcast_query: Query<(Entity, &StreamWriter, &CurrentDimension)>,
-    player_query: Query<(&PlayerAbilities, &CurrentDimension)>,
+    broadcast_query: Query<(Entity, &StreamWriter, &Position)>,
+    player_query: Query<(&PlayerAbilities, &Position)>,
     (
         mut start_dig_events,
         mut cancel_dig_events,
@@ -39,7 +39,7 @@ pub fn handle(
     // https://minecraft.wiki/w/Minecraft_Wiki:Projects/wiki.vg_merge/Protocol?oldid=2773393#Player_Action
     for (event, trigger_eid) in receiver.0.try_iter() {
         // Get the player's abilities to check their gamemode
-        let Ok((abilities, dim)) = player_query.get(trigger_eid) else {
+        let Ok((abilities, position)) = player_query.get(trigger_eid) else {
             warn!(
                 "PlayerAction: Player {:?} has no PlayerAbilities component",
                 trigger_eid
@@ -48,7 +48,7 @@ pub fn handle(
         };
 
         let pos: BlockPos = event.location.clone().into();
-        let pos = pos.full(dim.0);
+        let pos = pos.full(position.dimension);
         if abilities.creative_mode {
             // --- CREATIVE MODE LOGIC ---
             // Only instabreak (status 0) is relevant in creative.
@@ -75,12 +75,12 @@ pub fn handle(
                 }
 
                 // Broadcast the change
-                for (eid, conn, dim) in &broadcast_query {
+                for (eid, conn, pos) in &broadcast_query {
                     if !state.0.players.is_connected(eid) {
                         continue;
                     }
 
-                    if broken_positions.dimension != dim.0 {
+                    if broken_positions.dimension != pos.dimension {
                         continue;
                     }
 
@@ -140,7 +140,7 @@ pub fn handle(
                         player: trigger_eid,
                         position: event.location,
                         sequence: event.sequence,
-                        dimension: dim.0,
+                        dimension: position.dimension,
                     });
                 }
                 _ => {} // Other statuses (drop item, etc.) are handled by different packets

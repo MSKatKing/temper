@@ -5,7 +5,6 @@ use temper_command_infra::{
     ArgumentSpec, CommandArg, CommandHandler, CommandReader, CommandResult, CommandSource,
     ParseError, SuggestionProviderKind,
 };
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_entities::entity_types::EntityTypeEnum;
@@ -64,15 +63,7 @@ impl CommandArg for EntityTypeArg {
 impl CommandHandler for SummonCommand {
     type SystemParam<'w, 's> = (
         MessageWriter<'w, SpawnMobCommand>,
-        Query<
-            'w,
-            's,
-            (
-                &'static CurrentDimension,
-                &'static Position,
-                &'static Rotation,
-            ),
-        >,
+        Query<'w, 's, (&'static Position, &'static Rotation)>,
     );
 
     fn handle(
@@ -85,31 +76,25 @@ impl CommandHandler for SummonCommand {
             return Err("Only players can use this command.".into());
         };
 
-        let (entity_kind, entity_name, spawn_pos, spawn_dim) = match self {
+        let (entity_kind, entity_name, spawn_pos) = match self {
             SummonCommand::AtSelf { mob_type } => {
-                let (dim, pos, rot) = query
+                let (pos, rot) = query
                     .get(player_entity)
                     .map_err(|_| "player entity does not exist")?;
-                (
-                    mob_type.kind,
-                    mob_type.name,
-                    pos.offset_forward(rot, 2.0),
-                    dim.0,
-                )
+                (mob_type.kind, mob_type.name, pos.offset_forward(rot, 2.0))
             }
             SummonCommand::AtPos { mob_type, pos } => {
-                let (dim, source_pos, _) = query
+                let (source_pos, _) = query
                     .get(player_entity)
                     .map_err(|_| "player entity does not exist")?;
 
-                (mob_type.kind, mob_type.name, pos.resolve(source_pos), dim.0)
+                (mob_type.kind, mob_type.name, pos.resolve(source_pos))
             }
         };
 
         writer.write(SpawnMobCommand {
             entity_type: entity_kind,
             location: spawn_pos,
-            dimension: spawn_dim,
         });
         source.send_message(format!("{} spawned!", entity_name).into());
 

@@ -4,7 +4,6 @@ use temper_components::combat::CombatProperties;
 use temper_components::entity_identity::Identity;
 use temper_components::last_synced_position::LastSyncedPosition;
 use temper_components::metadata::EntityMetadata;
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::grounded::OnGround;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
@@ -26,7 +25,6 @@ pub struct StandardMobParts<'a> {
     pub metadata: &'a EntityMetadata,
     pub combat: &'a CombatProperties,
     pub spawn: &'a SpawnProperties,
-    pub dimension: &'a CurrentDimension,
     pub position: &'a Position,
     pub rotation: &'a Rotation,
     pub velocity: &'a Velocity,
@@ -41,12 +39,11 @@ pub trait MobDefinition {
     const PROFILE: MobProfile;
     const NAME: &'static str;
 
-    fn new(position: Position, dimension: CurrentDimension) -> Self::Bundle;
+    fn new(position: Position) -> Self::Bundle;
     fn clone_bundle(bundle: &Self::Bundle) -> Self::Bundle;
     fn from_standard_parts(parts: StandardMobParts<'_>) -> Self::Bundle;
     fn identity(bundle: &Self::Bundle) -> &Identity;
     fn position(bundle: &Self::Bundle) -> Position;
-    fn dimension(bundle: &Self::Bundle) -> CurrentDimension;
 }
 
 #[macro_export]
@@ -98,7 +95,6 @@ macro_rules! define_mob {
                 metadata: $metadata:path => copy,
                 combat: $combat:path => copy,
                 spawn: $spawn:path => clone,
-                dimension: $dimension:path => copy,
                 position: $position:path => copy,
                 rotation: $rotation:path => copy,
                 velocity: $velocity:path => copy,
@@ -134,7 +130,6 @@ macro_rules! define_mob {
             #[serde(skip_serializing)]
             #[serde(deserialize_with = "de_spawn")]
             pub spawn: $spawn,
-            pub dimension: $dimension,
             pub position: $position,
             pub rotation: $rotation,
             pub velocity: $velocity,
@@ -149,7 +144,7 @@ macro_rules! define_mob {
         }
 
         impl $bundle {
-            pub fn new(position: $position, dimension: $dimension) -> Self {
+            pub fn new(position: $position) -> Self {
                 let metadata = <$metadata>::from_vanilla(&VanillaEntityType::$vanilla);
                 let combat = <$combat>::from_metadata(&metadata);
                 let spawn = <$spawn>::from_metadata(&metadata);
@@ -166,7 +161,6 @@ macro_rules! define_mob {
                     on_ground: <$on_ground>::default(),
                     last_synced_position: <$last_synced_position>::from_position(&position),
                     position,
-                    dimension,
                     $(
                         $runtime_field: <$runtime_ty>::default(),
                     )*
@@ -174,8 +168,8 @@ macro_rules! define_mob {
                 }
             }
 
-            pub fn with_rotation(position: $position, rotation: $rotation, dimension: $dimension) -> Self {
-                let mut bundle = Self::new(position, dimension);
+            pub fn with_rotation(position: $position, rotation: $rotation) -> Self {
+                let mut bundle = Self::new(position);
                 bundle.rotation = rotation;
                 bundle
             }
@@ -195,7 +189,7 @@ macro_rules! define_mob {
                 bundle: $bundle,
             ) -> bevy_ecs::prelude::Entity {
                 let last_chunk =
-                    temper_components::last_chunk_pos::LastChunkPos::new(temper_core::pos::FullChunkPos::new(bundle.position.chunk(), bundle.dimension.0));
+                    temper_components::last_chunk_pos::LastChunkPos::new(bundle.position.chunk());
                 let entity = commands
                     .spawn((
                         bundle,
@@ -240,8 +234,8 @@ macro_rules! define_mob {
                 $crate::mob_definition::MobProfile::$profile;
             const NAME: &'static str = stringify!($kind);
 
-            fn new(position: $position, dimension: $dimension) -> Self::Bundle {
-                Self::Bundle::new(position, dimension)
+            fn new(position: $position) -> Self::Bundle {
+                Self::Bundle::new(position)
             }
 
             fn clone_bundle(bundle: &Self::Bundle) -> Self::Bundle {
@@ -250,7 +244,6 @@ macro_rules! define_mob {
                     metadata: bundle.metadata,
                     combat: bundle.combat,
                     spawn: bundle.spawn.clone(),
-                    dimension: bundle.dimension,
                     position: bundle.position,
                     rotation: bundle.rotation,
                     velocity: bundle.velocity,
@@ -271,7 +264,6 @@ macro_rules! define_mob {
                     metadata: *parts.metadata,
                     combat: *parts.combat,
                     spawn: parts.spawn.clone(),
-                    dimension: *parts.dimension,
                     position: *parts.position,
                     rotation: *parts.rotation,
                     velocity: *parts.velocity,
@@ -290,10 +282,6 @@ macro_rules! define_mob {
 
             fn position(bundle: &Self::Bundle) -> $position {
                 bundle.position
-            }
-
-            fn dimension(bundle: &Self::Bundle) -> $dimension {
-                bundle.dimension
             }
         }
     };
@@ -365,13 +353,12 @@ macro_rules! define_mob_registry {
             pub fn new(
                 kind: $crate::entity_types::EntityTypeEnum,
                 position: temper_components::player::position::Position,
-                dimension: temper_core::dimension::Dimension,
             ) -> Self {
                 match kind {
                     $(
                         <$definition as $crate::mob_definition::MobDefinition>::KIND => {
                             Self::$variant(
-                                <$definition as $crate::mob_definition::MobDefinition>::new(position, dimension.into()),
+                                <$definition as $crate::mob_definition::MobDefinition>::new(position),
                             )
                         }
                     )+
@@ -443,15 +430,6 @@ macro_rules! define_mob_registry {
                     $(
                         Self::$variant(bundle) =>
                             <$definition as $crate::mob_definition::MobDefinition>::position(bundle),
-                    )+
-                }
-            }
-
-            pub fn dimension(&self) -> temper_core::dimension::Dimension {
-                match self {
-                    $(
-                        Self::$variant(bundle) =>
-                            <$definition as $crate::mob_definition::MobDefinition>::dimension(bundle).0,
                     )+
                 }
             }

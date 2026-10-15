@@ -2,7 +2,6 @@ pub mod abilities;
 pub mod bossbar_sender;
 pub mod chunk_receiver;
 pub mod client_information;
-pub mod dimension;
 pub mod entity_tracker;
 pub mod experience;
 pub mod gamemode;

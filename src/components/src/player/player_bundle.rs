@@ -4,7 +4,6 @@ use crate::game_id::GameID;
 use crate::last_synced_position::LastSyncedPosition;
 use crate::player::bossbar_sender::BossbarSender;
 use crate::player::chunk_receiver::ChunkReceiver;
-use crate::player::dimension::CurrentDimension;
 use crate::player::entity_tracker::EntityTracker;
 use crate::player::grounded::OnGround;
 use crate::player::player_marker::PlayerMarker;
@@ -40,7 +39,6 @@ pub struct PlayerBundle {
 
     // Position/World
     pub position: Position,
-    pub dimension: CurrentDimension,
     pub rotation: Rotation,
     /// Not really used since player physics are a pain to do server-side
     pub velocity: Velocity,

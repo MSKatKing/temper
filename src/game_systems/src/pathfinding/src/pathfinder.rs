@@ -1,6 +1,5 @@
 use bevy_ecs::prelude::*;
 use temper_components::pathfinder::Pathfinder;
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::position::Position;
 use temper_core::pos::BlockPos;
 use temper_entities::PhysicalRegistry;
@@ -22,7 +21,6 @@ type PathfinderQuery<'w, 's> = Query<
         &'static mut Pathfinder,
         Option<&'static mut PathfinderSearch>,
         &'static Position,
-        &'static CurrentDimension,
         &'static EntityMetadata,
         Has<Baby>,
     ),
@@ -38,7 +36,7 @@ pub fn tick_pathfinder(
 ) {
     let world = &state.0.world;
 
-    for (entity, mut pf, search, pos, dimension, metadata, is_baby) in &mut query {
+    for (entity, mut pf, search, pos, metadata, is_baby) in &mut query {
         let Some(props) = registry.get(metadata.protocol_id(), is_baby) else {
             continue;
         };
@@ -67,7 +65,7 @@ pub fn tick_pathfinder(
                     search.0 = Some(AStarSearch::new(
                         start,
                         goal,
-                        dimension.0,
+                        pos.dimension,
                         pf.max_nodes,
                         props,
                     ));
@@ -167,8 +165,7 @@ mod tests {
                 .spawn((
                     Pathfinder::default(),
                     PathfinderSearch::default(),
-                    Position::new(x, 65.0, z),
-                    CurrentDimension(Dimension::Overworld),
+                    Position::new(x, 65.0, z, Dimension::Overworld),
                     EntityMetadata::from_vanilla(&VanillaEntityType::PIG),
                 ))
                 .id()
@@ -211,8 +208,7 @@ mod tests {
             .spawn((
                 Pathfinder::new(1, 500),
                 PathfinderSearch::default(),
-                Position::new(0.0, 65.0, 0.0),
-                CurrentDimension(Dimension::Overworld),
+                Position::new(0.0, 65.0, 0.0, Dimension::Overworld),
                 EntityMetadata::from_vanilla(&VanillaEntityType::PIG),
             ))
             .id();
@@ -250,8 +246,7 @@ mod tests {
             .spawn((
                 Pathfinder::new(1, 500),
                 PathfinderSearch::default(),
-                Position::new(0.0, 65.0, 0.0),
-                CurrentDimension(Dimension::Overworld),
+                Position::new(0.0, 65.0, 0.0, Dimension::Overworld),
                 EntityMetadata::from_vanilla(&VanillaEntityType::PIG),
             ))
             .id();

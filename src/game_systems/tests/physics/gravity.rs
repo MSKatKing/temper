@@ -1,7 +1,6 @@
 use bevy_ecs::prelude::*;
 use bevy_math::{DVec3, Vec3A};
 use physics::gravity::handle;
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::grounded::OnGround;
 use temper_components::player::position::Position;
 use temper_components::player::velocity::Velocity;
@@ -37,8 +36,8 @@ fn gravity_application() {
             },
             Position {
                 coords: DVec3::new(0.0, 100.0, 0.0),
+                dimension: Dimension::Overworld,
             },
-            CurrentDimension(Dimension::Overworld),
             HasGravity,
         ))
         .id();
@@ -67,6 +66,7 @@ fn gravity_no_gravity_when_grounded() {
             },
             Position {
                 coords: DVec3::new(0.0, 100.0, 0.0),
+                dimension: Dimension::Overworld,
             },
             HasGravity,
         ))
@@ -96,8 +96,8 @@ fn gravity_water_entity_not_in_water() {
             },
             Position {
                 coords: DVec3::new(0.0, 100.0, 0.0),
+                dimension: Dimension::Overworld,
             },
-            CurrentDimension(Dimension::Overworld),
             HasGravity,
             HasWaterDrag,
         ))
@@ -127,6 +127,7 @@ fn gravity_water_entity_no_gravity_when_grounded() {
             },
             Position {
                 coords: DVec3::new(0.0, 100.0, 0.0),
+                dimension: Dimension::Overworld,
             },
             HasGravity,
             HasWaterDrag,
@@ -161,6 +162,7 @@ fn gravity_water_entity_in_water_no_gravity() {
             },
             Position {
                 coords: DVec3::new(0.0, 65.0, 0.0),
+                dimension: Dimension::Overworld,
             },
             HasGravity,
             HasWaterDrag,

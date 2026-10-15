@@ -22,7 +22,6 @@ use temper_codec::net_types::network_position::NetworkPosition;
 use temper_codec::net_types::var_int::VarInt;
 use temper_components::InteractionCooldown;
 use temper_components::player::client_information::ClientInformationComponent;
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::position::Position;
 use temper_core::pos::BlockPos;
 use temper_messages::BlockInteractMessage;
@@ -54,18 +53,12 @@ pub fn handle_block_interact(
     mut events: MessageReader<BlockInteractMessage>,
     state: Res<GlobalStateResource>,
     query: Query<InteractQuery>,
-    dimension: Query<&CurrentDimension>,
     mut cooldowns: Local<Option<Cache<BlockPos, Instant>>>,
 ) {
     let cooldown_duration = Duration::from_millis(InteractionCooldown::default().cooldown_ms);
 
     for event in events.read() {
         let pos = event.position;
-        let dimension = dimension
-            .get(event.player)
-            .expect("players should have a CurrentDimension");
-
-        let pos = pos.full(dimension.0);
 
         // Ignore rapid repeated interactions on the same block
         if let Some(cooldowns_map) = cooldowns.as_ref()

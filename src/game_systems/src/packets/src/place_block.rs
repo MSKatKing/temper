@@ -8,7 +8,6 @@ use temper_messages::{BlockEntityPlaced, BlockInteractMessage};
 
 use bevy_math::{DVec3, IVec3, Vec3A};
 use temper_blocks::BlockDispatch;
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::rotation::Rotation;
 use temper_core::block_state_id::{BlockStateId, ITEM_TO_BLOCK_MAPPING};
 use temper_core::mq;
@@ -38,7 +37,6 @@ pub fn handle(
         &StreamWriter,
         &Inventory,
         &Hotbar,
-        &CurrentDimension,
         &Position,
         &Rotation,
         &SneakState,
@@ -49,7 +47,7 @@ pub fn handle(
     mut block_entity_placed: MessageWriter<BlockEntityPlaced>,
 ) {
     'ev_loop: for (event, eid) in receiver.0.try_iter() {
-        let Ok((entity, conn, inventory, hotbar, dim, _pos, rot, sneak)) = query.get(eid) else {
+        let Ok((entity, conn, inventory, hotbar, pos, rot, sneak)) = query.get(eid) else {
             debug!("Could not get connection for entity {:?}", eid);
             continue;
         };
@@ -61,7 +59,7 @@ pub fn handle(
         // dispatch an interaction and skip block placement entirely.
         {
             let clicked_pos: BlockPos = event.position.clone().into();
-            let clicked_pos = clicked_pos.full(dim.0);
+            let clicked_pos = clicked_pos.full(pos.dimension);
 
             let chunk = state
                 .0
@@ -95,7 +93,7 @@ pub fn handle(
                         continue 'ev_loop;
                     };
                     let block_pos: BlockPos = event.position.into();
-                    let block_pos = block_pos.full(dim.0);
+                    let block_pos = block_pos.full(pos.dimension);
                     if block_pos.pos.y > 319 {
                         mq::queue(
                             TextComponentBuilder::new(
@@ -180,7 +178,7 @@ pub fn handle(
                         block_clicked: *block_pos,
                         block_pos: *offset_pos,
                         level: &state.0.world,
-                        dimension: dim.0,
+                        dimension: pos.dimension,
                         player_rotation: rot,
                         default_placement_state: block_state,
                     };
@@ -258,8 +256,8 @@ pub fn handle(
 
                         let (block_chunk_x, block_chunk_z) = (block_chunk.x(), block_chunk.z());
                         let render_distance = state.0.config.chunk_render_distance as i32;
-                        for (_, conn, _, _, dim, pos, _, _) in query.iter() {
-                            if dim.0 != placed_blocks.dimension {
+                        for (_, conn, _, _, pos, _, _) in query.iter() {
+                            if pos.dimension != placed_blocks.dimension {
                                 continue; // we don't need to send block updates to players in other dimensions
                             }
 

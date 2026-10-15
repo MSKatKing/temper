@@ -1,7 +1,6 @@
 use bevy_ecs::prelude::{MessageWriter, Query, Res};
 use temper_codec::net_types::network_position::NetworkPosition;
 use temper_components::player::chunk_receiver::ChunkReceiver;
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::gamemode::GameModeComponent;
 use temper_components::player::position::Position;
 use temper_core::dimension::Dimension;
@@ -20,7 +19,6 @@ pub fn handle_client_command(
         &StreamWriter,
         &GameModeComponent,
         &Position,
-        &CurrentDimension,
         &mut ChunkReceiver,
     )>,
     mut dim_change_writer: MessageWriter<DimensionChange>,
@@ -29,7 +27,7 @@ pub fn handle_client_command(
     for (message, sender) in events.0.try_iter() {
         match message.action {
             ClientCommandAction::PerformRespawn => {
-                let (conn, gamemode, pos, dim, _chunk_recv) = query
+                let (conn, gamemode, pos, _chunk_recv) = query
                     .get_mut(sender)
                     .expect("No StreamWriter or GameModeComponent for sender");
 
@@ -43,7 +41,7 @@ pub fn handle_client_command(
                     is_flat: false,
                     data_kept: 0,
                     has_death_location: true,
-                    death_dimension_name: Some(dim.0.as_identifier()),
+                    death_dimension_name: Some(pos.dimension.as_identifier()),
                     death_location: Some(NetworkPosition::from(*pos).as_u64()),
                     portal_cooldown: Default::default(),
                     sea_level: Default::default(),

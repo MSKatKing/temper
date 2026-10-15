@@ -1,7 +1,6 @@
 use bevy_ecs::prelude::{Commands, Entity, MessageWriter, Query, Res};
 use temper_components::entity_identity::Identity;
 use temper_components::game_id::GameID;
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::offline_player_data::OfflinePlayerData;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
@@ -28,7 +27,7 @@ type PlayerCacheQuery<'a> = (
     &'a Identity,
     &'a PlayerAbilities,
     &'a GameModeComponent,
-    (&'a CurrentDimension, &'a Position),
+    &'a Position,
     &'a Rotation,
     &'a Inventory,
     &'a Health,
@@ -61,7 +60,7 @@ pub fn connection_killer(
             player_identity,
             abilities,
             gamemode,
-            (dimension, pos),
+            pos,
             rot,
             inv,
             health,
@@ -107,7 +106,7 @@ pub fn connection_killer(
             let data_to_cache = OfflinePlayerData {
                 abilities: *abilities,
                 gamemode: gamemode.0,
-                dimension: dimension.0,
+                dimension: pos.dimension,
                 position: (*pos).into(),
                 rotation: *rot,
                 inventory: inv.clone(),

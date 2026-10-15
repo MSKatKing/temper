@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::Bundle;
 use temper_components::interaction::{Door, InteractableBlock, InteractionCooldown, Toggleable};
 use temper_components::player::position::Position;
-use temper_core::pos::BlockPos;
+use temper_core::pos::FullBlockPos;
 
 /// Bundle to spawn a door block entity in Bevy ECS.
 #[derive(Bundle)]
@@ -14,12 +14,13 @@ pub struct DoorBlockBundle {
 }
 
 impl DoorBlockBundle {
-    pub fn new(pos: BlockPos) -> Self {
+    pub fn new(pos: FullBlockPos) -> Self {
         Self {
             position: Position::new(
                 f64::from(pos.pos.x),
                 f64::from(pos.pos.y),
                 f64::from(pos.pos.z),
+                pos.dimension(),
             ),
             interactable: InteractableBlock,
             toggleable: Toggleable { is_active: false },
@@ -28,12 +29,13 @@ impl DoorBlockBundle {
         }
     }
 
-    pub fn new_open(pos: BlockPos) -> Self {
+    pub fn new_open(pos: FullBlockPos) -> Self {
         Self {
             position: Position::new(
                 f64::from(pos.pos.x),
                 f64::from(pos.pos.y),
                 f64::from(pos.pos.z),
+                pos.dimension(),
             ),
             interactable: InteractableBlock,
             toggleable: Toggleable { is_active: true },

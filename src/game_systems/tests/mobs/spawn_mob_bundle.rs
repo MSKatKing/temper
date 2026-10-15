@@ -12,7 +12,6 @@ use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_components::player::velocity::Velocity;
 use temper_core::dimension::Dimension;
-use temper_core::pos::FullChunkPos;
 use temper_entities::MobBundle;
 use temper_entities::entity_types::EntityTypeEnum;
 use temper_entities::markers::entity_types::{Axolotl, Bat, Cow, Fox, Pig, Warden};
@@ -37,86 +36,104 @@ struct SpawnedMob {
 
 fn emit_spawn_bundles(mut writer: MessageWriter<SpawnMobBundle>) {
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Pig(PigBundle::new(
-            Position::new(5.5, 64.0, 7.5),
-            Dimension::Overworld.into(),
-        )),
+        bundle: MobBundle::Pig(PigBundle::new(Position::new(
+            5.5,
+            64.0,
+            7.5,
+            Dimension::Overworld,
+        ))),
         persist: true,
     });
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Fox(FoxBundle::new(
-            Position::new(8.5, 64.0, 9.5),
-            Dimension::Overworld.into(),
-        )),
+        bundle: MobBundle::Fox(FoxBundle::new(Position::new(
+            8.5,
+            64.0,
+            9.5,
+            Dimension::Overworld,
+        ))),
         persist: true,
     });
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Cow(CowBundle::new(
-            Position::new(11.5, 64.0, 9.5),
-            Dimension::Overworld.into(),
-        )),
+        bundle: MobBundle::Cow(CowBundle::new(Position::new(
+            11.5,
+            64.0,
+            9.5,
+            Dimension::Overworld,
+        ))),
         persist: true,
     });
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Bat(BatBundle::new(
-            Position::new(14.5, 70.0, 9.5),
-            Dimension::Overworld.into(),
-        )),
+        bundle: MobBundle::Bat(BatBundle::new(Position::new(
+            14.5,
+            70.0,
+            9.5,
+            Dimension::Overworld,
+        ))),
         persist: true,
     });
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Axolotl(AxolotlBundle::new(
-            Position::new(17.5, 62.0, 9.5),
-            Dimension::Overworld.into(),
-        )),
+        bundle: MobBundle::Axolotl(AxolotlBundle::new(Position::new(
+            17.5,
+            62.0,
+            9.5,
+            Dimension::Overworld,
+        ))),
         persist: true,
     });
 }
 
 fn emit_unpersisted_cow(mut writer: MessageWriter<SpawnMobBundle>) {
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Cow(CowBundle::new(
-            Position::new(21.5, 64.0, 9.5),
-            Dimension::Overworld.into(),
-        )),
+        bundle: MobBundle::Cow(CowBundle::new(Position::new(
+            21.5,
+            64.0,
+            9.5,
+            Dimension::Overworld,
+        ))),
         persist: false,
     });
 }
 
 fn emit_persisted_cow(mut writer: MessageWriter<SpawnMobBundle>) {
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Cow(CowBundle::new(
-            Position::new(22.5, 64.0, 9.5),
-            Dimension::Overworld.into(),
-        )),
+        bundle: MobBundle::Cow(CowBundle::new(Position::new(
+            22.5,
+            64.0,
+            9.5,
+            Dimension::Overworld,
+        ))),
         persist: true,
     });
 }
 
 fn emit_pig(mut writer: MessageWriter<SpawnMobBundle>) {
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Pig(PigBundle::new(
-            Position::new(24.5, 64.0, 9.5),
-            Dimension::Overworld.into(),
-        )),
+        bundle: MobBundle::Pig(PigBundle::new(Position::new(
+            24.5,
+            64.0,
+            9.5,
+            Dimension::Overworld,
+        ))),
         persist: false,
     });
 }
 
 fn emit_warden(mut writer: MessageWriter<SpawnMobBundle>) {
     writer.write(SpawnMobBundle {
-        bundle: MobBundle::Warden(WardenBundle::new(
-            Position::new(27.5, 64.0, 9.5),
-            Dimension::Overworld.into(),
-        )),
+        bundle: MobBundle::Warden(WardenBundle::new(Position::new(
+            27.5,
+            64.0,
+            9.5,
+            Dimension::Overworld,
+        ))),
         persist: false,
     });
 }
 
 fn emit_all_mob_bundles(mut writer: MessageWriter<SpawnMobBundle>) {
     for (index, kind) in MobBundle::all_kinds().iter().copied().enumerate() {
-        let position = Position::new(index as f64 + 0.5, 80.0, 32.5);
-        let bundle = MobBundle::new(kind, position, Dimension::Overworld);
+        let position = Position::new(index as f64 + 0.5, 80.0, 32.5, Dimension::Overworld);
+        let bundle = MobBundle::new(kind, position);
         let data = bundle.serialize_for_chunk();
         let decoded = MobBundle::deserialize(kind, &data).expect("bundle should deserialize");
 
@@ -196,10 +213,7 @@ fn assert_spawn_profile(
     assert_eq!(mob.gravity, gravity);
     assert_eq!(mob.collisions, collisions);
     assert_eq!(mob.water_drag, water_drag);
-    assert_eq!(
-        mob.last_chunk.0,
-        FullChunkPos::new(mob.position.chunk(), Dimension::Overworld)
-    );
+    assert_eq!(mob.last_chunk.0, mob.position.chunk());
 }
 
 fn assert_stored(state: &GlobalStateResource, mob: &SpawnedMob, kind: EntityTypeEnum, label: &str) {
@@ -218,58 +232,70 @@ fn assert_stored(state: &GlobalStateResource, mob: &SpawnedMob, kind: EntityType
 #[test]
 fn mob_registry_round_trips_supported_bundle_metadata() {
     assert_registry_round_trip(
-        MobBundle::Pig(PigBundle::new(
-            Position::new(1.5, 64.0, 2.5),
-            Dimension::Overworld.into(),
-        )),
+        MobBundle::Pig(PigBundle::new(Position::new(
+            1.5,
+            64.0,
+            2.5,
+            Dimension::Overworld,
+        ))),
         EntityTypeEnum::Pig,
         MobProfile::Ground,
-        Position::new(1.5, 64.0, 2.5),
+        Position::new(1.5, 64.0, 2.5, Dimension::Overworld),
     );
     assert_registry_round_trip(
-        MobBundle::Fox(FoxBundle::new(
-            Position::new(3.5, 64.0, 4.5),
-            Dimension::Overworld.into(),
-        )),
+        MobBundle::Fox(FoxBundle::new(Position::new(
+            3.5,
+            64.0,
+            4.5,
+            Dimension::Overworld,
+        ))),
         EntityTypeEnum::Fox,
         MobProfile::Ground,
-        Position::new(3.5, 64.0, 4.5),
+        Position::new(3.5, 64.0, 4.5, Dimension::Overworld),
     );
     assert_registry_round_trip(
-        MobBundle::Cow(CowBundle::new(
-            Position::new(5.5, 64.0, 6.5),
-            Dimension::Overworld.into(),
-        )),
+        MobBundle::Cow(CowBundle::new(Position::new(
+            5.5,
+            64.0,
+            6.5,
+            Dimension::Overworld,
+        ))),
         EntityTypeEnum::Cow,
         MobProfile::Ground,
-        Position::new(5.5, 64.0, 6.5),
+        Position::new(5.5, 64.0, 6.5, Dimension::Overworld),
     );
     assert_registry_round_trip(
-        MobBundle::Bat(BatBundle::new(
-            Position::new(7.5, 70.0, 8.5),
-            Dimension::Overworld.into(),
-        )),
+        MobBundle::Bat(BatBundle::new(Position::new(
+            7.5,
+            70.0,
+            8.5,
+            Dimension::Overworld,
+        ))),
         EntityTypeEnum::Bat,
         MobProfile::CollisionOnly,
-        Position::new(7.5, 70.0, 8.5),
+        Position::new(7.5, 70.0, 8.5, Dimension::Overworld),
     );
     assert_registry_round_trip(
-        MobBundle::Axolotl(AxolotlBundle::new(
-            Position::new(9.5, 62.0, 10.5),
-            Dimension::Overworld.into(),
-        )),
+        MobBundle::Axolotl(AxolotlBundle::new(Position::new(
+            9.5,
+            62.0,
+            10.5,
+            Dimension::Overworld,
+        ))),
         EntityTypeEnum::Axolotl,
         MobProfile::GravityNoDrag,
-        Position::new(9.5, 62.0, 10.5),
+        Position::new(9.5, 62.0, 10.5, Dimension::Overworld),
     );
     assert_registry_round_trip(
-        MobBundle::Warden(WardenBundle::new(
-            Position::new(11.5, 64.0, 12.5),
-            Dimension::Overworld.into(),
-        )),
+        MobBundle::Warden(WardenBundle::new(Position::new(
+            11.5,
+            64.0,
+            12.5,
+            Dimension::Overworld,
+        ))),
         EntityTypeEnum::Warden,
         MobProfile::Ground,
-        Position::new(11.5, 64.0, 12.5),
+        Position::new(11.5, 64.0, 12.5, Dimension::Overworld),
     );
 }
 
@@ -306,14 +332,14 @@ fn every_registered_mob_kind_constructs_round_trips_and_spawns() {
     );
 
     for (index, kind) in MobBundle::all_kinds().iter().copied().enumerate() {
-        let position = Position::new(index as f64 + 0.5, 80.0, 32.5);
+        let position = Position::new(index as f64 + 0.5, 80.0, 32.5, Dimension::Overworld);
         let Some((spawned_position, gravity, collisions, drag)) = spawned_mobs.get(&kind) else {
             panic!("missing spawned mob for {kind:?}");
         };
 
         assert_eq!(spawned_position.xyz(), position.xyz());
 
-        match MobBundle::new(kind, position, Dimension::Overworld).profile() {
+        match MobBundle::new(kind, position).profile() {
             MobProfile::Ground => {
                 assert!(*gravity, "{kind:?} should have gravity");
                 assert!(*collisions, "{kind:?} should have collisions");
@@ -500,8 +526,8 @@ fn pig_ai_requests_path_toward_nearest_player() {
     let (state, _temp_dir) = create_test_state();
     world.insert_resource(state);
 
-    let pig_position = Position::new(24.5, 64.0, 9.5);
-    let player_position = Position::new(30.5, 64.0, 9.5);
+    let pig_position = Position::new(24.5, 64.0, 9.5, Dimension::Overworld);
+    let player_position = Position::new(30.5, 64.0, 9.5, Dimension::Overworld);
 
     let mut spawn_schedule = Schedule::default();
     spawn_schedule.add_systems((emit_pig, handle_spawn_mob_bundle).chain());

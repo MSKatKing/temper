@@ -6,7 +6,6 @@ use std::sync::atomic::Ordering;
 use temper_codec::encode::NetEncodeOpts;
 use temper_components::player::chunk_receiver::{ChunkReceiver, PreparedChunk, ReadyChunk};
 use temper_components::player::client_information::ClientInformationComponent;
-use temper_components::player::dimension::CurrentDimension;
 use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::position::Position;
 use temper_core::pos::{ChunkPos, FullChunkPos};
@@ -27,7 +26,6 @@ pub fn handle(
         Entity,
         &StreamWriter,
         &mut ChunkReceiver,
-        &CurrentDimension,
         &Position,
         &ClientInformationComponent,
         &EntityTracker,
@@ -45,9 +43,7 @@ pub fn handle(
     // costs memory instead of pool depth.
     let max_in_flight = state.0.thread_pool.core_count() * 6;
 
-    for (eid, conn, mut chunk_receiver, dimension, pos, client_info, entity_tracker) in
-        query.iter_mut()
-    {
+    for (eid, conn, mut chunk_receiver, pos, client_info, entity_tracker) in query.iter_mut() {
         if !state.0.players.is_connected(eid) {
             continue;
         }
@@ -56,15 +52,14 @@ pub fn handle(
 
         // Both phases need the same "is this chunk still worth working on"
         // test, so compute it once per player.
-        let player_chunk = ChunkPos::from(pos.coords);
-        let player_dimension = dimension.0;
+        let player_chunk = pos.chunk();
         let view_distance = max(
             u32::from(client_info.view_distance),
             state.0.config.chunk_render_distance,
         );
         let max_distance_sq = (view_distance * view_distance) as i32;
         let in_view = |chunk_pos: FullChunkPos| {
-            if chunk_pos.dimension() != player_dimension {
+            if chunk_pos.dimension() != player_chunk.dimension() {
                 return false;
             }
 
