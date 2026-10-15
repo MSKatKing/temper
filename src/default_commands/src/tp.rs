@@ -7,6 +7,7 @@ use temper_components::entity_identity::Identity;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
+use temper_core::dimension::Dimension;
 use temper_macros::Command;
 use temper_messages::teleport_entity::TeleportEntity;
 
@@ -80,12 +81,17 @@ impl CommandHandler for TpCommand {
                 );
             }
             TpCommand::EntityToPos { target, location } => {
-                let base_position = if let Player(entity) = source
-                    && let Ok((_, position)) = positions.get(entity)
-                {
-                    *position
-                } else {
-                    Position::new(0.0, 0.0, 0.0)
+                let base_position = match source {
+                    Player(entity) => {
+                        let (_, position) = positions
+                            .get(entity)
+                            .expect("players should have position and rotation");
+                        *position
+                    }
+                    Server => {
+                        // server acts in the overworld by default
+                        Position::new(0.0, 0.0, 0.0, Dimension::Overworld)
+                    }
                 };
                 let destination = location.resolve(&base_position);
                 let targets = target.resolve(identities.iter());

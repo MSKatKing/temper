@@ -4,6 +4,7 @@ use bevy_math::Vec3A;
 use physics::velocity::handle;
 use temper_components::player::position::Position;
 use temper_components::player::velocity::Velocity;
+use temper_core::dimension::Dimension;
 use temper_messages::entity_update::SendEntityUpdate;
 
 #[test]
@@ -16,6 +17,7 @@ fn velocity_updates_position() {
             },
             Position {
                 coords: Vec3A::ZERO.as_dvec3(),
+                dimension: Dimension::Overworld,
             },
         ))
         .id();
@@ -38,6 +40,7 @@ fn velocity_no_update_when_unchanged() {
             Velocity { vec: Vec3A::ZERO },
             Position {
                 coords: Vec3A::ZERO.as_dvec3(),
+                dimension: Dimension::Overworld,
             },
         ))
         .id();
@@ -74,6 +77,7 @@ fn velocity_multiple_steps() {
             },
             Position {
                 coords: Vec3A::ZERO.as_dvec3(),
+                dimension: Dimension::Overworld,
             },
         ))
         .id();
@@ -99,6 +103,7 @@ fn velocity_multiple_entities() {
             },
             Position {
                 coords: Vec3A::ZERO.as_dvec3(),
+                dimension: Dimension::Overworld,
             },
         ))
         .id();
@@ -109,6 +114,7 @@ fn velocity_multiple_entities() {
             },
             Position {
                 coords: Vec3A::ZERO.as_dvec3(),
+                dimension: Dimension::Overworld,
             },
         ))
         .id();

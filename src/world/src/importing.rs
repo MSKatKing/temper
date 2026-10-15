@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use temper_anvil::load_anvil_file;
 use temper_core::dimension::Dimension;
-use temper_core::pos::ChunkPos;
+use temper_core::pos::{ChunkPos, FullChunkPos};
 use temper_threadpool::ThreadPool;
 use temper_world_format::errors::WorldError;
 use temper_world_format::vanilla_chunk_format::VanillaChunk;
@@ -109,8 +109,10 @@ impl World {
                             };
                             move || {
                                 let res = self_clone.insert_chunk(
-                                    ChunkPos::new(vanilla_chunk.x_pos, vanilla_chunk.z_pos),
-                                    dim,
+                                    FullChunkPos::new(
+                                        ChunkPos::new(vanilla_chunk.x_pos, vanilla_chunk.z_pos),
+                                        dim,
+                                    ),
                                     Chunk::try_from(&vanilla_chunk)?,
                                 );
                                 progress.inc(1);

@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::Message;
-use temper_core::pos::ChunkPos;
+use temper_core::pos::FullChunkPos;
 
 #[derive(Message)]
 pub struct WorldChange {
-    pub chunk: Option<ChunkPos>,
+    pub chunk: Option<FullChunkPos>,
 }

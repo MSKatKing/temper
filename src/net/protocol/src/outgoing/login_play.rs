@@ -2,6 +2,7 @@ use temper_codec::net_types::length_prefixed_vec::LengthPrefixedVec;
 use temper_codec::net_types::network_position::NetworkPosition;
 use temper_codec::net_types::var_int::VarInt;
 use temper_config::ServerConfig;
+use temper_core::dimension::Dimension;
 use temper_macros::{NetEncode, packet};
 
 #[derive(NetEncode)]
@@ -33,19 +34,26 @@ pub struct LoginPlayPacket<'a> {
 }
 
 impl LoginPlayPacket<'_> {
-    pub fn new(conn_id: i32, gamemode: u8, config: &ServerConfig) -> Self {
+    pub fn new(conn_id: i32, gamemode: u8, dimension: Dimension, config: &ServerConfig) -> Self {
         Self {
             entity_id: conn_id,
             is_hardcore: false,
-            dimension_names: LengthPrefixedVec::new(["minecraft:overworld"].into()),
+            dimension_names: LengthPrefixedVec::new(
+                [
+                    "minecraft:overworld",
+                    "minecraft:the_nether",
+                    "minecraft:the_end",
+                ]
+                .into(),
+            ),
             max_players: VarInt::from(config.max_players as i32),
             view_distance: VarInt::from(config.chunk_render_distance as i32),
             simulation_distance: VarInt::from(config.chunk_render_distance as i32),
             reduced_debug_info: false,
             enable_respawn_screen: true,
             do_limited_crafting: false,
-            dimension_type: VarInt::new(0),
-            dimension_name: "minecraft:overworld",
+            dimension_type: dimension.as_var_int(),
+            dimension_name: dimension.as_identifier(),
             seed_hash: 0,
             gamemode,
             previous_gamemode: -1,

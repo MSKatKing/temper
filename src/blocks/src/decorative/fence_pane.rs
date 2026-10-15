@@ -6,8 +6,7 @@ use temper_block_data::{PlacedBlocks, PlacementContext};
 use temper_blocks_generated::{
     FenceAndPaneBlock, FenceAndPaneBlockType, LiquidBlock, LiquidBlockType,
 };
-use temper_core::dimension::Dimension;
-use temper_core::pos::BlockPos;
+use temper_core::pos::FullBlockPos;
 use temper_world::World;
 
 // North (-Z), East (+X), South (+Z), West (-X)
@@ -17,7 +16,7 @@ impl BlockBehavior for FenceAndPaneBlock {
     fn get_placement_state(&mut self, context: PlacementContext) -> PlacedBlocks {
         self.waterlogged = context
             .level
-            .block_is_and::<LiquidBlock>(context.block_pos, |liquid| {
+            .block_is_and::<LiquidBlock>(context.block_pos.full(context.dimension), |liquid| {
                 matches!(liquid.block_type, LiquidBlockType::Water)
             });
 
@@ -29,11 +28,8 @@ impl BlockBehavior for FenceAndPaneBlock {
             &mut self.south,
             &mut self.west,
         ]) {
-            let pos = context.block_pos + IVec3::new(*dx, 0, *dz);
-            let block = context
-                .level
-                .get_block(pos, context.dimension)
-                .unwrap_or_default();
+            let pos = context.block_pos.full(context.dimension) + IVec3::new(*dx, 0, *dz);
+            let block = context.level.get_block(pos).unwrap_or_default();
 
             *flag = !context
                 .level
@@ -46,11 +42,12 @@ impl BlockBehavior for FenceAndPaneBlock {
         PlacedBlocks {
             take_item: true,
             blocks: HashMap::with_capacity(0),
+            dimension: context.dimension,
             place_original: true,
         }
     }
 
-    fn update(&mut self, world: &World, pos: BlockPos) -> bool {
+    fn update(&mut self, world: &World, pos: FullBlockPos) -> bool {
         let block_is_pane = is_pane(&self.block_type);
 
         let mut changed = false;
@@ -62,9 +59,7 @@ impl BlockBehavior for FenceAndPaneBlock {
             &mut self.west,
         ]) {
             let pos = pos + IVec3::new(*dx, 0, *dz);
-            let block = world
-                .get_block(pos, Dimension::Overworld)
-                .unwrap_or_default();
+            let block = world.get_block(pos).unwrap_or_default();
 
             let original_flag = *flag;
             *flag = !world.block_is_and::<FenceAndPaneBlock>(pos, |block| {

@@ -24,7 +24,7 @@ impl BlockBehavior for HangingSignBlock {
 fn place_hanging_sign(context: PlacementContext, ty: HangingSignBlockType) -> PlacedBlocks {
     let existing = context
         .level
-        .get_chunk(context.block_pos.chunk(), context.dimension)
+        .get_chunk(context.block_pos.full_chunk(context.dimension))
         .map(|c| c.get_block(context.block_pos.chunk_block_pos()))
         .unwrap_or(BlockStateId::new(0));
     let waterlogged = match_block!("water", existing);
@@ -45,6 +45,7 @@ fn place_hanging_sign(context: PlacementContext, ty: HangingSignBlockType) -> Pl
         BlockFace::Top => {
             // Hanging signs can't stand on the ground.
             return PlacedBlocks {
+                dimension: context.dimension,
                 blocks: HashMap::with_capacity(0),
                 take_item: false,
                 place_original: false,
@@ -110,6 +111,7 @@ fn place_hanging_sign(context: PlacementContext, ty: HangingSignBlockType) -> Pl
     };
 
     PlacedBlocks {
+        dimension: context.dimension,
         blocks: [(context.block_pos, BlockStateId::new(block))]
             .into_iter()
             .collect::<HashMap<_, _>>(),

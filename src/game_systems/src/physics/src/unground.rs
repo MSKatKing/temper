@@ -78,7 +78,7 @@ pub fn handle(
                             continue;
                         }
 
-                        let check_pos = BlockPos::of(x, feet_y, z);
+                        let check_pos = BlockPos::of(x, feet_y, z).full(pos.dimension);
                         if is_solid_block(&state.0, check_pos) {
                             has_support = true;
                             break;

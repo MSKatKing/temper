@@ -17,6 +17,7 @@ impl BlockBehavior for PillarBlock {
             take_item: true,
             blocks: HashMap::with_capacity(0),
             place_original: true,
+            dimension: context.dimension,
         }
     }
 }

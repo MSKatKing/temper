@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::client_information::ClientInformationComponent;
 use temper_components::player::position::Position;
-use temper_core::pos::ChunkPos;
+use temper_core::pos::{ChunkPos, FullChunkPos};
 use temper_messages::chunk_calc::ChunkCalc;
 use temper_state::GlobalStateResource;
 use tracing::warn;
@@ -31,7 +31,7 @@ pub fn handle(
         let mut needed_set = HashSet::new();
         for x in player_chunk.x() - radius..=player_chunk.x() + radius {
             for z in player_chunk.z() - radius..=player_chunk.z() + radius {
-                needed_set.insert(ChunkPos::new(x, z));
+                needed_set.insert(FullChunkPos::of(x, z, position.dimension));
             }
         }
 

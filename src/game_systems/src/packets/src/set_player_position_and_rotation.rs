@@ -29,7 +29,7 @@ pub fn handle(
                 // Ignore position updates while waiting for teleport confirmation
                 continue;
             }
-            let new_pos = Position::new(event.x, event.feet_y, event.z);
+            let new_pos = Position::new(event.x, event.feet_y, event.z, pos.dimension);
             let new_rot = Rotation::new(event.yaw, event.pitch);
             let on_ground = event.flags & 0x01 != 0;
 

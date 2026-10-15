@@ -5,7 +5,6 @@ use temper_components::entity_identity::Identity;
 use temper_components::game_id::GameID;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
-use temper_core::dimension::Dimension::Overworld;
 use temper_entities::MobKind;
 use temper_messages::DespawnMob;
 use temper_messages::kill_entity::KillEntity;
@@ -72,7 +71,7 @@ pub fn kill_entity_system(
                     bossbar_res.remove_bar(owner.id());
                 }
 
-                let Ok(chunk) = state.0.world.get_chunk(position.chunk(), Overworld) else {
+                let Ok(chunk) = state.0.world.get_chunk(position.chunk()) else {
                     continue;
                 };
                 if chunk.entities.remove(&identity.uuid).is_some() {

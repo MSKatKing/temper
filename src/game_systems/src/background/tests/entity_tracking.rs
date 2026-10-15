@@ -8,6 +8,7 @@ use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
+use temper_core::dimension::Dimension;
 use temper_encryption::write::EncryptedWriter;
 use temper_net_runtime::connection::StreamWriter;
 use temper_state::create_test_state;
@@ -52,7 +53,7 @@ async fn visible_mobs_without_stream_writers_stay_tracked() {
     let (player_writer, _client_stream) = test_stream_writer().await;
 
     let mut world = World::new();
-    let mob_position = Position::new(8.0, 64.0, 8.0);
+    let mob_position = Position::new(8.0, 64.0, 8.0, Dimension::Overworld);
     let mob_entity = world
         .spawn((Identity::new(None), GameID::new(), mob_position))
         .id();
@@ -65,7 +66,7 @@ async fn visible_mobs_without_stream_writers_stay_tracked() {
 
     world.spawn((
         Identity::new(Some("player".to_string())),
-        Position::new(0.0, 64.0, 0.0),
+        Position::new(0.0, 64.0, 0.0, mob_position.dimension),
         PlayerMarker,
         chunk_receiver,
         tracker,

@@ -20,8 +20,8 @@ pub(crate) fn bench_edits(c: &mut Criterion) {
     .expect("Failed to create world");
     let chunk = world
         .get_or_generate_chunk(
-            temper_core::pos::ChunkPos::new(0, 0),
-            temper_core::dimension::Dimension::Overworld,
+            temper_core::pos::ChunkPos::new(0, 0)
+                .full(temper_core::dimension::Dimension::Overworld),
         )
         .expect("Failed to get or generate chunk")
         .clone();

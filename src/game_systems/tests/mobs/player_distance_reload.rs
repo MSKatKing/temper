@@ -35,7 +35,7 @@ fn player_can_unload_entities_by_moving_away_and_reload_them_after_returning() {
     let (state, _temp_dir) = create_test_state();
     world.insert_resource(state.clone());
 
-    let fox_position = Position::new(8.0, 64.0, 8.0);
+    let fox_position = Position::new(8.0, 64.0, 8.0, Dimension::Overworld);
     let fox_chunk = fox_position.chunk();
     let fox_bundle = FoxBundle::new(fox_position);
     let expected_identity = fox_bundle.identity.clone();
@@ -46,7 +46,7 @@ fn player_can_unload_entities_by_moving_away_and_reload_them_after_returning() {
 
     let player_entity = world
         .spawn((
-            Position::new(8.0, 64.0, 8.0),
+            Position::new(8.0, 64.0, 8.0, Dimension::Overworld),
             receiver,
             ClientInformationComponent {
                 view_distance: 2,
@@ -70,7 +70,7 @@ fn player_can_unload_entities_by_moving_away_and_reload_them_after_returning() {
         let chunk = state
             .0
             .world
-            .get_or_generate_chunk(fox_chunk, Dimension::Overworld)
+            .get_or_generate_chunk(fox_chunk.full(Dimension::Overworld))
             .expect("fox chunk should be cached before unload");
         chunk.entities.clear();
         chunk.mark_dirty();
@@ -80,7 +80,7 @@ fn player_can_unload_entities_by_moving_away_and_reload_them_after_returning() {
         let mut player_pos = world
             .get_mut::<Position>(player_entity)
             .expect("player should exist");
-        *player_pos = Position::new(2048.0, 64.0, 2048.0);
+        *player_pos = Position::new(2048.0, 64.0, 2048.0, Dimension::Overworld);
     }
 
     let mut chunk_calc_schedule = Schedule::default();
@@ -110,11 +110,7 @@ fn player_can_unload_entities_by_moving_away_and_reload_them_after_returning() {
         "fox should despawn when its chunk is unloaded"
     );
     assert!(
-        !state
-            .0
-            .world
-            .get_cache()
-            .contains_key(&(fox_chunk, Dimension::Overworld)),
+        !state.0.world.get_cache().contains_key(&fox_chunk),
         "fox chunk should be removed from cache after unload"
     );
     {

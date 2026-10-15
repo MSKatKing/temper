@@ -23,7 +23,6 @@ use temper_codec::net_types::var_int::VarInt;
 use temper_components::InteractionCooldown;
 use temper_components::player::client_information::ClientInformationComponent;
 use temper_components::player::position::Position;
-use temper_core::dimension::Dimension;
 use temper_core::pos::BlockPos;
 use temper_messages::BlockInteractMessage;
 use temper_net_runtime::connection::StreamWriter;
@@ -72,13 +71,13 @@ pub fn handle_block_interact(
         }
         cooldowns
             .get_or_insert(Cache::new(512, Duration::from_secs(30)))
-            .insert(pos, Instant::now());
+            .insert(*pos, Instant::now());
 
         // Load the chunk and get current block state
         let mut block_state = state
             .0
             .world
-            .get_chunk(pos.chunk(), Dimension::Overworld)
+            .get_chunk(pos.full_chunk())
             .map(|chunk| chunk.get_block(pos.chunk_block_pos()))
             .unwrap();
         let original = block_state;
@@ -93,8 +92,9 @@ pub fn handle_block_interact(
                 continue;
             }
 
+            let dim = updates.dimension;
             let mut updates = updates.blocks;
-            updates.insert(pos, block_state);
+            updates.insert(*pos, block_state);
 
             debug!(
                 "Block interact: toggled ({}, {}, {}) from {} to {}",
@@ -109,7 +109,7 @@ pub fn handle_block_interact(
                 if let Err(error) = state
                     .0
                     .world
-                    .get_chunk_mut(pos.chunk(), Dimension::Overworld)
+                    .get_chunk_mut(pos.full_chunk(dim))
                     .map(|mut chunk| chunk.set_block(pos.chunk_block_pos(), *block_state))
                 {
                     error!(

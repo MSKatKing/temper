@@ -17,10 +17,8 @@ use temper_protocol::{
 };
 use temper_state::GlobalStateResource;
 use temper_text::{Color, NamedColor, TextComponent, TextComponentBuilder, TextContent};
-use temper_world::Dimension;
 use temper_world_format::block_entities::BlockEntityKind;
-
-use tracing::{error, trace};
+use tracing::{error, trace, warn};
 
 /// A sanity bound on sign line length. Vanilla's client limits by rendered
 /// pixel width rather than character count, which isn't worth replicating —
@@ -62,6 +60,10 @@ pub fn handle_sign_update(
 ) {
     for (event, eid) in receiver.0.try_iter() {
         let block_pos: BlockPos = event.position.into();
+        let Ok((_, pos)) = players.get(eid) else {
+            warn!("Player {eid} updated a sign but did not have a position or connection.");
+            continue;
+        };
 
         if [&event.line_1, &event.line_2, &event.line_3, &event.line_4]
             .iter()
@@ -81,8 +83,7 @@ pub fn handle_sign_update(
         let Ok(chunk) = state
             .0
             .world
-            .get_chunk(block_pos.chunk(), Dimension::Overworld)
-        // todo: dimensions
+            .get_chunk(block_pos.chunk().full(pos.dimension))
         else {
             error!("Failed to get chunk for sign update at {block_pos}");
             continue;
@@ -176,12 +177,7 @@ pub fn handle_sign_interact(
     for event in events.read() {
         let block_pos = event.position;
 
-        let Ok(chunk) = state
-            .0
-            .world
-            .get_chunk(block_pos.chunk(), Dimension::Overworld)
-        // todo: dimensions
-        else {
+        let Ok(chunk) = state.0.world.get_chunk(block_pos.full_chunk()) else {
             continue;
         };
 

@@ -83,16 +83,13 @@ impl CommandHandler for SummonCommand {
                     .map_err(|_| "player entity does not exist")?;
                 (mob_type.kind, mob_type.name, pos.offset_forward(rot, 2.0))
             }
-            SummonCommand::AtPos { mob_type, pos } => (
-                mob_type.kind,
-                mob_type.name,
-                pos.resolve(
-                    query
-                        .get(player_entity)
-                        .map_err(|_| "player entity does not exist")?
-                        .0,
-                ),
-            ),
+            SummonCommand::AtPos { mob_type, pos } => {
+                let (source_pos, _) = query
+                    .get(player_entity)
+                    .map_err(|_| "player entity does not exist")?;
+
+                (mob_type.kind, mob_type.name, pos.resolve(source_pos))
+            }
         };
 
         writer.write(SpawnMobCommand {

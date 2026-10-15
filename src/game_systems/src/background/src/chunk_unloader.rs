@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use temper_components::last_chunk_pos::LastChunkPos;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::player_marker::PlayerMarker;
-use temper_core::dimension::Dimension::Overworld;
 use temper_core::pos::ChunkPos;
 use temper_entities::MobKind;
 use temper_messages::DespawnMob;
@@ -36,7 +35,7 @@ pub fn handle(
     // map all chunks currently in the cache
     let mut all_chunks = HashSet::new();
     for entry in state.0.world.get_cache().iter() {
-        all_chunks.insert(entry.key().0);
+        all_chunks.insert(*entry.key());
     }
 
     // A chunk with live generation jobs also needs its neighbours kept
@@ -49,7 +48,7 @@ pub fn handle(
             .0
             .world
             .chunk_generator
-            .has_pending_jobs(Overworld, *chunk_pos)
+            .has_pending_jobs(chunk_pos.dimension(), **chunk_pos)
         {
             for dx in -1..=1 {
                 for dz in -1..=1 {
@@ -71,11 +70,13 @@ pub fn handle(
             continue;
         }
 
-        if let Some(((pos, dim), chunk)) =
-            state.0.world.get_cache().remove(&(*chunk_pos, Overworld))
-        {
+        if let Some((pos, chunk)) = state.0.world.get_cache().remove(chunk_pos) {
             // drop this chunk's completed job entries
-            state.0.world.chunk_generator.forget_chunk(dim, pos);
+            state
+                .0
+                .world
+                .chunk_generator
+                .forget_chunk(pos.dimension(), *pos);
 
             // despawn orphaned entities
             for (entity, last_chunk, is_player, is_mob) in entity_query.iter() {
@@ -94,7 +95,7 @@ pub fn handle(
             }
             // queue for saving, writes happen off-thread, below
             if chunk.is_dirty() {
-                chunks_to_write.push((pos, dim, chunk));
+                chunks_to_write.push((pos, chunk));
             }
 
             unloaded_entries += 1;
@@ -105,8 +106,8 @@ pub fn handle(
     if written_chunks > 0 {
         let state_clone = state.clone();
         state.0.thread_pool.oneshot(move || {
-            for (pos, dim, chunk) in chunks_to_write {
-                if let Err(err) = state_clone.0.world.insert_chunk(pos, dim, chunk) {
+            for (pos, chunk) in chunks_to_write {
+                if let Err(err) = state_clone.0.world.insert_chunk(pos, chunk) {
                     error!("Failed to write chunk {} back to storage: {:?}", pos, err);
                 }
             }

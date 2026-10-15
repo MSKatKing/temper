@@ -12,7 +12,7 @@ use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_components::player::velocity::Velocity;
 use temper_components::spawn::SpawnProperties;
-use temper_core::dimension::Dimension;
+use temper_core::pos::FullChunkPos;
 use temper_entities::mob_definition::StandardMobParts;
 use temper_entities::{MobBundle, MobKind};
 use temper_messages::{
@@ -50,7 +50,7 @@ pub fn handle_spawn_mob_bundle(
             let chunk = state
                 .0
                 .world
-                .get_or_generate_chunk(position.chunk(), Dimension::Overworld)
+                .get_or_generate_chunk(position.chunk())
                 .expect("Failed to get or generate chunk");
             chunk
                 .entities
@@ -104,10 +104,7 @@ pub fn handle_despawn_mob(
         };
 
         if event.remove_from_chunk
-            && let Ok(chunk) = state
-                .0
-                .world
-                .get_chunk(position.chunk(), Dimension::Overworld)
+            && let Ok(chunk) = state.0.world.get_chunk(position.chunk())
             && chunk.entities.remove(&identity.uuid).is_some()
         {
             chunk.mark_dirty();
@@ -142,7 +139,7 @@ pub fn load_mob_bundles(
             continue;
         }
 
-        let Ok(chunk) = state.0.world.get_chunk(event.0, Dimension::Overworld) else {
+        let Ok(chunk) = state.0.world.get_chunk(event.0) else {
             tracing::error!("Failed to load chunk {} for entity loading", event.0);
             continue;
         };
@@ -244,7 +241,7 @@ pub fn save_mob_bundles(
                 let chunk = state
                     .0
                     .world
-                    .get_or_generate_chunk(event.0, Dimension::Overworld)
+                    .get_or_generate_chunk(event.0)
                     .expect("Failed to get or generate chunk");
 
                 let unchanged = chunk.entities.get(&uuid).is_some_and(|stored| {
@@ -291,10 +288,10 @@ pub fn queue_live_mob_chunk_saves(
 fn remove_stale_mob_entries(
     state: &GlobalStateResource,
     uuid: uuid::Uuid,
-    current_chunk: temper_core::pos::ChunkPos,
+    current_chunk: FullChunkPos,
 ) {
     for entry in state.0.world.get_cache() {
-        let ((chunk_pos, _), chunk) = entry.pair();
+        let (chunk_pos, chunk) = entry.pair();
         if *chunk_pos == current_chunk {
             continue;
         }

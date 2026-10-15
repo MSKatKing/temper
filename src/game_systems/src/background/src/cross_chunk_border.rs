@@ -9,7 +9,6 @@ use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_components::player::velocity::Velocity;
 use temper_components::spawn::SpawnProperties;
-use temper_core::dimension::Dimension::Overworld;
 use temper_entities::mob_definition::StandardMobParts;
 use temper_entities::{MobBundle, MobKind};
 use temper_messages::chunk_calc::ChunkCalc;
@@ -63,7 +62,10 @@ pub fn cross_chunk_border(
             let new_chunk_cords = event.new_chunk;
             // Remove the stale chunk entry before writing a fresh bundle below. We have to do it this way cos holding locks on multiple chunks at once can easily deadlock
             {
-                let chunk = state.0.world.get_chunk(old_chunk_cords, Overworld);
+                let chunk = state
+                    .0
+                    .world
+                    .get_chunk(old_chunk_cords.full(position.dimension));
                 match chunk {
                     Ok(chunk) => {
                         chunk.entities.remove(&identity.uuid);
@@ -106,7 +108,7 @@ pub fn cross_chunk_border(
                 let chunk = state
                     .0
                     .world
-                    .get_or_generate_chunk(new_chunk_cords, Overworld)
+                    .get_or_generate_chunk(new_chunk_cords.full(position.dimension))
                     .expect("Failed to get or generate new chunk in ChunkBoundaryCrossed event");
                 chunk
                     .entities

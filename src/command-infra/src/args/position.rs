@@ -17,6 +17,7 @@ impl PositionArg {
             resolve_coord(&self.x, base.x),
             resolve_coord(&self.y, base.y),
             resolve_coord(&self.z, base.z),
+            base.dimension,
         )
     }
 }

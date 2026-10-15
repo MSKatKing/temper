@@ -22,7 +22,8 @@ pub fn entry(start_time: Instant, no_tui: bool) -> Result<(), BinaryError> {
 
     if !global_state
         .world
-        .chunk_exists(ChunkPos::new(0, 0), Dimension::Overworld)?
+        .chunk_exists(ChunkPos::new(0, 0).full(Dimension::Overworld))?
+    // spawn chunks are always in overworld
     {
         setup::generate_spawn_chunks(global_state.clone())?;
         setup::setup_db(global_state.clone())?;

@@ -62,7 +62,13 @@ pub fn tick_pathfinder(
                     pf.waypoint = 1; // already at goal, nothing to traverse
                     pf.is_searching = false;
                 } else {
-                    search.0 = Some(AStarSearch::new(start, goal, pf.max_nodes, props));
+                    search.0 = Some(AStarSearch::new(
+                        start,
+                        goal,
+                        pos.dimension,
+                        pf.max_nodes,
+                        props,
+                    ));
                     pf.is_searching = true;
                 }
             }
@@ -133,7 +139,7 @@ mod tests {
                 let mut chunk = state
                     .0
                     .world
-                    .get_or_generate_mut(chunk_pos, Dimension::Overworld)
+                    .get_or_generate_mut(chunk_pos.full(Dimension::Overworld))
                     .unwrap();
                 for x in 0u8..16 {
                     for z in 0u8..16 {
@@ -159,7 +165,7 @@ mod tests {
                 .spawn((
                     Pathfinder::default(),
                     PathfinderSearch::default(),
-                    Position::new(x, 65.0, z),
+                    Position::new(x, 65.0, z, Dimension::Overworld),
                     EntityMetadata::from_vanilla(&VanillaEntityType::PIG),
                 ))
                 .id()
@@ -202,7 +208,7 @@ mod tests {
             .spawn((
                 Pathfinder::new(1, 500),
                 PathfinderSearch::default(),
-                Position::new(0.0, 65.0, 0.0),
+                Position::new(0.0, 65.0, 0.0, Dimension::Overworld),
                 EntityMetadata::from_vanilla(&VanillaEntityType::PIG),
             ))
             .id();
@@ -240,7 +246,7 @@ mod tests {
             .spawn((
                 Pathfinder::new(1, 500),
                 PathfinderSearch::default(),
-                Position::new(0.0, 65.0, 0.0),
+                Position::new(0.0, 65.0, 0.0, Dimension::Overworld),
                 EntityMetadata::from_vanilla(&VanillaEntityType::PIG),
             ))
             .id();

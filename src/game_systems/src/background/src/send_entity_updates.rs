@@ -84,7 +84,7 @@ pub fn handle(
                     }
                 }
             };
-            *last_synced = LastSyncedPosition(pos.coords);
+            *last_synced = LastSyncedPosition(pos.coords, pos.dimension);
         } else {
             warn!(
                 "Tried to send entity update for non-existent entity: {:?}",

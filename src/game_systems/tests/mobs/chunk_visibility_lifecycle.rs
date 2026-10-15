@@ -12,7 +12,7 @@ use temper_components::player::client_information::ClientInformationComponent;
 use temper_components::player::player_marker::PlayerMarker;
 use temper_components::player::position::Position;
 use temper_core::dimension::Dimension;
-use temper_core::pos::ChunkPos;
+use temper_core::pos::FullChunkPos;
 use temper_entities::MobKind;
 use temper_entities::entity_types::EntityTypeEnum;
 use temper_entities::markers::entity_types::{Fox, Pig};
@@ -27,7 +27,7 @@ fn emit_chunk_calc_for(entity: Entity) -> impl FnMut(MessageWriter<ChunkCalc>) {
     }
 }
 
-fn spawn_test_player(world: &mut World, position: Position, loaded_chunk: ChunkPos) -> Entity {
+fn spawn_test_player(world: &mut World, position: Position, loaded_chunk: FullChunkPos) -> Entity {
     let mut receiver = ChunkReceiver::default();
     receiver.loaded.insert(loaded_chunk);
 
@@ -52,8 +52,8 @@ fn multiple_entities_in_one_chunk_reload_together_when_player_returns() {
     let (state, _temp_dir) = create_test_state();
     world.insert_resource(state.clone());
 
-    let fox_position = Position::new(8.0, 64.0, 8.0);
-    let pig_position = Position::new(9.0, 64.0, 9.0);
+    let fox_position = Position::new(8.0, 64.0, 8.0, Dimension::Overworld);
+    let pig_position = Position::new(9.0, 64.0, 9.0, Dimension::Overworld);
     let chunk = fox_position.chunk();
 
     let fox_bundle = FoxBundle::new(fox_position);
@@ -61,7 +61,8 @@ fn multiple_entities_in_one_chunk_reload_together_when_player_returns() {
     let expected_fox_uuid = fox_bundle.identity.uuid;
     let expected_pig_uuid = pig_bundle.identity.uuid;
 
-    let player_entity = spawn_test_player(&mut world, fox_position, chunk);
+    let player_entity =
+        spawn_test_player(&mut world, fox_position, chunk.full(Dimension::Overworld));
 
     world.spawn((
         fox_bundle,
@@ -70,7 +71,7 @@ fn multiple_entities_in_one_chunk_reload_together_when_player_returns() {
         HasGravity,
         HasCollisions,
         HasWaterDrag,
-        LastChunkPos::new(chunk),
+        LastChunkPos::new(chunk.full(Dimension::Overworld)),
     ));
     world.spawn((
         pig_bundle,
@@ -79,14 +80,14 @@ fn multiple_entities_in_one_chunk_reload_together_when_player_returns() {
         HasGravity,
         HasCollisions,
         HasWaterDrag,
-        LastChunkPos::new(chunk),
+        LastChunkPos::new(chunk.full(Dimension::Overworld)),
     ));
 
     {
         let chunk_ref = state
             .0
             .world
-            .get_or_generate_chunk(chunk, Dimension::Overworld)
+            .get_or_generate_chunk(chunk.full(Dimension::Overworld))
             .expect("test chunk should be cached");
         chunk_ref.entities.clear();
         chunk_ref.mark_dirty();
@@ -96,7 +97,7 @@ fn multiple_entities_in_one_chunk_reload_together_when_player_returns() {
         let mut player_pos = world
             .get_mut::<Position>(player_entity)
             .expect("player should exist");
-        *player_pos = Position::new(2048.0, 64.0, 2048.0);
+        *player_pos = Position::new(2048.0, 64.0, 2048.0, Dimension::Overworld);
     }
 
     let mut chunk_calc_schedule = Schedule::default();
@@ -135,7 +136,7 @@ fn multiple_entities_in_one_chunk_reload_together_when_player_returns() {
     );
 
     {
-        let saved_chunk = wait_for_saved_chunk(&state, chunk);
+        let saved_chunk = wait_for_saved_chunk(&state, chunk.full(Dimension::Overworld));
         assert_eq!(
             saved_chunk.entities.len(),
             2,
@@ -198,13 +199,15 @@ fn chunk_stays_loaded_while_a_second_player_keeps_it_visible() {
     let (state, _temp_dir) = create_test_state();
     world.insert_resource(state.clone());
 
-    let fox_position = Position::new(8.0, 64.0, 8.0);
+    let fox_position = Position::new(8.0, 64.0, 8.0, Dimension::Overworld);
     let chunk = fox_position.chunk();
     let fox_bundle = FoxBundle::new(fox_position);
     let fox_uuid = fox_bundle.identity.uuid;
 
-    let moving_player = spawn_test_player(&mut world, fox_position, chunk);
-    let _anchored_player = spawn_test_player(&mut world, fox_position, chunk);
+    let moving_player =
+        spawn_test_player(&mut world, fox_position, chunk.full(Dimension::Overworld));
+    let _anchored_player =
+        spawn_test_player(&mut world, fox_position, chunk.full(Dimension::Overworld));
 
     world.spawn((
         fox_bundle,
@@ -213,14 +216,14 @@ fn chunk_stays_loaded_while_a_second_player_keeps_it_visible() {
         HasGravity,
         HasCollisions,
         HasWaterDrag,
-        LastChunkPos::new(chunk),
+        LastChunkPos::new(chunk.full(Dimension::Overworld)),
     ));
 
     {
         let chunk_ref = state
             .0
             .world
-            .get_or_generate_chunk(chunk, Dimension::Overworld)
+            .get_or_generate_chunk(chunk.full(Dimension::Overworld))
             .expect("test chunk should be cached");
         chunk_ref.entities.clear();
         chunk_ref.mark_dirty();
@@ -230,7 +233,7 @@ fn chunk_stays_loaded_while_a_second_player_keeps_it_visible() {
         let mut player_pos = world
             .get_mut::<Position>(moving_player)
             .expect("moving player should exist");
-        *player_pos = Position::new(2048.0, 64.0, 2048.0);
+        *player_pos = Position::new(2048.0, 64.0, 2048.0, Dimension::Overworld);
     }
 
     let mut chunk_calc_schedule = Schedule::default();
@@ -267,7 +270,7 @@ fn chunk_stays_loaded_while_a_second_player_keeps_it_visible() {
             .0
             .world
             .get_cache()
-            .contains_key(&(chunk, Dimension::Overworld)),
+            .contains_key(&chunk.full(Dimension::Overworld)),
         "chunk should stay cached while a second player still has it loaded"
     );
 }

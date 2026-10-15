@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::Message;
-use temper_core::pos::ChunkPos;
+use temper_core::pos::FullChunkPos;
 
 #[derive(Message, Eq, Hash, PartialEq)]
-pub struct SaveChunkEntities(pub ChunkPos);
+pub struct SaveChunkEntities(pub FullChunkPos);

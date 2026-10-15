@@ -25,8 +25,13 @@ pub fn generate_spawn_positions(state: Res<GlobalStateResource>) {
     }
 
     let mut found_coords = 0;
-    let center_chunk =
-        Position::new(f64::from(SPAWN_CENTER.0), 0.0, f64::from(SPAWN_CENTER.1)).chunk();
+    let center_chunk = Position::new(
+        f64::from(SPAWN_CENTER.0),
+        0.0,
+        f64::from(SPAWN_CENTER.1),
+        Overworld,
+    )
+    .chunk();
 
     for radius in 0..=MAX_SPAWN_CHUNK_RADIUS {
         if start.elapsed() > SPAWN_SEARCH_BUDGET {
@@ -34,7 +39,7 @@ pub fn generate_spawn_positions(state: Res<GlobalStateResource>) {
             return;
         }
 
-        let mut chunks = chunk_ring(center_chunk, radius).collect::<Vec<_>>();
+        let mut chunks = chunk_ring(*center_chunk, radius).collect::<Vec<_>>();
         chunks.shuffle(&mut rand::rng());
 
         for (chunk_x, chunk_z) in chunks {
@@ -57,7 +62,7 @@ pub fn generate_spawn_positions(state: Res<GlobalStateResource>) {
             let chunk = state
                 .0
                 .world
-                .get_or_generate_chunk(chunk_pos, Overworld)
+                .get_or_generate_chunk(chunk_pos.full(Overworld)) // this should always be overworld because its spawn positions
                 .expect("Failed to generate chunk");
 
             found_coords += enqueue_spawn_positions_from_chunk(&state, chunk_pos, &chunk);
@@ -122,7 +127,12 @@ fn spawn_position_for_column(
 
     let world_x = chunk_pos.pos.x + i32::from(local_x);
     let world_z = chunk_pos.pos.y + i32::from(local_z);
-    let surface_pos = Position::new(f64::from(world_x), f64::from(height), f64::from(world_z));
+    let surface_pos = Position::new(
+        f64::from(world_x),
+        f64::from(height),
+        f64::from(world_z),
+        Overworld,
+    );
 
     Some(spawn_position_above_surface(surface_pos))
 }
@@ -135,7 +145,7 @@ fn is_valid_spawn_surface(block: BlockStateId) -> bool {
 }
 
 fn spawn_position_above_surface(surface_pos: Position) -> Position {
-    (*surface_pos + DVec3::new(0.5, 1.0, 0.5)).into()
+    surface_pos + DVec3::new(0.5, 1.0, 0.5)
 }
 
 fn chunk_ring(center: ChunkPos, radius: i32) -> impl Iterator<Item = (i32, i32)> {
@@ -152,6 +162,7 @@ fn chunk_ring(center: ChunkPos, radius: i32) -> impl Iterator<Item = (i32, i32)>
 #[cfg(test)]
 mod tests {
     use bevy_ecs::schedule::Schedule;
+    use temper_core::dimension::Dimension;
     use temper_macros::block;
     use temper_state::create_test_state_with_generator;
 
@@ -171,7 +182,8 @@ mod tests {
 
     #[test]
     fn spawn_position_sits_above_surface() {
-        let spawn_pos = spawn_position_above_surface(Position::new(5.0, 32.0, 10.0));
+        let spawn_pos =
+            spawn_position_above_surface(Position::new(5.0, 32.0, 10.0, Dimension::Overworld));
 
         assert_eq!(spawn_pos.xyz(), (5.5, 33.0, 10.5));
     }

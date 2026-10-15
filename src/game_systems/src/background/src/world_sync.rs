@@ -53,6 +53,7 @@ fn collect_player_data(player_query: &Query<PlayerSaveQuery>) -> Vec<(Uuid, Offl
         let data = OfflinePlayerData {
             abilities: *abilities,
             gamemode: gamemode.0,
+            dimension: position.dimension,
             position: (*position).into(),
             rotation: *rotation,
             inventory: inventory.clone(),

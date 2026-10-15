@@ -1,5 +1,4 @@
 use bevy_ecs::prelude::{Commands, Entity, MessageWriter, Query, Res};
-
 use temper_components::entity_identity::Identity;
 use temper_components::player::grounded::OnGround;
 use temper_components::player::old_position::OldPosition;
@@ -30,7 +29,7 @@ pub fn handle(
                 // Ignore position updates while waiting for teleport confirmation
                 continue;
             }
-            let new_pos = Position::new(event.x, event.feet_y, event.z);
+            let new_pos = Position::new(event.x, event.feet_y, event.z, pos.dimension);
 
             // Check if chunk changed
             let old_chunk = pos.chunk();

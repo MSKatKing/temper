@@ -6,7 +6,6 @@ use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::position::Position;
 use temper_components::player::swimming::SwimmingState;
 use temper_core::block_state_id::BlockStateId;
-use temper_core::dimension::Dimension;
 use temper_core::pos::BlockPos;
 use temper_macros::match_block;
 use temper_messages::world_change::WorldChange;
@@ -19,8 +18,8 @@ use tracing::error;
 const PLAYER_EYE_HEIGHT: f64 = 1.62;
 
 /// Check if a player is in water by testing at eye level
-fn is_player_in_water(state: &temper_state::GlobalState, pos: &Position) -> bool {
-    let eye_pos = DVec3::new(pos.x, pos.y + PLAYER_EYE_HEIGHT, pos.z)
+fn is_player_in_water(state: &temper_state::GlobalState, position: &Position) -> bool {
+    let eye_pos = DVec3::new(position.x, position.y + PLAYER_EYE_HEIGHT, position.z)
         .floor()
         .as_ivec3();
 
@@ -28,7 +27,7 @@ fn is_player_in_water(state: &temper_state::GlobalState, pos: &Position) -> bool
 
     let Ok(chunk) = state
         .world
-        .get_or_generate_chunk(pos.chunk(), Dimension::Overworld)
+        .get_or_generate_chunk(pos.full_chunk(position.dimension))
     else {
         error!(
             "Failed to get or generate chunk at position: {:?}",

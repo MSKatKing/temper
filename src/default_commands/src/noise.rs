@@ -1,7 +1,6 @@
 use bevy_ecs::prelude::{Query, Res};
 use temper_command_infra::{CommandHandler, CommandResult, CommandSource};
 use temper_components::player::position::Position;
-use temper_core::dimension::Dimension::Overworld;
 use temper_macros::Command;
 use temper_state::GlobalStateResource;
 
@@ -44,7 +43,7 @@ impl CommandHandler for NoiseCommand {
         let chunk = global_state
             .0
             .world
-            .get_chunk(chunk_pos, Overworld)
+            .get_chunk(chunk_pos)
             .map_err(|err| format!("Chunk {chunk_pos} is not loaded: {err}"))?;
 
         let x = usize::from(local_x);

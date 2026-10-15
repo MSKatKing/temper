@@ -4,6 +4,7 @@ use crate::decode::errors::NetDecodeError;
 use crate::decode::{NetDecode, NetDecodeOpts};
 use crate::encode::errors::NetEncodeError;
 use crate::encode::{NetEncode, NetEncodeOpts};
+use bevy_math::DVec3;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::io::{Read, Write};
@@ -18,6 +19,12 @@ pub struct NetworkPosition {
     pub z: i32,
     // Encoded as a 12 bit int
     pub y: i16,
+}
+
+impl From<NetworkPosition> for DVec3 {
+    fn from(pos: NetworkPosition) -> Self {
+        DVec3::new(f64::from(pos.x), f64::from(pos.y), f64::from(pos.z))
+    }
 }
 
 impl Display for NetworkPosition {

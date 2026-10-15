@@ -10,7 +10,7 @@ use temper_components::last_synced_position::LastSyncedPosition;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_core::dimension::Dimension;
-use temper_core::pos::ChunkPos;
+use temper_core::pos::{ChunkPos, FullChunkPos};
 use temper_entities::entity_types::EntityTypeEnum;
 use temper_entities::markers::entity_types::{Cow, Fox, Pig};
 use temper_entities::markers::{HasCollisions, HasGravity, HasWaterDrag};
@@ -23,7 +23,7 @@ use temper_scheduler::Scheduler;
 use temper_state::{GlobalStateResource, create_test_state};
 
 fn emit_save_for(
-    chunk: temper_core::pos::ChunkPos,
+    chunk: temper_core::pos::FullChunkPos,
 ) -> impl FnMut(MessageWriter<SaveChunkEntities>) {
     move |mut writer: MessageWriter<SaveChunkEntities>| {
         writer.write(SaveChunkEntities(chunk));
@@ -31,7 +31,7 @@ fn emit_save_for(
 }
 
 fn emit_load_for(
-    chunk: temper_core::pos::ChunkPos,
+    chunk: temper_core::pos::FullChunkPos,
 ) -> impl FnMut(MessageWriter<LoadChunkEntities>) {
     move |mut writer: MessageWriter<LoadChunkEntities>| {
         writer.write(LoadChunkEntities(chunk));
@@ -97,7 +97,7 @@ fn sync_and_clear_cache(state: &GlobalStateResource) {
 
 fn load_pigs_into_replacement_ecs(
     state: GlobalStateResource,
-    chunk: ChunkPos,
+    chunk: FullChunkPos,
 ) -> Vec<(Identity, Position)> {
     let mut world = ecs_world(state);
     let mut load_schedule = Schedule::default();
@@ -121,7 +121,7 @@ fn load_pigs_into_replacement_ecs(
 
 fn load_cows_into_replacement_ecs(
     state: GlobalStateResource,
-    chunk: ChunkPos,
+    chunk: FullChunkPos,
 ) -> Vec<(Identity, Position)> {
     let mut world = ecs_world(state);
     let mut load_schedule = Schedule::default();
@@ -162,7 +162,7 @@ fn pig_round_trips_through_chunk_save_and_load() {
     let (state, _temp_dir) = create_test_state();
     world.insert_resource(state);
 
-    let position = Position::new(5.5, 64.0, 7.5);
+    let position = Position::new(5.5, 64.0, 7.5, Dimension::Overworld);
     let chunk = position.chunk();
     let bundle = PigBundle::new(position);
     let expected_identity = bundle.identity.clone();
@@ -188,7 +188,7 @@ fn pig_round_trips_through_chunk_save_and_load() {
         let saved_chunk = state
             .0
             .world
-            .get_chunk(chunk, Dimension::Overworld)
+            .get_chunk(chunk.full(Dimension::Overworld))
             .expect("chunk should exist after save");
         let saved_entity = saved_chunk
             .entities
@@ -258,7 +258,7 @@ fn chunk_storage_does_not_persist_game_id() {
     let (state, _temp_dir) = create_test_state();
     world.insert_resource(state);
 
-    let position = Position::new(5.5, 64.0, 7.5);
+    let position = Position::new(5.5, 64.0, 7.5, Dimension::Overworld);
     let chunk = position.chunk();
     let bundle = PigBundle::new(position);
     let expected_identity = bundle.identity.clone();
@@ -267,14 +267,20 @@ fn chunk_storage_does_not_persist_game_id() {
     spawn_pig(&mut world, bundle);
 
     let mut save_schedule = Schedule::default();
-    save_schedule.add_systems((emit_save_for(chunk), save_mob_bundles).chain());
+    save_schedule.add_systems(
+        (
+            emit_save_for(chunk.full(Dimension::Overworld)),
+            save_mob_bundles,
+        )
+            .chain(),
+    );
     save_schedule.run(&mut world);
 
     let state = world.resource::<temper_state::GlobalStateResource>();
     let saved_chunk = state
         .0
         .world
-        .get_chunk(chunk, Dimension::Overworld)
+        .get_chunk(chunk.full(Dimension::Overworld))
         .expect("chunk should exist after save");
     let saved_entity = saved_chunk
         .entities
@@ -299,7 +305,7 @@ fn shutdown_save_message_saves_spawned_pig_from_ecs() {
     let (state, _temp_dir) = create_test_state();
     world.insert_resource(state);
 
-    let position = Position::new(6.5, 64.0, 7.5);
+    let position = Position::new(6.5, 64.0, 7.5, Dimension::Overworld);
     let chunk = position.chunk();
     let bundle = PigBundle::new(position);
     let expected_identity = bundle.identity.clone();
@@ -309,7 +315,7 @@ fn shutdown_save_message_saves_spawned_pig_from_ecs() {
         state
             .0
             .world
-            .get_or_generate_chunk(chunk, Dimension::Overworld)
+            .get_or_generate_chunk(chunk.full(Dimension::Overworld))
             .expect("chunk should be cached before shutdown save");
     }
 
@@ -330,7 +336,7 @@ fn shutdown_save_message_saves_spawned_pig_from_ecs() {
     let saved_chunk = state
         .0
         .world
-        .get_chunk(chunk, Dimension::Overworld)
+        .get_chunk(chunk.full(Dimension::Overworld))
         .expect("chunk should exist after shutdown save");
     let saved_entity = saved_chunk
         .entities
@@ -343,7 +349,7 @@ fn shutdown_save_message_saves_spawned_pig_from_ecs() {
 #[test]
 fn spawn_command_cow_survives_registered_shutdown_reload() {
     let (state, _temp_dir) = create_test_state();
-    let player_position = Position::new(6.5, 64.0, 7.5);
+    let player_position = Position::new(6.5, 64.0, 7.5, Dimension::Overworld);
     let expected_position = player_position.offset_forward(&Rotation::new(0.0, 0.0), 2.0);
     let chunk = expected_position.chunk();
 
@@ -375,7 +381,7 @@ fn spawn_command_cow_survives_registered_shutdown_reload() {
     };
 
     state.0.world.get_cache().clear();
-    let loaded = load_cows_into_replacement_ecs(state.clone(), chunk);
+    let loaded = load_cows_into_replacement_ecs(state.clone(), chunk.full(Dimension::Overworld));
 
     assert_eq!(loaded.len(), 1, "spawned cow should reload after restart");
     assert_eq!(loaded[0].0.uuid, expected_identity.uuid);
@@ -387,7 +393,7 @@ fn live_mob_chunk_save_saves_pig_when_chunk_is_not_cached() {
     let (state, _temp_dir) = create_test_state();
     let mut world = ecs_world(state);
 
-    let position = Position::new(40.5, 64.0, 40.5);
+    let position = Position::new(40.5, 64.0, 40.5, Dimension::Overworld);
     let chunk = position.chunk();
     let bundle = PigBundle::new(position);
     let expected_identity = bundle.identity.clone();
@@ -399,7 +405,7 @@ fn live_mob_chunk_save_saves_pig_when_chunk_is_not_cached() {
     let saved_chunk = state
         .0
         .world
-        .get_chunk(chunk, Dimension::Overworld)
+        .get_chunk(chunk.full(Dimension::Overworld))
         .expect("live mob chunk save should generate the pig chunk");
     let saved_entity = saved_chunk
         .entities
@@ -414,7 +420,7 @@ fn live_mob_chunk_save_keeps_clean_chunk_clean_when_mob_is_unchanged() {
     let (state, _temp_dir) = create_test_state();
     let mut world = ecs_world(state.clone());
 
-    let position = Position::new(40.5, 64.0, 40.5);
+    let position = Position::new(40.5, 64.0, 40.5, Dimension::Overworld);
     let chunk = position.chunk();
     spawn_pig(&mut world, PigBundle::new(position));
 
@@ -422,7 +428,7 @@ fn live_mob_chunk_save_keeps_clean_chunk_clean_when_mob_is_unchanged() {
     let saved_chunk = state
         .0
         .world
-        .get_chunk(chunk, Dimension::Overworld)
+        .get_chunk(chunk.full(Dimension::Overworld))
         .expect("pig chunk should exist after first save");
     assert!(
         saved_chunk.is_dirty(),
@@ -443,8 +449,8 @@ fn live_mob_chunk_save_marks_chunk_dirty_when_mob_changes() {
     let (state, _temp_dir) = create_test_state();
     let mut world = ecs_world(state.clone());
 
-    let initial_position = Position::new(40.5, 64.0, 40.5);
-    let moved_position = Position::new(41.5, 64.0, 40.5);
+    let initial_position = Position::new(40.5, 64.0, 40.5, Dimension::Overworld);
+    let moved_position = Position::new(41.5, 64.0, 40.5, Dimension::Overworld);
     let chunk = initial_position.chunk();
     let pig = spawn_pig(&mut world, PigBundle::new(initial_position));
 
@@ -452,7 +458,7 @@ fn live_mob_chunk_save_marks_chunk_dirty_when_mob_changes() {
     let saved_chunk = state
         .0
         .world
-        .get_chunk(chunk, Dimension::Overworld)
+        .get_chunk(chunk.full(Dimension::Overworld))
         .expect("pig chunk should exist after first save");
     saved_chunk.clear_dirty();
 
@@ -484,8 +490,8 @@ fn live_mob_chunk_save_removes_same_mob_from_old_cached_chunk() {
     let (state, _temp_dir) = create_test_state();
     let mut world = ecs_world(state.clone());
 
-    let old_position = Position::new(40.5, 64.0, 40.5);
-    let new_position = Position::new(57.5, 64.0, 40.5);
+    let old_position = Position::new(40.5, 64.0, 40.5, Dimension::Overworld);
+    let new_position = Position::new(57.5, 64.0, 40.5, Dimension::Overworld);
     let old_chunk_pos = old_position.chunk();
     let new_chunk_pos = new_position.chunk();
     let bundle = PigBundle::new(old_position);
@@ -497,7 +503,7 @@ fn live_mob_chunk_save_removes_same_mob_from_old_cached_chunk() {
         let old_chunk = state
             .0
             .world
-            .get_chunk(old_chunk_pos, Dimension::Overworld)
+            .get_chunk(old_chunk_pos.full(Dimension::Overworld))
             .expect("old pig chunk should exist");
         assert!(old_chunk.entities.contains_key(&expected_identity.uuid));
         old_chunk.clear_dirty();
@@ -515,7 +521,7 @@ fn live_mob_chunk_save_removes_same_mob_from_old_cached_chunk() {
     let old_chunk = state
         .0
         .world
-        .get_chunk(old_chunk_pos, Dimension::Overworld)
+        .get_chunk(old_chunk_pos.full(Dimension::Overworld))
         .expect("old pig chunk should still exist");
     assert!(
         !old_chunk.entities.contains_key(&expected_identity.uuid),
@@ -526,7 +532,7 @@ fn live_mob_chunk_save_removes_same_mob_from_old_cached_chunk() {
     let new_chunk = state
         .0
         .world
-        .get_chunk(new_chunk_pos, Dimension::Overworld)
+        .get_chunk(new_chunk_pos.full(Dimension::Overworld))
         .expect("new pig chunk should exist");
     let saved_entity = new_chunk
         .entities
@@ -542,14 +548,14 @@ fn mob_load_removes_entry_whose_position_belongs_to_another_chunk() {
     let (state, _temp_dir) = create_test_state();
 
     let wrong_chunk_pos = ChunkPos::new(0, 0);
-    let real_position = Position::new(40.5, 64.0, 40.5);
+    let real_position = Position::new(40.5, 64.0, 40.5, Dimension::Overworld);
     let bundle = PigBundle::new(real_position);
     let stale_uuid = bundle.identity.uuid;
     {
         let wrong_chunk = state
             .0
             .world
-            .get_or_generate_chunk(wrong_chunk_pos, Dimension::Overworld)
+            .get_or_generate_chunk(wrong_chunk_pos.full(Dimension::Overworld))
             .expect("wrong chunk should be cached");
         wrong_chunk.entities.insert(
             stale_uuid,
@@ -561,7 +567,8 @@ fn mob_load_removes_entry_whose_position_belongs_to_another_chunk() {
         wrong_chunk.clear_dirty();
     }
 
-    let loaded = load_pigs_into_replacement_ecs(state.clone(), wrong_chunk_pos);
+    let loaded =
+        load_pigs_into_replacement_ecs(state.clone(), wrong_chunk_pos.full(Dimension::Overworld));
     assert!(
         loaded.is_empty(),
         "stale mob entry should not spawn from the wrong chunk"
@@ -570,7 +577,7 @@ fn mob_load_removes_entry_whose_position_belongs_to_another_chunk() {
     let wrong_chunk = state
         .0
         .world
-        .get_chunk(wrong_chunk_pos, Dimension::Overworld)
+        .get_chunk(wrong_chunk_pos.full(Dimension::Overworld))
         .expect("wrong chunk should still exist");
     assert!(!wrong_chunk.entities.contains_key(&stale_uuid));
     assert!(wrong_chunk.is_dirty());
@@ -581,7 +588,7 @@ fn mob_load_skips_mob_that_is_already_live() {
     let (state, _temp_dir) = create_test_state();
     let mut world = ecs_world(state.clone());
 
-    let position = Position::new(40.5, 64.0, 40.5);
+    let position = Position::new(40.5, 64.0, 40.5, Dimension::Overworld);
     let chunk_pos = position.chunk();
     let persisted = MobBundle::Pig(PigBundle::new(position));
     let expected_uuid = persisted.identity().uuid;
@@ -590,7 +597,7 @@ fn mob_load_skips_mob_that_is_already_live() {
         let chunk = state
             .0
             .world
-            .get_or_generate_chunk(chunk_pos, Dimension::Overworld)
+            .get_or_generate_chunk(chunk_pos.full(Dimension::Overworld))
             .expect("pig chunk should be cached");
         chunk.entities.insert(
             expected_uuid,
@@ -606,7 +613,7 @@ fn mob_load_skips_mob_that_is_already_live() {
     let mut load_schedule = Schedule::default();
     load_schedule.add_systems(
         (
-            emit_load_for(chunk_pos),
+            emit_load_for(chunk_pos.full(Dimension::Overworld)),
             load_mob_bundles,
             handle_spawn_mob_bundle,
         )
@@ -628,7 +635,7 @@ fn mob_load_skips_mob_that_is_already_live() {
 fn live_mob_chunk_save_flushes_uncached_pig_to_storage() {
     let (state, _temp_dir) = create_test_state();
 
-    let position = Position::new(40.5, 64.0, 40.5);
+    let position = Position::new(40.5, 64.0, 40.5, Dimension::Overworld);
     let chunk = position.chunk();
     let bundle = PigBundle::new(position);
     let expected_identity = bundle.identity.clone();
@@ -657,7 +664,7 @@ fn live_mob_chunk_save_flushes_uncached_pig_to_storage() {
 fn registered_shutdown_schedule_saves_pig_into_replacement_ecs_world() {
     let (state, _temp_dir) = create_test_state();
 
-    let position = Position::new(45.5, 64.0, 45.5);
+    let position = Position::new(45.5, 64.0, 45.5, Dimension::Overworld);
     let chunk = position.chunk();
     let bundle = PigBundle::new(position);
     let expected_identity = bundle.identity.clone();
@@ -690,8 +697,8 @@ fn mob_save_refreshes_existing_chunk_entry_with_live_position() {
     let (state, _temp_dir) = create_test_state();
     world.insert_resource(state.clone());
 
-    let spawn_position = Position::new(6.5, 64.0, 7.5);
-    let moved_position = Position::new(8.5, 64.0, 7.5);
+    let spawn_position = Position::new(6.5, 64.0, 7.5, Dimension::Overworld);
+    let moved_position = Position::new(8.5, 64.0, 7.5, Dimension::Overworld);
     let chunk = spawn_position.chunk();
     let cow_bundle = CowBundle::new(spawn_position);
     let expected_identity = cow_bundle.identity.clone();
@@ -700,7 +707,7 @@ fn mob_save_refreshes_existing_chunk_entry_with_live_position() {
         let chunk = state
             .0
             .world
-            .get_or_generate_chunk(chunk, Dimension::Overworld)
+            .get_or_generate_chunk(chunk)
             .expect("chunk should be cached before save");
         chunk.entities.insert(
             expected_identity.uuid,
@@ -732,14 +739,20 @@ fn mob_save_refreshes_existing_chunk_entry_with_live_position() {
     }
 
     let mut save_schedule = Schedule::default();
-    save_schedule.add_systems((emit_save_for(chunk), save_mob_bundles).chain());
+    save_schedule.add_systems(
+        (
+            emit_save_for(chunk.full(Dimension::Overworld)),
+            save_mob_bundles,
+        )
+            .chain(),
+    );
     save_schedule.run(&mut world);
 
     let state = world.resource::<temper_state::GlobalStateResource>();
     let saved_chunk = state
         .0
         .world
-        .get_chunk(chunk, Dimension::Overworld)
+        .get_chunk(chunk.full(Dimension::Overworld))
         .expect("chunk should exist after save");
     let saved_entity = saved_chunk
         .entities
@@ -755,7 +768,7 @@ fn mob_save_refreshes_existing_chunk_entry_with_live_position() {
 fn fox_loads_in_a_separate_ecs_world_after_save() {
     let (state, _temp_dir) = create_test_state();
 
-    let position = Position::new(23.5, 70.0, -10.25);
+    let position = Position::new(23.5, 70.0, -10.25, Dimension::Overworld);
     let chunk = position.chunk();
     let bundle = FoxBundle::new(position);
     let expected_identity = bundle.identity.clone();

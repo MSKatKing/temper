@@ -1,11 +1,11 @@
 use bevy_ecs::prelude::Component;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use std::collections::{HashMap, HashSet, VecDeque};
-use temper_core::pos::ChunkPos;
+use temper_core::pos::FullChunkPos;
 use uuid::Uuid;
 
 pub struct ReadyChunk {
-    pub chunk_pos: ChunkPos,
+    pub chunk_pos: FullChunkPos,
     pub packet_data: Vec<u8>,
     pub entities: Vec<(Uuid, u16)>,
     pub is_new_load: bool,
@@ -13,12 +13,12 @@ pub struct ReadyChunk {
 
 pub enum PreparedChunk {
     Ready(ReadyChunk),
-    Failed { chunk_pos: ChunkPos },
+    Failed { chunk_pos: FullChunkPos },
 }
 
 impl PreparedChunk {
     /// The chunk this message is about, whether it succeeded or not.
-    pub fn chunk_pos(&self) -> ChunkPos {
+    pub fn chunk_pos(&self) -> FullChunkPos {
         match self {
             Self::Ready(ready) => ready.chunk_pos,
             Self::Failed { chunk_pos } => *chunk_pos,
@@ -28,15 +28,15 @@ impl PreparedChunk {
 
 #[derive(Component)]
 pub struct ChunkReceiver {
-    pub loading: VecDeque<ChunkPos>,
-    pub dirty: VecDeque<ChunkPos>,
-    pub loaded: HashSet<ChunkPos>,
-    pub in_flight: HashSet<ChunkPos>, // dispatched, not yet harvested
-    pub unloading: VecDeque<ChunkPos>,
+    pub loading: VecDeque<FullChunkPos>,
+    pub dirty: VecDeque<FullChunkPos>,
+    pub loaded: HashSet<FullChunkPos>,
+    pub in_flight: HashSet<FullChunkPos>, // dispatched, not yet harvested
+    pub unloading: VecDeque<FullChunkPos>,
     pub chunks_per_tick: f32,
     pub ready_tx: Sender<PreparedChunk>,
     pub ready_rx: Receiver<PreparedChunk>,
-    pub retry_counts: HashMap<ChunkPos, u8>,
+    pub retry_counts: HashMap<FullChunkPos, u8>,
 }
 
 impl ChunkReceiver {

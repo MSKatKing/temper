@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::{Entity, Message};
 use temper_codec::net_types::var_int::VarInt;
-use temper_core::pos::BlockPos;
+use temper_core::pos::FullBlockPos;
 
 /// Message sent when a player right-clicks an interactive block (door, lever, etc.)
 /// and is NOT sneaking.
@@ -9,6 +9,6 @@ use temper_core::pos::BlockPos;
 #[derive(Message, Clone, Debug)]
 pub struct BlockInteractMessage {
     pub player: Entity,
-    pub position: BlockPos,
+    pub position: FullBlockPos,
     pub sequence: VarInt,
 }

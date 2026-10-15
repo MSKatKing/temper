@@ -6,8 +6,8 @@ use temper_messages::player_digging::*;
 use temper_blocks::BlockDispatch;
 use temper_codec::net_types::network_position::NetworkPosition;
 use temper_codec::net_types::var_int::VarInt;
+use temper_components::player::position::Position;
 use temper_core::block_state_id::BlockStateId;
-use temper_core::dimension::Dimension;
 use temper_core::pos::BlockPos;
 use temper_macros::block;
 use temper_net_runtime::connection::StreamWriter;
@@ -20,8 +20,8 @@ use tracing::{error, warn};
 pub fn handle(
     receiver: Res<PlayerActionReceiver>,
     state: Res<GlobalStateResource>,
-    broadcast_query: Query<(Entity, &StreamWriter)>,
-    player_query: Query<&PlayerAbilities>,
+    broadcast_query: Query<(Entity, &StreamWriter, &Position)>,
+    player_query: Query<(&PlayerAbilities, &Position)>,
     (
         mut start_dig_events,
         mut cancel_dig_events,
@@ -39,7 +39,7 @@ pub fn handle(
     // https://minecraft.wiki/w/Minecraft_Wiki:Projects/wiki.vg_merge/Protocol?oldid=2773393#Player_Action
     for (event, trigger_eid) in receiver.0.try_iter() {
         // Get the player's abilities to check their gamemode
-        let Ok(abilities) = player_query.get(trigger_eid) else {
+        let Ok((abilities, position)) = player_query.get(trigger_eid) else {
             warn!(
                 "PlayerAction: Player {:?} has no PlayerAbilities component",
                 trigger_eid
@@ -48,42 +48,45 @@ pub fn handle(
         };
 
         let pos: BlockPos = event.location.clone().into();
+        let pos = pos.full(position.dimension);
         if abilities.creative_mode {
             // --- CREATIVE MODE LOGIC ---
             // Only instabreak (status 0) is relevant in creative.
             if event.status.0 == 0 {
                 world_change.write(temper_messages::world_change::WorldChange {
-                    chunk: Some(pos.chunk()),
+                    chunk: Some(pos.full_chunk()),
                 });
 
-                let Ok(id) = state.0.world.get_block(pos, Dimension::Overworld) else {
+                let Ok(id) = state.0.world.get_block(pos) else {
                     error!("Couldn't get block at pos {}", pos);
                     continue;
                 };
 
-                let mut broken_positions = id.try_break(&state.0.world, pos).blocks;
-                broken_positions.push(pos);
+                let mut broken_positions = id.try_break(&state.0.world, pos);
+                broken_positions.blocks.push(*pos);
 
-                for pos in &broken_positions {
+                for pos in &broken_positions.blocks {
+                    let pos = pos.full(broken_positions.dimension);
                     block_break_events.write(BlockBrokenEvent { position: *pos });
 
-                    if let Err(world_error) =
-                        state
-                            .0
-                            .world
-                            .set_block(*pos, Dimension::Overworld, block!("air"))
-                    {
+                    if let Err(world_error) = state.0.world.set_block(pos, block!("air")) {
                         error!("Failed to break block at {}: {}", pos, world_error)
                     }
                 }
 
                 // Broadcast the change
-                for (eid, conn) in &broadcast_query {
+                for (eid, conn, pos) in &broadcast_query {
                     if !state.0.players.is_connected(eid) {
                         continue;
                     }
 
-                    for broken_pos in &broken_positions {
+                    if broken_positions.dimension != pos.dimension {
+                        continue;
+                    }
+
+                    for broken_pos in &broken_positions.blocks {
+                        // TODO: check for in range
+
                         let update = BlockUpdate {
                             location: NetworkPosition {
                                 x: broken_pos.pos.x,
@@ -92,6 +95,7 @@ pub fn handle(
                             },
                             block_state_id: VarInt::from(BlockStateId::default()),
                         };
+
                         if let Err(e) = conn.send_packet_ref(&update) {
                             error!(
                                 "Failed to send block update to {:?} for broken block: {:?}",
@@ -136,6 +140,7 @@ pub fn handle(
                         player: trigger_eid,
                         position: event.location,
                         sequence: event.sequence,
+                        dimension: position.dimension,
                     });
                 }
                 _ => {} // Other statuses (drop item, etc.) are handled by different packets

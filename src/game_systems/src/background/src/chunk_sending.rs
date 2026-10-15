@@ -8,8 +8,7 @@ use temper_components::player::chunk_receiver::{ChunkReceiver, PreparedChunk, Re
 use temper_components::player::client_information::ClientInformationComponent;
 use temper_components::player::entity_tracker::EntityTracker;
 use temper_components::player::position::Position;
-use temper_core::dimension::Dimension;
-use temper_core::pos::ChunkPos;
+use temper_core::pos::{ChunkPos, FullChunkPos};
 use temper_net_runtime::compression::compress_packet;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::chunk_and_light_data::ChunkAndLightData;
@@ -53,13 +52,17 @@ pub fn handle(
 
         // Both phases need the same "is this chunk still worth working on"
         // test, so compute it once per player.
-        let player_chunk = ChunkPos::from(pos.coords);
+        let player_chunk = pos.chunk();
         let view_distance = max(
             u32::from(client_info.view_distance),
             state.0.config.chunk_render_distance,
         );
         let max_distance_sq = (view_distance * view_distance) as i32;
-        let in_view = |chunk_pos: ChunkPos| {
+        let in_view = |chunk_pos: FullChunkPos| {
+            if chunk_pos.dimension() != player_chunk.dimension() {
+                return false;
+            }
+
             let dx = chunk_pos.x() - player_chunk.x();
             let dz = chunk_pos.z() - player_chunk.z();
             dx * dx + dz * dz <= max_distance_sq
@@ -200,7 +203,7 @@ pub fn handle(
             }
         }
 
-        let mut needed_chunks: Vec<ChunkPos> = Vec::new();
+        let mut needed_chunks: Vec<FullChunkPos> = Vec::new();
 
         if sent_chunks < chunk_receiver.chunks_per_tick as usize {
             while let Some(coords) = chunk_receiver.loading.pop_front() {
@@ -238,7 +241,7 @@ pub fn handle(
                         let chunk_ref = state_clone
                             .0
                             .world
-                            .get_or_generate_chunk(coordinates, Dimension::Overworld)
+                            .get_or_generate_chunk(coordinates)
                             .context("load or generate failed")?;
 
                         (*chunk_ref).clone_without_transient_noise()
@@ -249,7 +252,7 @@ pub fn handle(
                         entities.push((*kv.key(), kv.value().0.to_entity_type().id));
                     }
 
-                    let packet = ChunkAndLightData::from_chunk(coordinates, &chunk_data)
+                    let packet = ChunkAndLightData::from_chunk(*coordinates, &chunk_data)
                         .context("building ChunkAndLightData failed")?;
 
                     let packet_data = compress_packet(

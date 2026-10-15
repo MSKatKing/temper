@@ -2,17 +2,15 @@ use bevy_ecs::prelude::{Entity, Query, Res};
 use temper_codec::net_types::var_int::VarInt;
 use temper_components::entity_identity::Identity;
 use temper_components::player::abilities::PlayerAbilities;
+use temper_components::player::position::Position;
+use temper_core::pos::ChunkBlockPos;
 use temper_inventories::item::ItemID;
 use temper_inventories::slot::InventorySlot;
 use temper_inventories::{hotbar::Hotbar, inventory::Inventory};
 use temper_net_runtime::connection::StreamWriter;
+use temper_protocol::PickItemFromBlockReceiver;
 use temper_protocol::outgoing::set_held_slot::SetHeldItem;
 use temper_state::GlobalStateResource;
-
-use temper_components::player::position::Position;
-use temper_core::dimension::Dimension;
-use temper_core::pos::{ChunkBlockPos, ChunkPos};
-use temper_protocol::PickItemFromBlockReceiver;
 use tracing::{debug, error, warn};
 
 pub fn handle(
@@ -21,6 +19,7 @@ pub fn handle(
     mut player_inv_query: Query<(
         Entity,
         &Identity,
+        &Position,
         &PlayerAbilities,
         &mut Inventory,
         &mut Hotbar,
@@ -29,7 +28,7 @@ pub fn handle(
 ) {
     for (packet, sender_entity) in events.0.try_iter() {
         // 1. Get player's components
-        let (entity, identity, abilities, mut inventory, mut hotbar, writer) =
+        let (entity, identity, position, abilities, mut inventory, mut hotbar, writer) =
             match player_inv_query.get_mut(sender_entity) {
                 Ok(data) => data,
                 Err(e) => {
@@ -48,12 +47,11 @@ pub fn handle(
         );
 
         // 2. Get block from world
-        let pos = Position::from(packet.location);
-        let chunk = match state
-            .0
-            .world
-            .get_or_generate_chunk(ChunkPos::from(pos.coords), Dimension::Overworld)
-        {
+        let pos = Position {
+            coords: packet.location.into(),
+            dimension: position.dimension,
+        };
+        let chunk = match state.0.world.get_or_generate_chunk(pos.chunk()) {
             Ok(chunk) => chunk,
             Err(e) => {
                 warn!(

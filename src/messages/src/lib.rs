@@ -35,6 +35,7 @@ pub mod block_entity_placed;
 pub mod block_interaction;
 pub mod cross_chunk_boundary_event;
 pub mod damage;
+pub mod dimension_change;
 pub mod force_player_recount_event;
 pub mod kill_entity;
 pub mod load_chunk_entities;
@@ -46,6 +47,7 @@ pub mod world_change;
 use crate::chunk_calc::ChunkCalc;
 use crate::cross_chunk_boundary_event::ChunkBoundaryCrossed;
 use crate::damage::DamageEvent;
+use crate::dimension_change::DimensionChange;
 use crate::entity_update::SendEntityUpdate;
 use crate::force_player_recount_event::ForcePlayerRecount;
 use crate::kill_entity::KillEntity;
@@ -93,4 +95,5 @@ pub fn register_messages(world: &mut World) {
     MessageRegistry::register_message::<ChunkBoundaryCrossed>(world);
     MessageRegistry::register_message::<BlockEntityPlaced>(world);
     MessageRegistry::register_message::<DamageEvent>(world);
+    MessageRegistry::register_message::<DimensionChange>(world);
 }

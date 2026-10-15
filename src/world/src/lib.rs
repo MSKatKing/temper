@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::process::exit;
 use temper_config::ServerConfig;
 pub use temper_core::dimension::Dimension;
-use temper_core::pos::ChunkPos;
+use temper_core::pos::FullChunkPos;
 use temper_general_purpose::paths::get_root_path;
 use temper_storage::lmdb::StorageBackend;
 pub use temper_world_format::errors::WorldError;
@@ -98,25 +98,17 @@ impl World {
     }
 
     /// Loads a chunk from the database or cache, generating or advancing it first if needed.
-    pub fn get_or_generate_chunk(
-        &'_ self,
-        chunk_pos: ChunkPos,
-        dimension: Dimension,
-    ) -> Result<RefChunk<'_>, WorldError> {
+    pub fn get_or_generate_chunk(&'_ self, pos: FullChunkPos) -> Result<RefChunk<'_>, WorldError> {
         self.chunk_generator
-            .generate(&self.chunks, dimension, chunk_pos)?;
-        self.get_chunk(chunk_pos, dimension)
+            .generate(&self.chunks, pos.dimension(), *pos)?;
+        self.get_chunk(pos)
     }
 
     /// Loads a chunk from the database or cache, generating or advancing it first if needed. Returns a mutable reference.
-    pub fn get_or_generate_mut(
-        &self,
-        chunk_pos: ChunkPos,
-        dimension: Dimension,
-    ) -> Result<MutChunk<'_>, WorldError> {
+    pub fn get_or_generate_mut(&self, pos: FullChunkPos) -> Result<MutChunk<'_>, WorldError> {
         self.chunk_generator
-            .generate(&self.chunks, dimension, chunk_pos)?;
-        self.get_chunk_mut(chunk_pos, dimension)
+            .generate(&self.chunks, pos.dimension(), *pos)?;
+        self.get_chunk_mut(pos)
     }
 }
 
@@ -134,9 +126,9 @@ impl ChunkStore {
     }
 }
 
-pub type ChunkCache = DashMap<(ChunkPos, Dimension), Chunk, WyHasherBuilder>;
-pub type MutChunk<'a> = dashmap::mapref::one::RefMut<'a, (ChunkPos, Dimension), Chunk>;
-pub type RefChunk<'a> = dashmap::mapref::one::Ref<'a, (ChunkPos, Dimension), Chunk>;
+pub type ChunkCache = DashMap<FullChunkPos, Chunk, WyHasherBuilder>;
+pub type MutChunk<'a> = dashmap::mapref::one::RefMut<'a, FullChunkPos, Chunk>;
+pub type RefChunk<'a> = dashmap::mapref::one::Ref<'a, FullChunkPos, Chunk>;
 
 fn check_config_validity(config: &ServerConfig) -> Result<(), WorldError> {
     // We don't actually check if the import path is valid here since that would brick a server
@@ -200,7 +192,7 @@ mod tests {
     use crate::{java_hash_code, World};
     use temper_config::server_config::create_dummy_config;
     use temper_core::dimension::Dimension;
-    use temper_core::pos::ChunkPos;
+    use temper_core::pos::{ChunkPos, FullChunkPos};
 
     #[test]
     #[ignore]
@@ -211,7 +203,7 @@ mod tests {
         )
         .unwrap();
         let chunk = world
-            .get_chunk(ChunkPos::new(1, 1), Dimension::Overworld)
+            .get_chunk(FullChunkPos::new(ChunkPos::new(1, 1), Dimension::Overworld))
             .expect(
                 "Failed to load chunk. If it's a bitcode error, chances are the chunk format \
              has changed since last generating a world so you'll need to regenerate",
