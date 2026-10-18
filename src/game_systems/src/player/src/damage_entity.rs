@@ -4,16 +4,16 @@ use temper_codec::net_types::var_int::VarInt;
 use temper_components::entity_identity::Identity;
 use temper_components::game_id::GameID;
 use temper_components::health::Health;
+use temper_components::player::gamemode::{GameMode, GameModeComponent};
 use temper_components::player::hunger::Hunger;
 use temper_components::player::player_marker::PlayerMarker;
-use temper_components::player::position::Position;
 use temper_messages::damage::DamageEvent;
 use temper_messages::kill_entity::KillEntity;
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::outgoing::damage_player::DamagePlayer;
 use temper_protocol::outgoing::hurt_animation::HurtAnimationPacket;
 use temper_protocol::outgoing::set_health::SetHealth;
-use tracing::error;
+use tracing::{error, trace};
 
 pub fn damage_entity(
     mut messages: MessageReader<DamageEvent>,
@@ -22,15 +22,15 @@ pub fn damage_entity(
         &mut Health,
         Option<&Identity>,
         Option<&GameID>,
-        Option<&Position>,
         Option<(&Hunger, &StreamWriter)>,
+        Option<&GameModeComponent>,
         Has<PlayerMarker>,
     )>,
     player_stream_query: Query<&StreamWriter, With<PlayerMarker>>,
     mut kill_writer: MessageWriter<KillEntity>,
 ) {
     for message in messages.read() {
-        let Ok((entity, mut health, identity, game_id, _pos, player_data, is_player)) =
+        let Ok((entity, mut health, identity, game_id, player_data, game_mode_opt, is_player)) =
             entity_query.get_mut(message.target)
         else {
             error!(
@@ -39,6 +39,18 @@ pub fn damage_entity(
             );
             continue;
         };
+
+        if let Some(game_mode) = game_mode_opt
+            && (matches!(game_mode.0, GameMode::Creative)
+                || matches!(game_mode.0, GameMode::Spectator))
+        {
+            // In Creative or Spectator mode, entities do not take damage
+            trace!(
+                "Entity {:?} is in Creative or Spectator mode, ignoring damage",
+                message.target
+            );
+            continue;
+        }
 
         // 1. Deduct Health
         if health.current > message.damage {
