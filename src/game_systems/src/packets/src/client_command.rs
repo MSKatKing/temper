@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::{MessageWriter, Query, Res};
 use temper_codec::net_types::network_position::NetworkPosition;
+use temper_components::health::Health;
 use temper_components::player::chunk_receiver::ChunkReceiver;
 use temper_components::player::gamemode::GameModeComponent;
 use temper_components::player::position::Position;
@@ -12,7 +13,6 @@ use temper_protocol::outgoing::game_event::GameEventPacket;
 use temper_protocol::outgoing::respawn::RespawnPacket;
 use temper_state::GlobalStateResource;
 use tracing::error;
-use temper_components::health::Health;
 
 pub fn handle_client_command(
     events: Res<ClientCommandReceiver>,
@@ -21,7 +21,7 @@ pub fn handle_client_command(
         &GameModeComponent,
         &Position,
         &mut ChunkReceiver,
-        &mut Health
+        &mut Health,
     )>,
     mut dim_change_writer: MessageWriter<DimensionChange>,
     state: Res<GlobalStateResource>,
