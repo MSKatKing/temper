@@ -12,6 +12,7 @@ use temper_protocol::outgoing::game_event::GameEventPacket;
 use temper_protocol::outgoing::respawn::RespawnPacket;
 use temper_state::GlobalStateResource;
 use tracing::error;
+use temper_components::health::Health;
 
 pub fn handle_client_command(
     events: Res<ClientCommandReceiver>,
@@ -20,6 +21,7 @@ pub fn handle_client_command(
         &GameModeComponent,
         &Position,
         &mut ChunkReceiver,
+        &mut Health
     )>,
     mut dim_change_writer: MessageWriter<DimensionChange>,
     state: Res<GlobalStateResource>,
@@ -27,7 +29,7 @@ pub fn handle_client_command(
     for (message, sender) in events.0.try_iter() {
         match message.action {
             ClientCommandAction::PerformRespawn => {
-                let (conn, gamemode, pos, _chunk_recv) = query
+                let (conn, gamemode, pos, _chunk_recv, mut health) = query
                     .get_mut(sender)
                     .expect("No StreamWriter or GameModeComponent for sender");
 
@@ -68,6 +70,7 @@ pub fn handle_client_command(
                     ),
                     spawn_rotation: Some(Default::default()),
                 });
+                health.current = health.max;
             }
             ClientCommandAction::GameRules => {}
             ClientCommandAction::RequestStats => {}
