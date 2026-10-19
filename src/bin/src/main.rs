@@ -3,7 +3,7 @@ use std::time::Instant;
 use temper_app::bin_cli::args::{CLIArgs, Command};
 use temper_app::{bin_cli, bin_import, bin_runtime};
 use temper_config::server_config::create_config;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 #[cfg(feature = "dhat")]
 #[global_allocator]
@@ -24,9 +24,14 @@ fn main() {
 
     temper_registry::init();
 
+    temper_logging::init_logging(cli_args.log.into());
+    
+    if cli_args.no_tui {
+        warn!("The TUI has been removed. The no-tui flag will cause an error in future versions");
+    }
+
     match cli_args.command {
         Some(Command::Setup) => {
-            temper_logging::init_logging(cli_args.log.into(), true);
             info!("Starting setup...");
             if let Err(e) = temper_config::setup::setup() {
                 error!("Could not set up the server: {}", e.to_string());
@@ -36,28 +41,26 @@ fn main() {
         }
 
         Some(Command::Import(import_args)) => {
-            temper_logging::init_logging(cli_args.log.into(), true);
             info!("Starting import...");
             let config = create_config();
             bin_import::handle_import(import_args, config);
         }
 
         Some(Command::Clear(clear_args)) => {
-            temper_logging::init_logging(cli_args.log.into(), true);
+            temper_logging::init_logging(cli_args.log.into());
             if let Err(e) = bin_cli::clear::handle_clear(clear_args) {
                 error!("Clear failed: {}", e);
             }
         }
 
         Some(Command::Run) | None => {
-            temper_logging::init_logging(cli_args.log.into(), cli_args.no_tui);
             info!("Starting server...");
             if let Err(e) = temper_config::setup::setup() {
                 error!("Could not set up the server: {}", e.to_string());
             } else {
                 info!("Server setup complete.");
             }
-            if let Err(e) = bin_runtime::entry(start_time, cli_args.no_tui) {
+            if let Err(e) = bin_runtime::entry(start_time) {
                 error!("Server exited with the following error: {}", e.to_string());
             } else {
                 info!("Server exited successfully.");
@@ -65,7 +68,6 @@ fn main() {
         }
 
         Some(Command::Validate) => {
-            temper_logging::init_logging(cli_args.log.into(), true);
             info!("Starting validation...");
             if let Err(e) = temper_app::bin_validate::validate() {
                 error!("Validation failed: {}", e);
