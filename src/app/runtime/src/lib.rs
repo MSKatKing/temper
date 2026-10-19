@@ -27,13 +27,13 @@ pub fn entry(start_time: Instant) -> Result<(), BinaryError> {
         setup::generate_spawn_chunks(global_state.clone())?;
         setup::setup_db(global_state.clone())?;
     }
-        ctrlc::set_handler({
-            let global_state = global_state.clone();
-            move || {
-                shutdown_handler(global_state.clone());
-            }
-        })
-        .expect("Error setting Ctrl-C handler");
+    ctrlc::set_handler({
+        let global_state = global_state.clone();
+        move || {
+            shutdown_handler(global_state.clone());
+        }
+    })
+    .expect("Error setting Ctrl-C handler");
 
     if global_state.config.dashboard.serve_dashboard {
         temper_dashboard::start_dashboard(global_state.clone());

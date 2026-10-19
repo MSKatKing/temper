@@ -25,7 +25,7 @@ fn main() {
     temper_registry::init();
 
     temper_logging::init_logging(cli_args.log.into());
-    
+
     if cli_args.no_tui {
         warn!("The TUI has been removed. The no-tui flag will cause an error in future versions");
     }

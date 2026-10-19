@@ -263,7 +263,7 @@ ctor = "1.0.13"
 # Compression/Decompression
 yazi = "0.2.1"
 flate2 = "1.1.10"
-zip = { version = "9.0.2", default-features = false, features = ["deflate"] }
+zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
 
 
 # Database
