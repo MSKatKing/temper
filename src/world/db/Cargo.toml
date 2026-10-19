@@ -4,7 +4,6 @@ version = { workspace = true }
 edition = "2024"
 
 [dependencies]
-temper-config = { workspace = true }
 temper-storage = { workspace = true }
 temper-core = { workspace = true }
 tracing = { workspace = true }

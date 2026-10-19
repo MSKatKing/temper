@@ -11,10 +11,8 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 rayon = { workspace = true }
-fastanvil = "0.31.0"
+fastanvil = "0.32.0"
 criterion = { workspace = true }
-temper-logging = { workspace = true }
-temper-utils = { workspace = true }
 
 [lints]
 workspace = true

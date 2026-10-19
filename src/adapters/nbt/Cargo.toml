@@ -7,10 +7,8 @@ edition = "2021"
 
 thiserror = { workspace = true }
 temper-codec = { workspace = true }
-temper-general-purpose = { workspace = true }
 uuid = { workspace = true }
 tokio = { workspace = true }
-bitcode = { workspace = true }
 type_hash = { workspace = true }
 serde = { workspace = true }
 simdnbt = { workspace = true }
@@ -22,10 +20,9 @@ workspace = true
 [dev-dependencies]
 criterion = { workspace = true }
 temper-macros = { workspace = true }
-fastnbt = { version = "2.6.0" }
+fastnbt = { version = "2.6.3" }
 crab_nbt = { version = "0.2.11" }
 hematite-nbt = { version = "0.5.2" }
-maplit = "1.0.2"
 
 [[bench]]
 name = "temper-nbt"

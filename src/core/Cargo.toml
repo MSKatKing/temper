@@ -14,7 +14,6 @@ temper-assets = { workspace = true }
 crossbeam-queue = { workspace = true }
 bitcode = { workspace = true }
 bitcode_derive = { workspace = true }
-lazy_static = { workspace = true }
 deepsize = { workspace = true }
 ahash = { workspace = true }
 tracing = { workspace = true }

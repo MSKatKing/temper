@@ -10,11 +10,6 @@ normal = { path = "./generators/normal" }
 skyblock = { path = "./generators/skyblock" }
 superflat = { path = "./generators/superflat" }
 vanilla = { path = "./generators/vanilla" }
-temper-world-format = { workspace = true }
-temper-core = { workspace = true }
-temper-macros = { workspace = true }
-thiserror = { workspace = true }
-rand = { workspace = true }
 tracing = { workspace = true }
 
 [lints]

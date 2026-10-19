@@ -8,7 +8,6 @@
 
 use crate::blocklist::blocklist;
 use crate::errors::BinaryError;
-use crate::tui;
 use bevy_ecs::prelude::World;
 use bevy_ecs::schedule::Schedule;
 use crossbeam_channel::Sender;
@@ -35,7 +34,7 @@ use tracing::{Instrument, debug, error, info, info_span, trace, warn};
 /// 2. Starts the TCP connection acceptor on a separate thread
 /// 3. Runs the main scheduler loop that executes timed schedules (tick, sync, etc.)
 /// 4. Handles graceful shutdown when the server is stopped
-pub fn start_game_loop(global_state: GlobalState, no_tui: bool) -> Result<(), BinaryError> {
+pub fn start_game_loop(global_state: GlobalState) -> Result<(), BinaryError> {
     // =========================================================================
     // PHASE 1: ECS World Setup
     // =========================================================================
@@ -62,10 +61,8 @@ pub fn start_game_loop(global_state: GlobalState, no_tui: bool) -> Result<(), Bi
     let (shutdown_send, shutdown_recv) = tokio::sync::oneshot::channel();
     let (shutdown_response_send, shutdown_response_recv) = crossbeam_channel::unbounded();
 
-    let (server_command_tx, server_command_rx) = crossbeam_channel::unbounded::<String>();
-    if !no_tui {
-        tui::run_tui(global_state.clone(), server_command_tx);
-    }
+    // Currently unused, will be needed when dashboard commands are implemented
+    let (_server_command_tx, server_command_rx) = crossbeam_channel::unbounded::<String>();
 
     // =========================================================================
     // PHASE 3: Register ECS Systems and Resources

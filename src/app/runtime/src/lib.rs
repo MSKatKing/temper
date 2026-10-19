@@ -13,9 +13,8 @@ use tracing::info;
 pub mod blocklist;
 mod errors;
 mod game_loop;
-mod tui;
 
-pub fn entry(start_time: Instant, no_tui: bool) -> Result<(), BinaryError> {
+pub fn entry(start_time: Instant) -> Result<(), BinaryError> {
     let state = temper_state::create_state(start_time);
     let global_state = Arc::new(state);
     create_whitelist();
@@ -28,16 +27,13 @@ pub fn entry(start_time: Instant, no_tui: bool) -> Result<(), BinaryError> {
         setup::generate_spawn_chunks(global_state.clone())?;
         setup::setup_db(global_state.clone())?;
     }
-
-    if no_tui {
-        ctrlc::set_handler({
-            let global_state = global_state.clone();
-            move || {
-                shutdown_handler(global_state.clone());
-            }
-        })
-        .expect("Error setting Ctrl-C handler");
-    }
+    ctrlc::set_handler({
+        let global_state = global_state.clone();
+        move || {
+            shutdown_handler(global_state.clone());
+        }
+    })
+    .expect("Error setting Ctrl-C handler");
 
     if global_state.config.dashboard.serve_dashboard {
         temper_dashboard::start_dashboard(global_state.clone());
@@ -45,11 +41,7 @@ pub fn entry(start_time: Instant, no_tui: bool) -> Result<(), BinaryError> {
 
     setup_block_and_item_mapping();
 
-    game_loop::start_game_loop(global_state.clone(), no_tui)?;
-
-    if !no_tui {
-        ratatui::restore()
-    }
+    game_loop::start_game_loop(global_state.clone())?;
 
     Ok(())
 }

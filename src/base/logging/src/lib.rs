@@ -1,7 +1,5 @@
 pub mod errors;
-pub mod tui_formatter;
 
-use log::LevelFilter::Debug;
 use temper_general_purpose::paths::get_root_path;
 use temper_profiling::ProfilerTracingLayer;
 use tracing::Level;
@@ -9,9 +7,8 @@ use tracing_appender::rolling::Rotation;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
-use tui_logger::TuiTracingSubscriberLayer;
 
-pub fn init_logging(trace_level: Level, no_tui: bool) {
+pub fn init_logging(trace_level: Level) {
     //let console = console_subscriber::spawn();
     let env_filter = EnvFilter::builder()
         .with_default_directive(trace_level.into())
@@ -49,30 +46,25 @@ pub fn init_logging(trace_level: Level, no_tui: bool) {
     #[cfg(feature = "tracy")]
     let registry = registry.with(tracy_layer);
 
-    if no_tui {
-        let layer = {
-            #[cfg(debug_assertions)]
-            {
-                tracing_subscriber::fmt::layer()
-                    .with_file(true)
-                    .with_line_number(true)
-                    .with_level(true)
-                    .with_target(false)
-            }
-            #[cfg(not(debug_assertions))]
-            {
-                tracing_subscriber::fmt::layer()
-                    .with_thread_ids(false)
-                    .with_thread_names(false)
-                    .with_file(false)
-                    .with_line_number(false)
-                    .with_level(true)
-                    .with_target(false)
-            }
-        };
-        registry.with(layer).init();
-    } else {
-        tui_logger::init_logger(Debug).expect("Failed to initialize TUI logger");
-        registry.with(TuiTracingSubscriberLayer).init();
+    let layer = {
+        #[cfg(debug_assertions)]
+        {
+            tracing_subscriber::fmt::layer()
+                .with_file(true)
+                .with_line_number(true)
+                .with_level(true)
+                .with_target(false)
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            tracing_subscriber::fmt::layer()
+                .with_thread_ids(false)
+                .with_thread_names(false)
+                .with_file(false)
+                .with_line_number(false)
+                .with_level(true)
+                .with_target(false)
+        }
     };
+    registry.with(layer).init();
 }

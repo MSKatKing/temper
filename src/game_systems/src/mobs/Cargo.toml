@@ -13,7 +13,6 @@ temper-messages = { workspace = true }
 temper-state = { workspace = true }
 temper-core = { workspace = true }
 temper-particles = { workspace = true }
-temper-utils = { workspace = true }
 temper-resources = { workspace = true }
 temper-text = { workspace = true }
 tracing = { workspace = true }
