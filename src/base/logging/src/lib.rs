@@ -19,6 +19,7 @@ pub fn init_logging(trace_level: Level) {
         .add_directive("reqwest=warn".parse().unwrap())
         .add_directive("h2=warn".parse().unwrap())
         .add_directive("rustls=warn".parse().unwrap())
+        .add_directive("tungstenite=warn".parse().unwrap())
         .add_directive("hyper_util=warn".parse().unwrap());
 
     let file_appender = tracing_appender::rolling::Builder::new()

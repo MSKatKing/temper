@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use build_print::info;
 use std::env;
 use std::fs;
@@ -10,6 +10,24 @@ use zip::ZipArchive;
 // Since we set up the GitHub Action to release to 'latest', we can use this URL.
 const DASHBOARD_URL: &str =
     "https://github.com/temper-mc/dashboard/releases/download/latest/temper-dashboard.zip";
+
+/// Optional env var pointing at a local dashboard build (the `out` dir of a static export).
+/// When set, it is used instead of downloading the released artifact.
+const DASHBOARD_PATH_ENV: &str = "TEMPER_DASHBOARD_PATH";
+
+fn copy_dir_all(src: &Path, dest: &Path) -> Result<()> {
+    fs::create_dir_all(dest)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let target = dest.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir_all(&entry.path(), &target)?;
+        } else {
+            fs::copy(entry.path(), target)?;
+        }
+    }
+    Ok(())
+}
 
 fn main() -> Result<()> {
     // Tell Cargo about our custom cfg flags to suppress warnings
@@ -39,7 +57,29 @@ fn main() -> Result<()> {
         println!("cargo:rustc-cfg=dashboard_in_manifest_dir");
     }
 
-    // 2. Always attempt to download the dashboard
+    // 2. Use a local dashboard build if one was provided
+    println!("cargo:rerun-if-env-changed={DASHBOARD_PATH_ENV}");
+    if let Ok(local_path) = env::var(DASHBOARD_PATH_ENV) {
+        let local_path = Path::new(&local_path);
+        if !local_path.join("index.html").is_file() {
+            bail!(
+                "{DASHBOARD_PATH_ENV} is set to {:?}, but no index.html was found there",
+                local_path
+            );
+        }
+        println!("cargo:rerun-if-changed={}", local_path.display());
+
+        if dest_dir.exists() {
+            fs::remove_dir_all(&dest_dir)?;
+        }
+        copy_dir_all(local_path, &dest_dir)?;
+        info!("Dashboard copied from {:?} to {:?}", local_path, dest_dir);
+
+        println!("cargo:rustc-cfg=dashboard_build");
+        return Ok(());
+    }
+
+    // 3. Otherwise attempt to download the dashboard
     info!("Downloading Dashboard artifact from {}", DASHBOARD_URL);
 
     let client = reqwest::blocking::Client::new();

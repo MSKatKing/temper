@@ -4,10 +4,32 @@
 //!
 //! ## WebSocket Protocol
 //!
-//! Connect to `/ws` to receive server events. The protocol uses JSON messages
+//! Connect to `/ws` to receive server events. The connection must be authenticated, see
+//! [Authentication](#authentication). The protocol uses JSON messages
 //! with a `type` field indicating the event type.
 //!
-//! ### Handshake (sent once on connect)
+//! ## Authentication
+//!
+//! The password is the `secret` from the `[dashboard]` config section. Clients never send it
+//! directly, they send its lowercase hex encoded SHA-512 hash.
+//!
+//! - `POST /api/login` with `{ "hash": "<sha512 hex>" }` returns
+//!   `{ "token": "...", "expires_in": <seconds> }`. Responds `401` on a wrong hash.
+//! - `GET /api/session` returns `204` if the `Authorization: Bearer <token>` is still valid,
+//!   `401` otherwise.
+//! - `POST /api/logout` with the bearer header revokes the session.
+//!
+//! The WebSocket accepts the token in one of two ways:
+//!
+//! - an `Authorization: Bearer <token>` header on the upgrade request (rejected with `401` if
+//!   invalid), or
+//! - for clients that can't set headers (browsers), a first text frame of
+//!   `{ "type": "Auth", "data": "<token>" }` within 10 seconds of connecting.
+//!
+//! Nothing is sent until the client is authenticated. On failure, or when the session expires
+//! mid-connection, the server closes the socket with code `4401`.
+//!
+//! ### Handshake (sent once after authenticating)
 //!
 //! ```json
 //! {
@@ -39,13 +61,16 @@ use crate::telemetry::DashboardEvent;
 use axum::extract::Path;
 use axum::http::{header, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::Router;
 use include_dir::{include_dir, Dir};
+use std::net::SocketAddr;
+use std::time::Duration;
 use temper_state::GlobalState;
 use tokio::sync::broadcast;
 use tracing::{debug, info, trace};
 
+mod auth;
 mod handshake;
 mod telemetry;
 mod ws;
@@ -64,6 +89,9 @@ pub fn start_dashboard(state: GlobalState) {
         })
         .expect("Failed to spawn dashboard thread");
 }
+
+/// The text the default config uses as a placeholder until a real secret is generated.
+const UNSET_SECRET_PREFIX: &str = "This will be replaced";
 
 /// The HTTP protocol used by the dashboard.
 /// (I made this variable cuz rust rover was complaining about insecure url 💔😔)
@@ -97,13 +125,41 @@ async fn start_webserver(state: GlobalState) {
     let state_clone = state.clone();
     tokio::spawn(telemetry::start_telemetry_loop(tx_clone, state_clone));
 
-    // WebSocket state includes broadcast channel and handshake data
-    let ws_state = ws::WsState { tx, handshake };
+    let secret = &state.config.dashboard.secret;
+    if secret.is_empty() || secret.starts_with(UNSET_SECRET_PREFIX) {
+        tracing::error!("Dashboard secret is not set, refusing to start the dashboard");
+        return;
+    }
+    let auth = auth::AuthState::new(secret);
+
+    // Drop expired sessions and stale lockouts in the background
+    let sweep_auth = auth.clone();
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(Duration::from_secs(300));
+        loop {
+            ticker.tick().await;
+            sweep_auth.sweep();
+        }
+    });
+
+    // WebSocket state includes broadcast channel, handshake data and auth
+    let ws_state = ws::WsState {
+        tx,
+        handshake,
+        auth: auth.clone(),
+    };
+
+    let auth_routes = Router::new()
+        .route("/api/login", post(auth::login_handler))
+        .route("/api/logout", post(auth::logout_handler))
+        .route("/api/session", get(auth::session_handler))
+        .with_state(auth);
 
     // axum app/router
     let mut app = Router::new()
         .route("/ws", get(ws::ws_handler))
-        .with_state(ws_state);
+        .with_state(ws_state)
+        .merge(auth_routes);
 
     if state.config.dashboard.serve_page {
         app = app
@@ -115,7 +171,12 @@ async fn start_webserver(state: GlobalState) {
     match tokio::net::TcpListener::bind(&addr).await {
         Ok(listener) => {
             info!("Dashboard listening on {PROTOCOL}://{}", addr);
-            if let Err(e) = axum::serve(listener, app).await {
+            if let Err(e) = axum::serve(
+                listener,
+                app.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await
+            {
                 tracing::error!("Dashboard server error: {}", e);
             }
         }
