@@ -216,6 +216,8 @@ rsa = { version = "0.10.0-rc.17" }
 aes = { version = "0.8.4" }
 cfb8 = "0.8.1"
 sha1 = "0.11.0"
+sha2 = "0.11.1"
+subtle = "2.6.1"
 num-bigint = "0.5.1"
 md5 = "0.8.1"
 rustc-hash = "2.1.3"
