@@ -10,7 +10,6 @@ temper-inventories = { workspace = true }
 temper-net-runtime = { workspace = true }
 temper-storage = { workspace = true }
 temper-utils = { workspace = true }
-temper-world = { workspace = true }
 temper-world-format = { workspace = true }
 temper-config = { workspace = true }
 temper-state = { workspace = true }
@@ -20,7 +19,6 @@ temper-performance = { workspace = true }
 temper-protocol = { workspace = true }
 temper-default-commands = { workspace = true }
 temper-resources = { workspace = true }
-temper-logging = { workspace = true }
 temper-messages = { workspace = true }
 temper-game-systems = { workspace = true }
 temper-dashboard = { workspace = true }

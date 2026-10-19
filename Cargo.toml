@@ -131,7 +131,6 @@ debug = true
 #=============== Dependencies ==============#
 [workspace.dependencies]
 # Workspace members
-interactions = { path = "src/game_systems/src/interactions" }
 temper-anvil = { path = "src/adapters/anvil" }
 temper-app = { path = "src/app" }
 temper-assets = { path = "src/assets" }
@@ -241,7 +240,6 @@ bytemuck = { version = "1.25.2", features = ["extern_crate_alloc", "derive"] }
 dashmap = { version = "7.0.0-rc2", features = ["serde"] }
 uuid = { version = "1.28.0", features = ["v4", "v5", "serde"] }
 indexmap = { version = "2.14.2", features = ["serde"] }
-bimap = "0.6.3"
 arrayvec = "0.7.8"
 fastcache = "0.1.7"
 
@@ -288,7 +286,6 @@ quick-noise = "0.3.0"
 ## TUI/CLI
 clap = { version = "4.6.7", features = ["derive", "env"] }
 indicatif = "0.18.6"
-colored = "3.1.1"
 heck = "0.5.0"
 
 # I/O

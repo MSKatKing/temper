@@ -19,7 +19,6 @@ tokio = { workspace = true }
 # temper local crates
 temper-state = { workspace = true }
 temper-general-purpose = { workspace = true }
-temper-config = { workspace = true }
 temper-performance = { workspace = true }
 
 [build-dependencies]

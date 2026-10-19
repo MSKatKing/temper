@@ -12,8 +12,6 @@ crossbeam-queue = { workspace = true }
 once_cell = { workspace = true }
 thiserror = { workspace = true }
 temper-registry = { workspace = true }
-bitcode = { workspace = true }
-bitcode_derive = { workspace = true }
 serde = { workspace = true }
 temper-data = { workspace = true }
 temper-core = { workspace = true }
