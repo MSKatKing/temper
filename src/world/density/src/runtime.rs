@@ -16,8 +16,10 @@ pub struct DensityCache {
 
 pub struct DensityRuntime<'compiled> {
     main: &'compiled [DensityOpcode],
+    pub(crate) functions: &'compiled [Box<[DensityOpcode]>],
     spline_runtimes: &'compiled [Box<[DensityOpcode]>],
-    stack: DensityStack,
+    pub(crate) stack: DensityStack,
+    pub(crate) function_cache: Box<[Option<f64>]>,
     pos_stack: Vec<BlockPos>,
     caches: Vec<DensityCache>,
 }
@@ -31,6 +33,7 @@ impl DensityRuntime<'_> {
     pub fn new(func: &CompiledDensityFunction) -> DensityRuntime<'_> {
         DensityRuntime {
             main: func.main.as_ref(),
+            functions: func.functions.as_ref(),
             spline_runtimes: func.spline_opcodes.as_ref(),
             caches: vec![
                 DensityCache {
@@ -39,6 +42,7 @@ impl DensityRuntime<'_> {
                 };
                 func.num_caches
             ],
+            function_cache: vec![None; func.functions.len()].into_boxed_slice(),
             stack: Vec::new(),
             pos_stack: Vec::new(),
         }
@@ -47,6 +51,7 @@ impl DensityRuntime<'_> {
     pub fn execute_at(&mut self, pos: BlockPos) -> DensityResult<f64> {
         self.stack.clear();
         self.pos_stack.clear();
+        self.function_cache.fill(None);
 
         self.pos_stack.push(pos);
 
@@ -81,6 +86,28 @@ impl DensityRuntime<'_> {
         self.stack.pop().ok_or(DensityRuntimeError::StackUnderflow)
     }
 
+    pub(crate) fn execute_function(&mut self, index: usize) -> DensityResult<f64> {
+        if index >= self.functions.len() {
+            return Err(DensityRuntimeError::InvalidFunctionId {
+                got: index,
+                max: self.functions.len() - 1,
+            });
+        }
+
+        let runtime = &self.functions[index];
+        let mut position = 0;
+        while position < runtime.len() {
+            match runtime[position].execute(self)? {
+                MovementResult::Continue => position += 1,
+                MovementResult::JumpTo(jump) => position = jump,
+            }
+        }
+
+        let res = self.stack.pop().ok_or(DensityRuntimeError::StackUnderflow)?;
+        self.function_cache[index] = Some(res);
+        Ok(res)
+    }
+
     fn current_pos(&self) -> DensityResult<&BlockPos> {
         self.pos_stack
             .last()
@@ -109,35 +136,43 @@ impl DensityOpcode {
     fn execute(&self, runtime: &mut DensityRuntime) -> DensityResult<MovementResult> {
         match self {
             DensityOpcode::PushConstant { value } => runtime.stack.push(*value),
+            DensityOpcode::CallFunction { index } => {
+                if let Some(val) = runtime.function_cache.get(*index).copied().unwrap_or_default() {
+                    runtime.stack.push(val);
+                } else {
+                    let value = runtime.execute_function(*index)?;
+                    runtime.stack.push(value);
+                }
+            }
             DensityOpcode::JumpTo { index } => return Ok(MovementResult::JumpTo(*index)),
             DensityOpcode::Add { lhs, rhs } => {
-                let lhs = lhs.get_value(&mut runtime.stack)?;
-                let rhs = rhs.get_value(&mut runtime.stack)?;
+                let lhs = lhs.get_value(runtime)?;
+                let rhs = rhs.get_value(runtime)?;
                 runtime.stack.push(lhs + rhs)
             }
             DensityOpcode::Mul { lhs, rhs } => {
-                let lhs = lhs.get_value(&mut runtime.stack)?;
-                let rhs = rhs.get_value(&mut runtime.stack)?;
+                let lhs = lhs.get_value(runtime)?;
+                let rhs = rhs.get_value(runtime)?;
                 runtime.stack.push(lhs * rhs)
             }
             DensityOpcode::Sub { lhs, rhs } => {
-                let lhs = lhs.get_value(&mut runtime.stack)?;
-                let rhs = rhs.get_value(&mut runtime.stack)?;
+                let lhs = lhs.get_value(runtime)?;
+                let rhs = rhs.get_value(runtime)?;
                 runtime.stack.push(lhs - rhs)
             }
             DensityOpcode::Div { lhs, rhs } => {
-                let lhs = lhs.get_value(&mut runtime.stack)?;
-                let rhs = rhs.get_value(&mut runtime.stack)?;
+                let lhs = lhs.get_value(runtime)?;
+                let rhs = rhs.get_value(runtime)?;
                 runtime.stack.push(lhs / rhs)
             }
             DensityOpcode::Min { a, b } => {
-                let a = a.get_value(&mut runtime.stack)?;
-                let b = b.get_value(&mut runtime.stack)?;
+                let a = a.get_value(runtime)?;
+                let b = b.get_value(runtime)?;
                 runtime.stack.push(a.min(b))
             }
             DensityOpcode::Max { a, b } => {
-                let a = a.get_value(&mut runtime.stack)?;
-                let b = b.get_value(&mut runtime.stack)?;
+                let a = a.get_value(runtime)?;
+                let b = b.get_value(runtime)?;
                 runtime.stack.push(a.max(b))
             }
             DensityOpcode::Abs => runtime.modify_last(f64::abs)?,
@@ -210,9 +245,9 @@ impl DensityOpcode {
                 shift_y,
                 shift_z,
             } => {
-                let shift_x = shift_x.get_value(&mut runtime.stack)?;
-                let shift_y = shift_y.get_value(&mut runtime.stack)?;
-                let shift_z = shift_z.get_value(&mut runtime.stack)?;
+                let shift_x = shift_x.get_value(runtime)?;
+                let shift_y = shift_y.get_value(runtime)?;
+                let shift_z = shift_z.get_value(runtime)?;
                 let pos = runtime.current_pos()?;
 
                 let val = noise.noise(DVec3::new(
@@ -250,13 +285,11 @@ impl DensityOpcode {
                 runtime.stack.push(val);
             }
             DensityOpcode::IntervalSelect {
+                input,
                 thresholds,
                 indexes,
             } => {
-                let input = runtime
-                    .stack
-                    .pop()
-                    .ok_or(DensityRuntimeError::StackUnderflow)?;
+                let input = input.get_value(runtime)?;
 
                 for (i, threshold) in thresholds.iter().enumerate() {
                     if input < *threshold {
@@ -267,13 +300,11 @@ impl DensityOpcode {
                 return Ok(MovementResult::JumpTo(*indexes.last().unwrap()));
             }
             DensityOpcode::RangeChoice {
+                input,
                 range,
                 when_out_of_range,
             } => {
-                let input = runtime
-                    .stack
-                    .pop()
-                    .ok_or(DensityRuntimeError::StackUnderflow)?;
+                let input = input.get_value(runtime)?;
                 if !range.contains(&input) {
                     return Ok(MovementResult::JumpTo(*when_out_of_range));
                 }
@@ -410,7 +441,9 @@ mod tests {
         let spline_runtimes = [];
         let mut runtime = DensityRuntime {
             main: ops,
+            functions: &[],
             spline_runtimes: &spline_runtimes,
+            function_cache: Box::new([]),
             stack: Vec::new(),
             caches: Vec::new(),
             pos_stack: Vec::new(),

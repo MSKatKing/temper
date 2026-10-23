@@ -1,5 +1,5 @@
 use crate::error::{DensityResult, DensityRuntimeError};
-use crate::runtime::DensityStack;
+use crate::runtime::DensityRuntime;
 use std::ops::Range;
 use temper_core::pos::BlockPos;
 use temper_noise::{BlendedNoise, NormalNoise};
@@ -12,6 +12,9 @@ pub enum DensityOpcode {
     /// This should only be used in cases where [`DensityValueSource`] can't be used, such as
     /// in a density function that always returns a constant.
     PushConstant { value: f64 },
+    
+    /// Pushes the value from the function at 'index' to the stack.
+    CallFunction { index: usize },
 
     /// Tells the runtime to jump to `index` as the next opcode to execute. This should be used
     /// to jump over code segments that won't be needed, like for skipping cache values that
@@ -136,6 +139,7 @@ pub enum DensityOpcode {
     /// Determines the function to execute based off the input value from the stack, jumping to that
     /// code segment and skipping others.
     IntervalSelect {
+        input: DensityValueSource,
         thresholds: Vec<f64>,
         indexes: Vec<usize>,
     },
@@ -144,6 +148,7 @@ pub enum DensityOpcode {
     /// proper function. The function for when the input value is in range should follow this
     /// opcode.
     RangeChoice {
+        input: DensityValueSource,
         range: Range<f64>,
         when_out_of_range: usize,
     },
@@ -171,6 +176,9 @@ pub enum DensityValueSource {
 
     /// Returns the wrapped constant.
     Constant(f64),
+    
+    /// References a value from a function.
+    Function(usize),
 }
 
 /// Represents an axis, either X, Y, or Z.
@@ -216,6 +224,23 @@ pub enum DensitySpline {
     Constant(f64),
 }
 
+impl TryInto<DensityOpcode> for DensityValueSource {
+    type Error = ();
+    
+    /// Attempts to convert this value source into an opcode.
+    /// 
+    /// [DensityValueSource::Constant] will convert to [DensityOpcode::PushConstant].
+    /// [DensityValueSource::Function] will convert to [DensityOpcode::CallFunction].
+    /// [DensityValueSource::Stack] will result in `Err(())`.
+    fn try_into(self) -> Result<DensityOpcode, Self::Error> {
+        match self {
+            Self::Constant(value) => Ok(DensityOpcode::PushConstant { value }),
+            Self::Function(index) => Ok(DensityOpcode::CallFunction { index }),
+            Self::Stack => Err(()),
+        }
+    }
+}
+
 impl DensityValueSource {
     /// Returns the value represented by this value source.
     ///
@@ -225,10 +250,17 @@ impl DensityValueSource {
     /// # Returns
     ///  * `Ok(value)`: the value represented by this value source.
     ///  * `Err(StackUnderflow)`: the stack didn't contain a value but one was expected.
-    pub fn get_value(&self, stack: &mut DensityStack) -> DensityResult<f64> {
+    pub fn get_value(&self, runtime: &mut DensityRuntime) -> DensityResult<f64> {
         match self {
-            DensityValueSource::Stack => stack.pop().ok_or(DensityRuntimeError::StackUnderflow),
+            DensityValueSource::Stack => runtime.stack.pop().ok_or(DensityRuntimeError::StackUnderflow),
             DensityValueSource::Constant(c) => Ok(*c),
+            DensityValueSource::Function(index) => {
+                if let Some(value) = runtime.function_cache.get(*index).copied().unwrap_or_default() {
+                    Ok(value)
+                } else {
+                    runtime.execute_function(*index)
+                }
+            }
         }
     }
 }
