@@ -257,6 +257,10 @@ impl ChunkHeight {
     pub const fn min_section_y(&self) -> i16 {
         self.min_y >> 4
     }
+
+    pub const fn max_section_y(&self) -> i16 {
+        self.max_y() >> 4
+    }
 }
 
 #[derive(Hash, Debug, Clone, Copy, PartialEq, Eq)]

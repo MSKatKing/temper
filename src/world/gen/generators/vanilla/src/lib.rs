@@ -2,7 +2,7 @@ use gen_core::{
     ChunkGenerator, GenStage, GenerationError, GeneratorId, StageDependencies, StageInput,
     StageSpec,
 };
-use include_dir::{Dir, include_dir};
+use include_dir::Dir;
 use std::collections::HashMap;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::dimension::Dimension;
@@ -22,8 +22,8 @@ pub struct VanillaGenerator {
     default_fluid_state: BlockStateId,
     water_level: i16,
     dimension: Dimension,
-    size_horizontal: u8,
-    size_vertical: u8,
+    interpolation_cell_size_xz: u8,
+    interpolation_cell_size_y: u8,
 }
 
 impl VanillaGenerator {
@@ -31,8 +31,6 @@ impl VanillaGenerator {
         const BASE: &str = include_str!("function.json");
         const NETHER: &str = include_str!("nether.json");
         const END: &str = include_str!("end.json");
-        const EXTERNAL: Dir =
-            include_dir!("assets/generated/generated/data/minecraft/worldgen/density_function");
 
         let mut rand = XoroshiroRandomSource::new(seed);
 
@@ -65,7 +63,10 @@ impl VanillaGenerator {
             }
         }
 
-        gather(&mut external, &EXTERNAL);
+        gather(
+            &mut external,
+            &temper_assets::generated::DENSITY_FUNCTION_DIR,
+        );
         let compiled = Compiler::compile(
             &mut rand.fork_positional(),
             &external,
@@ -93,11 +94,11 @@ impl VanillaGenerator {
                 Dimension::Nether => 32,
                 _ => 0,
             },
-            size_horizontal: match dimension {
+            interpolation_cell_size_xz: match dimension {
                 Dimension::End => 2,
                 _ => 1,
             },
-            size_vertical: match dimension {
+            interpolation_cell_size_y: match dimension {
                 Dimension::End => 1,
                 _ => 2,
             },
@@ -168,11 +169,8 @@ impl VanillaGenerator {
             }
         }
 
-        let cell_size_xz = self.size_horizontal as i32;
-        let cell_size_y = self.size_vertical as i32;
-
-        let cell_height = cell_size_y + 1;
-        let cell_width = cell_size_xz + 1;
+        let cell_width = self.interpolation_cell_size_xz + 1;
+        let cell_height = self.interpolation_cell_size_y + 1;
 
         let cell_count_xz = 16usize >> cell_width;
         let cell_count_y = (input.target.height().height as usize) >> cell_height;
@@ -331,8 +329,8 @@ fn fill_slice(
     cell_x: usize,
     cell_count_xz: usize,
     cell_count_y: usize,
-    cell_width: i32,
-    cell_height: i32,
+    cell_width: u8,
+    cell_height: u8,
     min_y: i16,
     function: &mut DensityRuntime,
 ) -> DensityResult<()> {
