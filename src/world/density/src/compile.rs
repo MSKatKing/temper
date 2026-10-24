@@ -1,11 +1,11 @@
 use crate::error::{DensityCompileError, DensityCompileResult};
 use crate::json::{DensityFunction, DensityFunctionArgument, DensitySpline, ValueOrSpline};
 use crate::opcode::{Axis, DensityOpcode, DensityValueSource, Tiling};
-use std::collections::HashMap;
 use indexmap::IndexMap;
-use temper_core::random::{PositionalRandom, RandomSource};
+use std::collections::HashMap;
+use temper_core::random::{LegacyRandomSource, PositionalRandom, RandomSource};
 use temper_noise::params::NoiseParameter;
-use temper_noise::{BlendedNoise, NormalNoise};
+use temper_noise::{BlendedNoise, NormalNoise, SimplexNoise};
 
 pub struct CompiledDensityFunction {
     pub(crate) main: Box<[DensityOpcode]>,
@@ -19,6 +19,8 @@ pub struct Compiler<'a> {
     spline_opcodes: Vec<Vec<DensityOpcode>>,
     function_opcodes: IndexMap<String, Vec<DensityOpcode>>,
     num_caches: usize,
+    legacy_noise: bool,
+    seed: u64,
 }
 
 impl Compiler<'_> {
@@ -26,12 +28,16 @@ impl Compiler<'_> {
         rand: &mut P,
         externals: &HashMap<String, DensityFunctionArgument>,
         func: DensityFunctionArgument,
+        seed: u64,
+        legacy_noise: bool,
     ) -> DensityCompileResult<CompiledDensityFunction> {
         let mut this = Compiler {
             externals,
             spline_opcodes: Vec::new(),
             function_opcodes: IndexMap::new(),
             num_caches: 0,
+            legacy_noise,
+            seed,
         };
 
         let mut opcodes = Vec::new();
@@ -40,7 +46,8 @@ impl Compiler<'_> {
 
         Ok(CompiledDensityFunction {
             main: opcodes.into_boxed_slice(),
-            functions: this.function_opcodes
+            functions: this
+                .function_opcodes
                 .into_iter()
                 .map(|v| v.1.into_boxed_slice())
                 .collect(),
@@ -70,16 +77,13 @@ fn compile_arg<R: RandomSource, P: PositionalRandom<R>>(
             if let Some((idx, _, _)) = compiler.function_opcodes.get_full(val) {
                 Ok(DensityValueSource::Function(idx))
             } else {
-                let ops = compiler.externals.get(val)
+                let ops = compiler
+                    .externals
+                    .get(val)
                     .ok_or(DensityCompileError::MissingExternalFunction(val.clone()))?;
 
                 let mut opcodes = Vec::new();
-                let res = compile_arg(
-                    compiler,
-                    &mut opcodes,
-                    rand,
-                    ops,
-                )?;
+                let res = compile_arg(compiler, &mut opcodes, rand, ops)?;
 
                 match res {
                     DensityValueSource::Stack => {
@@ -89,7 +93,7 @@ fn compile_arg<R: RandomSource, P: PositionalRandom<R>>(
                     other => Ok(other),
                 }
             }
-        },
+        }
     }
 }
 
@@ -143,16 +147,20 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
             };
             *after = len;
         }
+        DensityFunction::EndIslands => {
+            let mut rand = LegacyRandomSource::new(compiler.seed);
+            rand.consume_count(17292);
+
+            opcodes.push(DensityOpcode::EndIslands {
+                island_noise: SimplexNoise::new(&mut rand),
+            });
+        }
         DensityFunction::Noise {
             noise,
             xz_scale,
             y_scale,
         } => opcodes.push(DensityOpcode::Noise {
-            noise: NormalNoise::new(
-                &mut rand.spawn_from_hash(noise.as_str()),
-                NoiseParameter::get_by_name(noise)
-                    .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
-            ),
+            noise: create_noise(rand, noise.as_str(), compiler.seed)?,
             xz_scale: *xz_scale,
             y_scale: *y_scale,
             shift_x: DensityValueSource::Constant(0.0),
@@ -165,36 +173,37 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
             xz_factor,
             y_factor,
             smear_scale_multiplier,
-        } => opcodes.push(DensityOpcode::BlendedNoise {
-            noise: BlendedNoise::new_seeded(
-                &mut rand.spawn_from_hash("minecraft:terrain"),
-                *xz_scale,
-                *y_scale,
-                *xz_factor,
-                *y_factor,
-                *smear_scale_multiplier,
-            ),
+        } => opcodes.push(if compiler.legacy_noise {
+            DensityOpcode::BlendedNoise {
+                noise: BlendedNoise::new_seeded(
+                    &mut LegacyRandomSource::new(compiler.seed),
+                    *xz_scale,
+                    *y_scale,
+                    *xz_factor,
+                    *y_factor,
+                    *smear_scale_multiplier,
+                ),
+            }
+        } else {
+            DensityOpcode::BlendedNoise {
+                noise: BlendedNoise::new_seeded(
+                    &mut rand.spawn_from_hash("minecraft:terrain"),
+                    *xz_scale,
+                    *y_scale,
+                    *xz_factor,
+                    *y_factor,
+                    *smear_scale_multiplier,
+                ),
+            }
         }),
         DensityFunction::Shift { noise } => opcodes.push(DensityOpcode::Shift {
-            noise: NormalNoise::new(
-                &mut rand.spawn_from_hash(noise.as_str()),
-                NoiseParameter::get_by_name(noise)
-                    .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
-            ),
+            noise: create_noise(rand, noise.as_str(), compiler.seed)?,
         }),
         DensityFunction::ShiftA { noise } => opcodes.push(DensityOpcode::ShiftA {
-            noise: NormalNoise::new(
-                &mut rand.spawn_from_hash(noise.as_str()),
-                NoiseParameter::get_by_name(noise)
-                    .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
-            ),
+            noise: create_noise(rand, noise.as_str(), compiler.seed)?,
         }),
         DensityFunction::ShiftB { noise } => opcodes.push(DensityOpcode::ShiftB {
-            noise: NormalNoise::new(
-                &mut rand.spawn_from_hash(noise.as_str()),
-                NoiseParameter::get_by_name(noise)
-                    .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
-            ),
+            noise: create_noise(rand, noise.as_str(), compiler.seed)?,
         }),
         DensityFunction::ShiftedNoise {
             noise,
@@ -209,11 +218,7 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
             let shift_x = compile_arg(compiler, opcodes, rand, shift_x)?;
 
             opcodes.push(DensityOpcode::Noise {
-                noise: NormalNoise::new(
-                    &mut rand.spawn_from_hash(noise.as_str()),
-                    NoiseParameter::get_by_name(noise)
-                        .ok_or(DensityCompileError::UnknownNoise(noise.to_string()))?,
-                ),
+                noise: create_noise(rand, noise.as_str(), compiler.seed)?,
                 xz_scale: *xz_scale,
                 y_scale: *y_scale,
                 shift_x,
@@ -413,7 +418,8 @@ fn compile_to<R: RandomSource, P: PositionalRandom<R>>(
             let jump_idx = opcodes.len();
             opcodes.push(DensityOpcode::JumpTo { index: 0 });
 
-            if let Ok(opcode) = compile_arg(compiler, opcodes, rand, when_out_of_range)?.try_into() {
+            if let Ok(opcode) = compile_arg(compiler, opcodes, rand, when_out_of_range)?.try_into()
+            {
                 opcodes.push(opcode);
             }
 
@@ -457,7 +463,9 @@ fn compile_spline<R: RandomSource, P: PositionalRandom<R>>(
     let spline_idx = compiler.spline_opcodes.len();
     compiler.spline_opcodes.push(Vec::with_capacity(0));
     let mut spline_opcodes = Vec::new();
-    if let Ok(opcode) = compile_arg(compiler, &mut spline_opcodes, rand, &spline.coordinate)?.try_into() {
+    if let Ok(opcode) =
+        compile_arg(compiler, &mut spline_opcodes, rand, &spline.coordinate)?.try_into()
+    {
         spline_opcodes.push(opcode);
     }
 
@@ -482,5 +490,27 @@ fn compile_spline<R: RandomSource, P: PositionalRandom<R>>(
         locations,
         derivatives,
         values,
+    })
+}
+
+fn create_noise<R: RandomSource, P: PositionalRandom<R>>(
+    rand: &mut P,
+    name: &str,
+    seed: u64,
+) -> DensityCompileResult<NormalNoise> {
+    Ok(match name {
+        "minecraft:nether/temperature" => NormalNoise::new::<LegacyRandomSource, true>(
+            &mut LegacyRandomSource::new(seed),
+            &NoiseParameter::NETHER_TEMPERATURE,
+        ),
+        "minecraft:nether/vegetation" => NormalNoise::new::<LegacyRandomSource, true>(
+            &mut LegacyRandomSource::new(seed + 1),
+            &NoiseParameter::NETHER_VEGETATION,
+        ),
+        name => NormalNoise::new::<R, false>(
+            &mut rand.spawn_from_hash(name),
+            NoiseParameter::get_by_name(name)
+                .ok_or(DensityCompileError::UnknownNoise(name.to_string()))?,
+        ),
     })
 }

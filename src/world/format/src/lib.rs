@@ -200,13 +200,7 @@ impl Chunk {
         assert!(i16::from(y) >= self.height.min_y / 16);
         assert!(i16::from(y) < (self.height.min_y + self.height.height as i16) / 16);
 
-        let section = self
-            .sections
-            .iter_mut()
-            .find(|s| s.y == y)
-            .expect("Section not found");
-
-        *section = ChunkSection::new_uniform(state, y);
+        self.sections[(i16::from(y) - self.height.min_section_y()) as usize].fill(state);
     }
 
     /// Fills the entire chunk with the given block.

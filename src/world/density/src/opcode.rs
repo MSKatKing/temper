@@ -2,7 +2,7 @@ use crate::error::{DensityResult, DensityRuntimeError};
 use crate::runtime::DensityRuntime;
 use std::ops::Range;
 use temper_core::pos::BlockPos;
-use temper_noise::{BlendedNoise, NormalNoise};
+use temper_noise::{BlendedNoise, NormalNoise, SimplexNoise};
 
 /// Represents an opcode and it's arguments for the density runtime to calculate.
 #[derive(Debug)]
@@ -11,15 +11,21 @@ pub enum DensityOpcode {
     ///
     /// This should only be used in cases where [`DensityValueSource`] can't be used, such as
     /// in a density function that always returns a constant.
-    PushConstant { value: f64 },
-    
+    PushConstant {
+        value: f64,
+    },
+
     /// Pushes the value from the function at 'index' to the stack.
-    CallFunction { index: usize },
+    CallFunction {
+        index: usize,
+    },
 
     /// Tells the runtime to jump to `index` as the next opcode to execute. This should be used
     /// to jump over code segments that won't be needed, like for skipping cache values that
     /// have already been calculated.
-    JumpTo { index: usize },
+    JumpTo {
+        index: usize,
+    },
 
     /// Adds `lhs` and `rhs`, pushing the result onto the stack.
     Add {
@@ -84,6 +90,10 @@ pub enum DensityOpcode {
     #[expect(dead_code)]
     Log,
 
+    EndIslands {
+        island_noise: SimplexNoise,
+    },
+
     /// Calculates the sum of the first two terms of the Maclaurin series for `(1 - cos(x))/x` using
     /// the value on the top of the stack as the input. The input is first clamped between `-1.0`
     /// and `1.0`.
@@ -96,7 +106,10 @@ pub enum DensityOpcode {
     QuarterNegative,
 
     /// Clamps the value on the top of the stack between `min` and `max`.
-    Clamp { min: f64, max: f64 },
+    Clamp {
+        min: f64,
+        max: f64,
+    },
 
     /// Calculates the inner value with the axis `axis` of the current block set to `coordinate`.
     /// The result is then stored inside the cache at `cache_index`.
@@ -108,7 +121,9 @@ pub enum DensityOpcode {
     },
 
     /// Stores the value at the top of the stack into the cache at `cache_index`.
-    StoreSlice { cache_index: usize },
+    StoreSlice {
+        cache_index: usize,
+    },
 
     /// Samples the noise map `noise`, first scaling x and z by `xz_scale` and y by `y_scale` as
     /// well as shifting by `shift_x`, `shift_y`, and `shift_z`.
@@ -122,19 +137,27 @@ pub enum DensityOpcode {
     },
 
     /// Samples the blended noise map `noise` at the current position.
-    BlendedNoise { noise: BlendedNoise },
+    BlendedNoise {
+        noise: BlendedNoise,
+    },
 
     /// Samples the noise map `noise`, first scaling the position by `0.25` and then scaling the
     /// noise value by `4.0`.
-    Shift { noise: NormalNoise },
+    Shift {
+        noise: NormalNoise,
+    },
 
     /// Samples the noise map `noise` at (x, 0, z), first scaling the position by `0.25` and then
     /// scaling the noise value by `4.0`.
-    ShiftA { noise: NormalNoise },
+    ShiftA {
+        noise: NormalNoise,
+    },
 
     /// Samples the noise map `noise` at (z, x, 0), first scaling the position by `0.25` and then
     /// scaling the noise value by `4.0`.
-    ShiftB { noise: NormalNoise },
+    ShiftB {
+        noise: NormalNoise,
+    },
 
     /// Determines the function to execute based off the input value from the stack, jumping to that
     /// code segment and skipping others.
@@ -154,7 +177,9 @@ pub enum DensityOpcode {
     },
 
     /// Executes a spline.
-    Spline { spline: DensitySpline },
+    Spline {
+        spline: DensitySpline,
+    },
 
     /// Computes a continuous gradient of values from `from_value` to `to_value` using the
     /// coordinate described by `axis` as the selector for the value in between.
@@ -176,7 +201,7 @@ pub enum DensityValueSource {
 
     /// Returns the wrapped constant.
     Constant(f64),
-    
+
     /// References a value from a function.
     Function(usize),
 }
@@ -226,9 +251,9 @@ pub enum DensitySpline {
 
 impl TryInto<DensityOpcode> for DensityValueSource {
     type Error = ();
-    
+
     /// Attempts to convert this value source into an opcode.
-    /// 
+    ///
     /// [DensityValueSource::Constant] will convert to [DensityOpcode::PushConstant].
     /// [DensityValueSource::Function] will convert to [DensityOpcode::CallFunction].
     /// [DensityValueSource::Stack] will result in `Err(())`.
@@ -252,10 +277,18 @@ impl DensityValueSource {
     ///  * `Err(StackUnderflow)`: the stack didn't contain a value but one was expected.
     pub fn get_value(&self, runtime: &mut DensityRuntime) -> DensityResult<f64> {
         match self {
-            DensityValueSource::Stack => runtime.stack.pop().ok_or(DensityRuntimeError::StackUnderflow),
+            DensityValueSource::Stack => runtime
+                .stack
+                .pop()
+                .ok_or(DensityRuntimeError::StackUnderflow),
             DensityValueSource::Constant(c) => Ok(*c),
             DensityValueSource::Function(index) => {
-                if let Some(value) = runtime.function_cache.get(*index).copied().unwrap_or_default() {
+                if let Some(value) = runtime
+                    .function_cache
+                    .get(*index)
+                    .copied()
+                    .unwrap_or_default()
+                {
                     Ok(value)
                 } else {
                     runtime.execute_function(*index)

@@ -5,6 +5,7 @@ use bevy_math::{DVec3, IVec3};
 use std::ops::{Div, Neg, Rem};
 use temper_core::math::TemperMathExt;
 use temper_core::pos::BlockPos;
+use temper_noise::SimplexNoise;
 
 pub type DensityStack = Vec<f64>;
 
@@ -103,7 +104,10 @@ impl DensityRuntime<'_> {
             }
         }
 
-        let res = self.stack.pop().ok_or(DensityRuntimeError::StackUnderflow)?;
+        let res = self
+            .stack
+            .pop()
+            .ok_or(DensityRuntimeError::StackUnderflow)?;
         self.function_cache[index] = Some(res);
         Ok(res)
     }
@@ -137,7 +141,12 @@ impl DensityOpcode {
         match self {
             DensityOpcode::PushConstant { value } => runtime.stack.push(*value),
             DensityOpcode::CallFunction { index } => {
-                if let Some(val) = runtime.function_cache.get(*index).copied().unwrap_or_default() {
+                if let Some(val) = runtime
+                    .function_cache
+                    .get(*index)
+                    .copied()
+                    .unwrap_or_default()
+                {
                     runtime.stack.push(val);
                 } else {
                     let value = runtime.execute_function(*index)?;
@@ -236,6 +245,14 @@ impl DensityOpcode {
                 cache.last_value = value;
 
                 // value remains on the stack
+            }
+            DensityOpcode::EndIslands { island_noise } => {
+                let pos = runtime.current_pos()?;
+
+                runtime.stack.push(
+                    ((get_height_value(island_noise, pos.pos.x / 8, pos.pos.z / 8) - 8.0) / 128.0)
+                        as f64,
+                )
             }
             DensityOpcode::Noise {
                 noise,
@@ -430,6 +447,39 @@ impl DensitySpline {
             .partition_point(|&location| input >= location)
             .checked_sub(1)
     }
+}
+
+fn get_height_value(island_noise: &SimplexNoise, section_x: i32, section_z: i32) -> f32 {
+    let chunk_x = section_x / 2;
+    let chunk_z = section_z / 2;
+    let sub_section_x = section_x % 2;
+    let sub_section_z = section_z % 2;
+    let mut doffs = (100.0
+        - f32::sqrt((section_x * section_x + section_z * section_z) as f32) * 8.0)
+        .clamp(-100.0, 80.0);
+
+    for xo in -12..=12 {
+        for zo in -12..=12 {
+            let total_chunk_x = chunk_x as i64 + xo as i64;
+            let total_chunk_z = chunk_z as i64 + zo as i64;
+
+            if total_chunk_x * total_chunk_x + total_chunk_z * total_chunk_z > 4096
+                && island_noise.get_value(total_chunk_x as f64, total_chunk_z as f64) < -0.9
+            {
+                let island_size = (f32::abs(total_chunk_x as f32) * 3439.0
+                    + f32::abs(total_chunk_z as f32) * 147.0)
+                    % 13.0
+                    + 9.0;
+                let xd = (sub_section_x - xo * 2) as f32;
+                let zd = (sub_section_z - zo * 2) as f32;
+                let new_doffs =
+                    (100.0 - f32::sqrt(xd * xd + zd * zd) * island_size).clamp(-100.0, 80.0);
+                doffs = doffs.max(new_doffs);
+            }
+        }
+    }
+
+    doffs
 }
 
 #[cfg(test)]
