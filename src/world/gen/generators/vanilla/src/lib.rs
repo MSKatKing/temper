@@ -9,6 +9,7 @@ use temper_core::dimension::Dimension;
 use temper_core::math::TemperMathExt;
 use temper_core::pos::{ChunkBlockPos, ChunkPos};
 use temper_core::random::{RandomSource, XoroshiroRandomSource};
+use temper_data::biomes::Biome;
 use temper_density::compile::{CompiledDensityFunction, Compiler};
 use temper_density::error::DensityResult;
 use temper_density::json::{DensityFunctionArgument, deserialize_function};
@@ -20,6 +21,7 @@ pub struct VanillaGenerator {
     final_density: CompiledDensityFunction,
     default_block_state: BlockStateId,
     default_fluid_state: BlockStateId,
+    default_biome: &'static Biome,
     water_level: i16,
     dimension: Dimension,
     interpolation_cell_size_xz: u8,
@@ -89,6 +91,12 @@ impl VanillaGenerator {
                 Dimension::Nether => block!("lava", { level: 0 }),
                 _ => block!("air"),
             },
+            default_biome: match dimension {
+                Dimension::Overworld => &Biome::PLAINS,
+                Dimension::Nether => &Biome::NETHER_WASTES,
+                Dimension::End => &Biome::THE_END,
+                _ => &Biome::THE_VOID,
+            },
             water_level: match dimension {
                 Dimension::Overworld => 63,
                 Dimension::Nether => 32,
@@ -119,7 +127,16 @@ impl ChunkGenerator for VanillaGenerator {
     fn stage_spec(&self, stage: GenStage) -> Option<StageSpec> {
         match stage {
             GenStage::EMPTY => Some(StageSpec::new(stage, "empty", StageDependencies::NONE)),
-            GenStage::NOISE => Some(StageSpec::new(stage, "noise", StageDependencies::NONE)),
+            GenStage::BIOMES => Some(StageSpec::new(
+                stage,
+                "biomes",
+                StageDependencies::only_own(GenStage::EMPTY),
+            )),
+            GenStage::NOISE => Some(StageSpec::new(
+                stage,
+                "noise",
+                StageDependencies::only_own(GenStage::BIOMES),
+            )),
             GenStage::SURFACE => Some(StageSpec::new(
                 stage,
                 "surface",
@@ -132,6 +149,7 @@ impl ChunkGenerator for VanillaGenerator {
     fn advance_stage(&self, input: StageInput<'_>) -> Result<(), GenerationError> {
         match input.stage {
             GenStage::EMPTY => Ok(()),
+            GenStage::BIOMES => self.fill_biomes(input),
             GenStage::NOISE => self.fill_noise(input),
             GenStage::SURFACE => self.generate_surface(input),
             _ => Ok(()),
@@ -140,6 +158,12 @@ impl ChunkGenerator for VanillaGenerator {
 }
 
 impl VanillaGenerator {
+    fn fill_biomes(&self, input: StageInput) -> Result<(), GenerationError> {
+        input.target.fill_biome(self.default_biome.id);
+
+        Ok(())
+    }
+
     fn fill_noise(&self, input: StageInput) -> Result<(), GenerationError> {
         for y in input.target.height().min_section_y()..(self.water_level >> 4) {
             input.target.fill_section(y as i8, self.default_fluid_state)

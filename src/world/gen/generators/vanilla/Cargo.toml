@@ -7,6 +7,7 @@ edition = "2024"
 gen-core = { path = "../../core" }
 temper-assets = { workspace = true }
 temper-core = { workspace = true }
+temper-data = { workspace = true }
 temper-density = { path = "../../../density" }
 include_dir = { workspace = true }
 temper-macros = { workspace = true }

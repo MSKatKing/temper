@@ -189,6 +189,10 @@ impl ChunkSection {
         self.inner.fill(id);
     }
 
+    pub(crate) fn fill_biome(&mut self, id: usize) {
+        self.biome.fill_biome(BiomeType(id as u8));
+    }
+
     #[expect(unused)]
     pub(crate) fn clear(&mut self) {
         self.fill(block!("air"))

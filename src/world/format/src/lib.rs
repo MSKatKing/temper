@@ -217,6 +217,17 @@ impl Chunk {
         }
     }
 
+    /// Fills the entire chunk with the given biome.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The id of the biome to fill the chunk with.
+    pub fn fill_biome(&mut self, id: usize) {
+        for section in &mut self.sections {
+            section.fill_biome(id);
+        }
+    }
+
     /// Gets a block in the chunk.
     ///
     /// # Arguments
